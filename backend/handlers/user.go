@@ -90,3 +90,9 @@ func LoginUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Вход выполнен успешно", "token": tokenString})
 }
+
+// GetJWTSecret возвращает секретный ключ для JWT.
+// Используется middleware для валидации токена.
+func GetJWTSecret() []byte {
+	return jwtSecret
+}
