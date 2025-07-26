@@ -40,6 +40,11 @@ func main() {
 			}
 			c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Доступ разрешен для пользователя ID: %d", userID)})
 		})
+			// Маршруты для управления категориями (требуют аутентификации)
+	protected.POST("/categories", handlers.CreateCategory)
+	protected.GET("/categories", handlers.GetCategories)
+	protected.PUT("/categories/:id", handlers.UpdateCategory)
+	protected.DELETE("/categories/:id", handlers.DeleteCategory)
 	}
 
 	log.Fatal(router.Run(":8080"))
