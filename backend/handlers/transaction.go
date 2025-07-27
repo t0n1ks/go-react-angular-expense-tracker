@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database" // Обновите путь!
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"   // Обновите путь!
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
 // CreateTransaction создает новую транзакцию для аутентифицированного пользователя
@@ -55,7 +55,7 @@ func CreateTransaction(c *gin.Context) {
 		UserID:      userID.(uint),
 		CategoryID:  transactionInput.CategoryID,
 		Amount:      transactionInput.Amount,
-		Description: transactionInput.Description,
+		Description: transactionInput.Description, // ИСПРАВЛЕНО: Теперь использует transactionInput.Description
 		Date:        parsedDate,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -268,4 +268,134 @@ func DeleteTransaction(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Транзакция успешно удалена"})
+}
+
+// DailyExpenseSummary представляет суммарные расходы за день
+type DailyExpenseSummary struct {
+	// Добавляем эти поля для сканирования данных из SQL-запроса
+	CategoryID   uint   `json:"-" gorm:"column:category_id"`   // Маппинг к category_id из SELECT
+	CategoryName string `json:"-" gorm:"column:category_name"` // Маппинг к category_name из SELECT
+
+	Date        time.Time `json:"date"` // Это поле может быть не нужно для агрегированной суммы, но оставлено для полноты
+	TotalAmount float64   `json:"total_amount"`
+	// Category    models.Category `json:"category"` // Это поле больше не нужно, так как мы заполняем "category" вручную
+}
+
+// GetDailySummary возвращает суммарные расходы по категориям за определенный день
+func GetDailySummary(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не аутентифицирован"})
+		return
+	}
+
+	dateStr := c.Query("date") // Получаем дату из параметра запроса
+	if dateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Параметр 'date' обязателен (формат YYYY-MM-DD)"})
+		return
+	}
+
+	parsedDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты. Используйте YYYY-MM-DD"})
+		return
+	}
+
+	// Устанавливаем начало и конец дня
+	startOfDay := parsedDate
+	endOfDay := parsedDate.Add(24*time.Hour - time.Second)
+
+	var summaries []DailyExpenseSummary
+
+	// SQL-запрос для группировки по категориям за день
+	// JOIN с таблицей категорий для получения названия категории
+	result := database.DB.Table("transactions").
+		Select("transactions.category_id AS category_id, SUM(transactions.amount) AS total_amount, categories.name AS category_name"). // Используем AS для соответствия полям структуры
+		Joins("LEFT JOIN categories ON transactions.category_id = categories.id").
+		Where("transactions.user_id = ? AND transactions.date >= ? AND transactions.date <= ?", userID, startOfDay, endOfDay).
+		Group("transactions.category_id, categories.id, categories.name").
+		Order("total_amount DESC").
+		Scan(&summaries) // Сканируем результат в нашу структуру DailyExpenseSummary
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось получить дневную статистику: " + result.Error.Error()})
+		return
+	}
+
+	// Форматируем результат для JSON-ответа
+	formattedSummaries := []map[string]interface{}{}
+	for _, s := range summaries {
+		formattedSummaries = append(formattedSummaries, map[string]interface{}{
+			"category": map[string]interface{}{
+				"id":   s.CategoryID,   // Теперь доступно напрямую
+				"name": s.CategoryName, // Теперь доступно напрямую
+			},
+			"total_amount": s.TotalAmount,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"date": dateStr, "summary": formattedSummaries})
+}
+
+// GetPeriodSummary возвращает суммарные расходы по категориям за произвольный период
+func GetPeriodSummary(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не аутентифицирован"})
+		return
+	}
+
+	beginDateStr := c.Query("begin_date")
+	endDateStr := c.Query("end_date")
+
+	if beginDateStr == "" || endDateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Параметры 'begin_date' и 'end_date' обязательны (формат YYYY-MM-DD)"})
+		return
+	}
+
+	parsedBeginDate, err := time.Parse("2006-01-02", beginDateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат begin_date. Используйте YYYY-MM-DD"})
+		return
+	}
+
+	parsedEndDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат end_date. Используйте YYYY-MM-DD"})
+		return
+	}
+	// Учитываем весь последний день
+	parsedEndDate = parsedEndDate.Add(24*time.Hour - time.Second)
+
+	var summaries []DailyExpenseSummary // Используем ту же структуру для результата
+
+	result := database.DB.Table("transactions").
+		Select("transactions.category_id AS category_id, SUM(transactions.amount) AS total_amount, categories.name AS category_name").
+		Joins("LEFT JOIN categories ON transactions.category_id = categories.id").
+		Where("transactions.user_id = ? AND transactions.date >= ? AND transactions.date <= ?", userID, parsedBeginDate, parsedEndDate).
+		Group("transactions.category_id, categories.id, categories.name").
+		Order("total_amount DESC").
+		Scan(&summaries)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось получить статистику за период: " + result.Error.Error()})
+		return
+	}
+
+	formattedSummaries := []map[string]interface{}{}
+	for _, s := range summaries {
+		formattedSummaries = append(formattedSummaries, map[string]interface{}{
+			"category": map[string]interface{}{
+				"id":   s.CategoryID,
+				"name": s.CategoryName,
+			},
+			"total_amount": s.TotalAmount,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"begin_date": beginDateStr,
+		"end_date":   c.Query("end_date"), // Используем оригинальную строку для ответа
+		"summary":    formattedSummaries,
+	})
 }

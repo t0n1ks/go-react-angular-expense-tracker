@@ -53,6 +53,8 @@ func main() {
 		protected.PUT("/transactions/:id", handlers.UpdateTransaction)
 		protected.DELETE("/transactions/:id", handlers.DeleteTransaction)
 	}
+	protected.GET("/summary/daily", handlers.GetDailySummary)
+	protected.GET("/summary/period", handlers.GetPeriodSummary)
 
 	log.Fatal(router.Run(":8080"))
 }
