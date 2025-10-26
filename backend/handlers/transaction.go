@@ -26,6 +26,7 @@ func CreateTransaction(c *gin.Context) {
 		Amount      float64 `json:"amount" binding:"required,gt=0"` // gt=0 означает "больше нуля"
 		Description string  `json:"description"`
 		Date        string  `json:"date" binding:"required"` // Дата в виде строки, будем парсить
+		Type        string  `json:"type" binding:"required,oneof=expense income"`
 	}
 	if err := c.ShouldBindJSON(&transactionInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -57,6 +58,7 @@ func CreateTransaction(c *gin.Context) {
 		Amount:      transactionInput.Amount,
 		Description: transactionInput.Description, // ИСПРАВЛЕНО: Теперь использует transactionInput.Description
 		Date:        parsedDate,
+		Type:          transactionInput.Type,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -177,18 +179,32 @@ func UpdateTransaction(c *gin.Context) {
 		}
 		return
 	}
+	
 
 	var transactionInput struct {
 		CategoryID  *uint    `json:"category_id"` // Используем указатели для необязательных полей
 		Amount      *float64 `json:"amount"`
 		Description *string  `json:"description"`
 		Date        *string  `json:"date"`
+		Type          *string  `json:"type"`
 	}
 	// ShouldBindJSON будет привязывать только те поля, которые присутствуют в JSON-запросе
 	if err := c.ShouldBindJSON(&transactionInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+// Обновите поле Type
+if transactionInput.Type != nil { // (~строка 176)
+    // Добавьте простую проверку валидности (хотя Gin-валидация лучше, эта тоже сработает)
+    if *transactionInput.Type != "expense" && *transactionInput.Type != "income" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Неверное значение для Type. Допустимо: expense или income"})
+        return
+    }
+    transaction.Type = *transactionInput.Type
+}
+
+transaction.UpdatedAt = time.Now()
 
 	// Обновляем поля, только если они присутствуют в запросе
 	if transactionInput.CategoryID != nil {

@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database" // Обновите путь!
+	"strconv"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"   // Обновите путь!
 )
 
@@ -107,31 +108,45 @@ func UpdateCategory(c *gin.Context) {
 
 // DeleteCategory удаляет категорию
 func DeleteCategory(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не аутентифицирован"})
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не аутентифицирован"})
+        return
+    }
+
+    categoryIDStr := c.Param("id") 
+    
+    // Преобразуем ID в uint для запросов (Category ID в модели у вас uint)
+    categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат ID категории"})
 		return
 	}
 
-	categoryID := c.Param("id") // Получаем ID категории из URL
+    //  ВАЖНО: Проверка связанных транзакций
+    var transactionCount int64
+    // Используем .Count() на модели Transaction, чтобы посчитать, сколько записей ссылается на эту категорию
+    database.DB.Model(&models.Transaction{}).Where("category_id = ?", uint(categoryID)).Count(&transactionCount)
 
-	// Проверяем, что категория принадлежит текущему пользователю перед удалением
-	var category models.Category
-	result := database.DB.Where("id = ? AND user_id = ?", categoryID, userID).First(&category)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Категория не найдена или не принадлежит вам"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при получении категории: " + result.Error.Error()})
-		}
-		return
-	}
+    if transactionCount > 0 {
+        // Возвращаем ошибку 409 Conflict, если категория используется
+        c.JSON(http.StatusConflict, gin.H{"error": "Невозможно удалить категорию, так как с ней связаны " + strconv.FormatInt(transactionCount, 10) + " транзакций."})
+        return
+    }
 
-	result = database.DB.Delete(&category) // Удаляем запись
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось удалить категорию: " + result.Error.Error()})
-		return
-	}
+    // Удаляем категорию, проверяя ее принадлежность пользователю
+    result := database.DB.Where("id = ? AND user_id = ?", uint(categoryID), userID).Delete(&models.Category{})
+    
+    if result.Error != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось удалить категорию: " + result.Error.Error()})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{"message": "Категория успешно удалена"})
+    if result.RowsAffected == 0 {
+        // Это может быть 0, если категория не найдена или не принадлежит пользователю
+        c.JSON(http.StatusNotFound, gin.H{"error": "Категория не найдена или не принадлежит вам"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Категория успешно удалена"})
 }

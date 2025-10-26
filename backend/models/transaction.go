@@ -13,4 +13,5 @@ type Transaction struct {
 	Date        time.Time `json:"date" gorm:"not null"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	Type        string    `gorm:"type:varchar(10);not null;default:'expense'" json:"type"`
 }

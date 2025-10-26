@@ -1,0 +1,343 @@
+/* ----------------------------------------------------------------
+   Базовый макет
+   ---------------------------------------------------------------- */
+
+.transactions-page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    font-family: 'Inter', sans-serif;
+    color: #1f2937; /* Gray 800 */
+}
+
+.transactions-header {
+    font-size: 2.25rem; /* text-3xl */
+    font-weight: 800; /* font-extrabold */
+    color: #111827; /* Gray 900 */
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e5e7eb; /* Gray 200 */
+}
+
+/* ----------------------------------------------------------------
+   Таблица и элементы списка
+   ---------------------------------------------------------------- */
+
+.transactions-table-wrapper {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-xl */
+    border-radius: 0.75rem; /* rounded-xl */
+    overflow-x: auto;
+    background-color: #ffffff;
+}
+
+.transactions-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.transactions-table th {
+    padding: 1rem 1.5rem;
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 700; /* font-bold */
+    color: #4b5563; /* Gray 600 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: #f9fafb; /* Gray 50 */
+    border-bottom: 2px solid #e5e7eb;
+    text-align: left;
+}
+.transactions-table th:last-child {
+    border-top-right-radius: 0.75rem;
+}
+.transactions-table th:first-child {
+    border-top-left-radius: 0.75rem;
+}
+
+.transactions-table td {
+    padding: 1rem 1.5rem;
+    font-size: 0.875rem; /* text-sm */
+    color: #374151; /* Gray 700 */
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.transactions-table tbody tr:hover {
+    background-color: #f3f4f6; /* Gray 100 */
+    transition: background-color 0.15s ease-in-out;
+}
+
+/* Удаляем нижнюю границу у последнего элемента */
+.transactions-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ----------------------------------------------------------------
+   Стили для Суммы и Типа
+   ---------------------------------------------------------------- */
+
+.amount-expense {
+    color: #ef4444; /* Red 500 */
+    font-weight: 600;
+}
+
+.amount-income {
+    color: #10b981; /* Emerald 500 */
+    font-weight: 600;
+}
+
+.type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px; /* rounded-full */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* ДОХОД - Зеленый */
+.type-badge.badge-income {
+    background-color: #d1fae5; /* Светло-зеленый */
+    color: #065f46;            /* Темно-зеленый текст */
+}
+
+/* РАСХОД - Красный/Серый/Синий */
+.type-badge.badge-expense {
+    background-color: #fee2e2; /* Светло-красный */
+    color: #991b1b;            /* Темно-красный текст */
+}
+
+.badge-expense {
+    background-color: #fee2e2; /* Red 100 */
+    color: #b91c1c; /* Red 700 */
+}
+
+.badge-income {
+    background-color: #d1fae5; /* Green 100 */
+    color: #065f46; /* Green 700 */
+}
+
+/* ----------------------------------------------------------------
+   Кнопки действий (Редактировать/Удалить)
+   ---------------------------------------------------------------- */
+
+.action-cell-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.action-button {
+    padding: 0.5rem;
+    border-radius: 0.5rem; /* rounded-lg */
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-edit {
+    color: #4f46e5; /* Indigo 600 */
+}
+.action-edit:hover {
+    background-color: #eef2ff; /* Indigo 50 */
+}
+
+.action-delete {
+    color: #ef4444; /* Red 500 */
+}
+.action-delete:hover {
+    background-color: #fef2f2; /* Red 50 */
+}
+
+/* ----------------------------------------------------------------
+   Кнопка "Добавить транзакцию" (Primary)
+   ---------------------------------------------------------------- */
+
+.transaction-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: #4f46e5; /* Indigo 600 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+    transition: background-color 0.15s ease-in-out;
+}
+
+.transaction-btn-primary:hover {
+    background-color: #4338ca; /* Indigo 700 */
+}
+
+/* ----------------------------------------------------------------
+   Пагинация
+   ---------------------------------------------------------------- */
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1.5rem;
+    gap: 1rem;
+}
+
+.pagination-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    color: #4f46e5;
+    background-color: #eff6ff; /* Blue 50 */
+    border: 1px solid #bfdbfe; /* Blue 200 */
+    transition: all 0.2s;
+}
+
+.pagination-button:hover:not(:disabled) {
+    background-color: #dbeafe; /* Blue 100 */
+}
+
+.pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f9fafb;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* ----------------------------------------------------------------
+   Модальное окно и Форма
+   ---------------------------------------------------------------- */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 1rem;
+}
+
+.modal-content {
+    background-color: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 100%;
+    max-width: 480px;
+    padding: 1.5rem;
+    position: relative;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: #9ca3af;
+    padding: 0.25rem;
+    border-radius: 50%;
+    transition: all 0.15s;
+}
+.modal-close-button:hover {
+    color: #4b5563;
+    background-color: #f3f4f6;
+}
+
+.form-field-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-input-select {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db; /* Gray 300 */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.btn-cancel {
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    background-color: #e5e7eb;
+    transition: background-color 0.15s;
+    border: none;
+}
+.btn-cancel:hover {
+    background-color: #d1d5db;
+}
+
+.btn-submit {
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: #4f46e5;
+    transition: background-color 0.15s;
+    border: none;
+}
+.btn-submit:hover {
+    background-color: #4338ca;
+}
+
+.error-alert {
+    padding: 0.75rem 1rem;
+    background-color: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
