@@ -77,6 +77,7 @@ func main() {
 		// Маршруты для статистики расходов
 		protected.GET("/summary/daily", handlers.GetDailySummary)
 		protected.GET("/summary/period", handlers.GetPeriodSummary)
+		protected.GET("/stats", handlers.GetPeriodSummary)
 	}
 
 	log.Fatal(router.Run(":8080"))

@@ -101,7 +101,11 @@ func LoginUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Вход выполнен успешно", "token": tokenString})
+	c.JSON(http.StatusOK, gin.H{
+    "token":    tokenString,
+    "user_id":  user.ID,
+    "username": user.Username,
+})
 }
 
 // GetJWTSecret возвращает секретный ключ для JWT.

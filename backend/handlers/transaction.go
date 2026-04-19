@@ -170,15 +170,10 @@ func UpdateTransaction(c *gin.Context) {
 
 	var transaction models.Transaction
 	// Ищем транзакцию по ID и принадлежности текущему пользователю
-	result := database.DB.Where("id = ? AND user_id = ?", uint(transactionID), userID).First(&transaction)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Транзакция не найдена или не принадлежит вам"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при получении транзакции: " + result.Error.Error()})
-		}
-		return
-	}
+if err := database.DB.Where("id = ? AND user_id = ?", uint(transactionID), userID).First(&transaction).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Транзакция не найдена или доступ запрещен"})
+        return
+    }
 	
 
 	var transactionInput struct {
@@ -241,7 +236,7 @@ transaction.UpdatedAt = time.Now()
 	}
 	transaction.UpdatedAt = time.Now()
 
-	result = database.DB.Save(&transaction) // Save обновляет запись
+	result := database.DB.Save(&transaction) // Save обновляет запись
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось обновить транзакцию: " + result.Error.Error()})
 		return
@@ -265,19 +260,18 @@ func DeleteTransaction(c *gin.Context) {
 		return
 	}
 
-	// Проверяем, что транзакция принадлежит текущему пользователю перед удалением
-	var transaction models.Transaction
-	result := database.DB.Where("id = ? AND user_id = ?", uint(transactionID), userID).First(&transaction)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Транзакция не найдена или не принадлежит вам"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при получении транзакции: " + result.Error.Error()})
-		}
-		return
-	}
+// Удаляем транзакцию напрямую, проверяя ID и владельца одним запросом
+result := database.DB.Where("id = ? AND user_id = ?", uint(transactionID), userID).Delete(&models.Transaction{})
 
-	result = database.DB.Delete(&transaction) // Удаляем запись
+if result.Error != nil {
+    c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось удалить транзакцию: " + result.Error.Error()})
+    return
+}
+
+if result.RowsAffected == 0 {
+    c.JSON(http.StatusNotFound, gin.H{"error": "Транзакция не найдена или у вас нет прав на её удаление"})
+    return
+}
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось удалить транзакцию: " + result.Error.Error()})
 		return
