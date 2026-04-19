@@ -61,3 +61,4 @@ yarn-error.log*
 /frontend-react/dist/
 /frontend-angular/dist/
 backend/expenses.db
+backend/tmp/
