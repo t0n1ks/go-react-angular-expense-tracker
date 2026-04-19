@@ -4,7 +4,7 @@ package database
 import (
 	"log"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models" // Обновите путь!
