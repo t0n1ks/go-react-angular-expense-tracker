@@ -1,24 +1,19 @@
-// frontend-react/src/main.tsx (или main.jsx)
+// frontend-react/src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {
-  createBrowserRouter,
-  RouterProvider,
-} from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import App from './App.tsx';
 import './index.css';
 import { AuthProvider } from './context/AuthContext.tsx';
 
-// Импортируем компоненты страниц, которые мы создадим далее
 import Register from './pages/Register.tsx';
 import Login from './pages/Login.tsx';
 import Dashboard from './pages/Dashboard.tsx';
 import Categories from './pages/Categories.tsx';
 import Transactions from './pages/Transactions.tsx';
 import Statistics from './pages/Statistics.tsx';
-import PrivateRoute from './components/PrivateRoute.tsx'; // Защищенный маршрут
+import PrivateRoute from './components/PrivateRoute.tsx';
 
-// Определяем маршруты приложения
 const router = createBrowserRouter([
   {
     path: "/register",
@@ -28,35 +23,26 @@ const router = createBrowserRouter([
     path: "/login",
     element: <Login />,
   },
-  // Все защищенные маршруты будут обернуты в PrivateRoute
   {
     path: "/",
-    element: <PrivateRoute><App /></PrivateRoute>, // App будет нашим макетом с навигацией
+    element: <PrivateRoute><App /></PrivateRoute>,
     children: [
-      {
-        index: true, // Это будет корневой маршрут внутри защищенной части
-        element: <Dashboard />,
-      },
-      {
-        path: "categories",
-        element: <Categories />,
-      },
-      {
-        path: "transactions",
-        element: <Transactions />,
-      },
-      {
-        path: "statistics",
-        element: <Statistics />,
-      },
+      { index: true, element: <Dashboard /> },
+      { path: "categories", element: <Categories /> },
+      { path: "transactions", element: <Transactions /> },
+      { path: "statistics", element: <Statistics /> },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthProvider>
-    <RouterProvider router={router} />
+      <RouterProvider router={router} />
     </AuthProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );

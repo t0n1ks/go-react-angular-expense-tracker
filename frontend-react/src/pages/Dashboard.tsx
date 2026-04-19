@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Wallet, TrendingDown, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import './Dashboard.css';
 
 interface Transaction {
   id: number;
@@ -19,14 +20,10 @@ const Dashboard: React.FC = () => {
     const fetchTransactions = async () => {
       try {
         const response = await axiosInstance.get('/transactions');
-        // ИСПРАВЛЕНИЕ: обращаемся к response.data.transactions
-        if (response.data && Array.isArray(response.data.transactions)) {
-            setTransactions(response.data.transactions);
-        } else {
-            setTransactions([]);
-        }
+        const data = response.data.transactions || response.data;
+        if (Array.isArray(data)) setTransactions(data);
       } catch (error) {
-        console.error('Ошибка загрузки транзакций:', error);
+        console.error('Error loading transactions:', error);
       } finally {
         setLoading(false);
       }
@@ -34,87 +31,98 @@ const Dashboard: React.FC = () => {
     fetchTransactions();
   }, [axiosInstance]);
 
-  if (loading) {
-      return <div className="p-6 text-center text-gray-500">Загрузка данных...</div>;
-  }
+  if (loading) return <div className="loading-state">Loading data...</div>;
 
-  // Считаем суммы
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+    
+  const totalExpense = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+    
   const balance = totalIncome - totalExpense;
 
-  // Данные для графика
   const chartData = [
-    { name: 'Доходы', value: totalIncome, color: '#10B981' }, // Зеленый
-    { name: 'Расходы', value: totalExpense, color: '#EF4444' }  // Красный
+    { name: 'Income', value: totalIncome, color: '#10B981' },
+    { name: 'Expenses', value: totalExpense, color: '#EF4444' }
   ];
 
+  // Выносим форматтер отдельно, чтобы не загромождать JSX
+  const formatCurrency = (value: unknown): [string, string] => {
+  const amount = typeof value === 'number' ? value : Number(value);
+  return [`$${amount.toLocaleString()}`, ''];
+};
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">Обзор финансов</h1>
+    <div className="dashboard-wrapper"> 
+      <h1 className="dashboard-title">Financial Overview</h1>
 
-      {/* Карточки сводки */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-md p-6 flex items-center border-l-4 border-blue-500">
-          <div className="p-3 rounded-full bg-blue-100 mr-4">
-            <Wallet className="w-8 h-8 text-blue-600" />
+      <div className="stats-grid">
+        <div className="stat-card card-balance">
+          <div className="icon-wrapper bg-blue">
+            <Wallet className="icon-blue" />
           </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Текущий баланс</p>
-            <p className="text-2xl font-bold text-gray-800">{balance.toFixed(2)} $</p>
+          <div className="stat-content">
+            <p className="label">Balance</p>
+            <p className="value">${balance.toLocaleString()}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6 flex items-center border-l-4 border-green-500">
-          <div className="p-3 rounded-full bg-green-100 mr-4">
-            <TrendingUp className="w-8 h-8 text-green-600" />
+        <div className="stat-card card-income">
+          <div className="icon-wrapper bg-emerald">
+            <TrendingUp className="icon-emerald" />
           </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Общий доход</p>
-            <p className="text-2xl font-bold text-gray-800">{totalIncome.toFixed(2)}$</p>
+          <div className="stat-content">
+            <p className="label">Income</p>
+            <p className="value-plus">+${totalIncome.toLocaleString()}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6 flex items-center border-l-4 border-red-500">
-          <div className="p-3 rounded-full bg-red-100 mr-4">
-            <TrendingDown className="w-8 h-8 text-red-600" />
+        <div className="stat-card card-expense">
+          <div className="icon-wrapper bg-rose">
+            <TrendingDown className="icon-rose" />
           </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Общие расходы</p>
-            <p className="text-2xl font-bold text-gray-800">{totalExpense.toFixed(2)} $</p>
+          <div className="stat-content">
+            <p className="label">Expenses</p>
+            <p className="value-minus">-${totalExpense.toLocaleString()}</p>
           </div>
         </div>
       </div>
 
-      {/* График Recharts */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-6 text-gray-700">Соотношение доходов и расходов</h2>
+      <div className="chart-section">
+        <h2 className="section-title">Cash Flow Statistics</h2>
         
         {(totalIncome > 0 || totalExpense > 0) ? (
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="chart-container">
+            <ResponsiveContainer width="99%" height={320}>
               <PieChart>
                 <Pie
                   data={chartData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={80} // Делает график кольцевым (Donut)
-                  outerRadius={120}
-                  paddingAngle={5}
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={8}
                   dataKey="value"
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `${value} $`} />
-                <Legend verticalAlign="bottom" height={36}/>
+<Tooltip 
+  cursor={{ fill: 'transparent' }}
+  wrapperClassName="custom-tooltip-wrapper"
+  formatter={formatCurrency}
+/>
+                <Legend iconType="circle" verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-64 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-            Нет данных для отображения графика. Добавьте свои первые транзакции!
+          <div className="no-data-placeholder">
+            <p className="main-text">No transactions found</p>
+            <p className="sub-text">Add some income or expenses to see the chart</p>
           </div>
         )}
       </div>

@@ -1,0 +1,128 @@
+/* 1. Основной контейнер страницы */
+.dashboard-wrapper {
+    padding: 2rem; 
+    max-width: 1200px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+/* Заголовок страницы */
+.dashboard-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2rem;
+}
+
+/* 2. Сетка карточек — Адаптивная без медиа-запросов */
+.stats-grid {
+    display: grid;
+    /* Карточки будут минимум 300px, если места мало — перепрыгнут на новую строку */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* 3. Стиль карточки */
+.stat-card {
+    background-color: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+    min-width: 0; /* Важно для предотвращения "раздувания" флекса */
+}
+
+/* Иконка */
+.icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 12px;
+    margin-right: 1.25rem;
+    flex-shrink: 0; /* Запрещаем иконке сжиматься */
+}
+
+/* Текстовый блок */
+.stat-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0; /* Чтобы текст внутри мог сокращаться, а не вылазить */
+    flex: 1;
+}
+
+.stat-content .label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.stat-content .value, 
+.stat-content .value-plus, 
+.stat-content .value-minus {
+    font-size: 1.5rem; /* Вернул комфортный размер */
+    font-weight: 800;
+    margin: 0;
+    line-height: 1;
+    white-space: nowrap; /* Запрещаем разрыв цифр на две строки */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Если число станет критически длинным — появится троеточие */
+}
+
+/* 4. Секция с графиком */
+.chart-section {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2rem;
+}
+
+.chart-container {
+    width: 100%;
+    height: 320px;
+    min-height: 300px;
+}
+
+/* Вспомогательные стили для мобильных */
+@media (max-width: 480px) {
+    .dashboard-wrapper {
+        padding: 1rem;
+    }
+    .stat-card {
+        padding: 1.25rem;
+    }
+    .stat-content .value, 
+    .stat-content .value-plus, 
+    .stat-content .value-minus {
+        font-size: 1.25rem; /* Немного уменьшаем шрифт на самых маленьких экранах */
+    }
+}
+
+/* Цвета */
+.bg-blue { background-color: #eff6ff; }
+.bg-emerald { background-color: #ecfdf5; }
+.bg-rose { background-color: #fff1f2; }
+
+.icon-blue { color: #2563eb; width: 1.75rem; height: 1.75rem; }
+.icon-emerald { color: #059669; width: 1.75rem; height: 1.75rem; }
+.icon-rose { color: #e11d48; width: 1.75rem; height: 1.75rem; }

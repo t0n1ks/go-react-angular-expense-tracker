@@ -2,103 +2,82 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import axios from 'axios';
-// Navigate удален, так как не используется в этом файле, что устраняет ошибки ts(6133) и eslint
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-// Базовый URL для бэкенда
 const API_BASE_URL = 'http://localhost:8080/api';
 
-// Интерфейс для данных пользователя
 interface User {
   id: number;
   username: string;
 }
 
-// Интерфейс для Auth Context
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
-  isLoading: boolean; // 👈 Состояние загрузки
+  isLoading: boolean;
   login: (token: string, username: string, userId: number) => void;
   logout: () => void;
-  // ФИНАЛЬНЫЙ ОБХОД TS2305: Используем 'any' для совместимости
+  // Используем any, так как axiosInstance часто ведет себя капризно в типах
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   axiosInstance: any; 
 }
 
-// Создаем контекст с заглушками
 // eslint-disable-next-line react-refresh/only-export-components
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Функция для использования контекста
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth должен использоваться внутри AuthProvider');
   }
-  // Утверждаем тип для удобства
-  return context as AuthContextType;
+  return context;
 };
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // 👈 Изначально true
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Создаем экземпляр Axios с помощью useMemo
-  const axiosInstance = useMemo(() => {
-    // Создаем экземпляр Axios с базовым URL
+  const axiosInstance: AxiosInstance = useMemo(() => {
     const instance = axios.create({
       baseURL: API_BASE_URL,
     });
 
-    // 2. Добавляем интерцептор (перехватчик) для автоматического добавления токена
     instance.interceptors.request.use(
-      (config) => {
+      (config: InternalAxiosRequestConfig) => {
         const currentToken = localStorage.getItem('token');
-        if (currentToken) {
-          // ИСПРАВЛЕНИЕ: Проверяем, существует ли config.headers
-          if (!config.headers) {
-            config.headers = {};
-          }
-          config.headers.Authorization = `Bearer ${currentToken}`;
+        if (currentToken && config.headers) {
+          // ИСПОЛЬЗУЕМ .set() — это современный способ работы с заголовками в Axios
+          config.headers.set('Authorization', `Bearer ${currentToken}`);
         }
         return config;
       },
-      (error) => {
-        return Promise.reject(error);
-      }
+      (error) => Promise.reject(error)
     );
 
-    // Утверждаем тип как any для обхода ошибок Axios
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return instance as any;
-  }, []); // Создается один раз при монтировании
+    return instance;
+  }, []);
 
-  // 3. Эффект для инициализации состояния из localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     const storedUserId = localStorage.getItem('userId');
 
     if (storedToken && storedUser && storedUserId) {
-      setIsAuthenticated(true);
       setToken(storedToken);
       setUser({ id: parseInt(storedUserId, 10), username: storedUser });
+      setIsAuthenticated(true);
     }
-
-    // Устанавливаем isLoading в false после завершения проверки
-    setIsLoading(false); 
+    setIsLoading(false);
   }, []);
 
-  // 4. Функции login и logout
   const login = (newToken: string, username: string, userId: number) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', username);
