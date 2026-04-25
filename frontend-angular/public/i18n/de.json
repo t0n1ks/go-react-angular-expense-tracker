@@ -1,0 +1,103 @@
+{
+  "nav": {
+    "app_title": "Ausgaben-Tracker",
+    "home": "Startseite",
+    "categories": "Kategorien",
+    "transactions": "Transaktionen",
+    "statistics": "Statistiken",
+    "logout": "Abmelden",
+    "user_label": "Benutzer:"
+  },
+  "auth": {
+    "login_title": "Willkommen zurück",
+    "register_title": "Konto erstellen",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "username_ph": "Benutzername eingeben",
+    "password_ph": "Passwort eingeben",
+    "login_btn": "Anmelden",
+    "register_btn": "Registrieren",
+    "no_account": "Noch kein Konto? Registrieren",
+    "have_account": "Bereits ein Konto? Anmelden",
+    "login_error": "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.",
+    "register_error": "Registrierung fehlgeschlagen. Versuchen Sie einen anderen Benutzernamen.",
+    "register_success": "Registrierung erfolgreich! Sie können sich jetzt anmelden."
+  },
+  "dashboard": {
+    "title": "Finanzübersicht",
+    "balance": "Aktuelles Guthaben",
+    "income": "Einnahmen",
+    "expenses": "Ausgaben",
+    "welcome_title": "Willkommen zurück!",
+    "welcome_body": "Ihre Finanzen sind unter Kontrolle. Detaillierte Analysen nach Kategorie finden Sie im Bereich Statistiken.",
+    "loading": "Wird geladen..."
+  },
+  "transactions": {
+    "title": "Transaktionen",
+    "new_record": "Neuer Eintrag",
+    "history": "Transaktionsverlauf",
+    "amount": "Betrag",
+    "type": "Typ",
+    "date": "Datum",
+    "category": "Kategorie",
+    "description": "Beschreibung",
+    "desc_ph": "Wofür wurde es ausgegeben?",
+    "type_expense": "Ausgabe",
+    "type_income": "Einnahme",
+    "select_cat": "Kategorie auswählen",
+    "add_btn": "Hinzufügen",
+    "save_btn": "Speichern",
+    "cancel_btn": "Abbrechen",
+    "col_date": "Datum",
+    "col_category": "Kategorie",
+    "col_description": "Beschreibung",
+    "col_type": "Typ",
+    "col_amount": "Betrag",
+    "col_actions": "Aktionen",
+    "no_category": "Keine Kategorie",
+    "no_transactions": "Noch keine Transaktionen",
+    "error_load": "Fehler beim Laden der Daten",
+    "error_save": "Fehler beim Speichern der Transaktion",
+    "error_update": "Fehler beim Aktualisieren der Transaktion",
+    "error_delete": "Fehler beim Löschen der Transaktion",
+    "error_no_cat": "Bitte erstellen Sie zuerst eine Kategorie!",
+    "confirm_delete": "Diese Transaktion löschen?"
+  },
+  "categories": {
+    "title": "Kategorien verwalten",
+    "add_title": "Kategorie hinzufügen",
+    "list_title": "Ihre Kategorien ({{count}})",
+    "placeholder": "Z.B.: Lebensmittel, Transport...",
+    "create_btn": "Erstellen",
+    "error_load": "Kategorien konnten nicht geladen werden. Serververbindung prüfen.",
+    "error_create": "Fehler beim Erstellen der Kategorie.",
+    "error_update": "Fehler beim Aktualisieren des Kategorienamens.",
+    "error_delete": "Löschen fehlgeschlagen. Kategorie wird möglicherweise verwendet.",
+    "confirm_delete": "Diese Kategorie löschen?"
+  },
+  "statistics": {
+    "title": "Analysen",
+    "expenses_by_cat": "Ausgaben nach Kategorie",
+    "balance_timeline": "Saldo-Verlauf",
+    "no_expenses": "Ausgaben hinzufügen, um Analysen zu sehen",
+    "no_data": "Keine Daten verfügbar",
+    "no_data_sub": "Fügen Sie Ihre ersten Transaktionen hinzu",
+    "loading": "Analysen werden geladen..."
+  },
+  "common": {
+    "loading": "Wird geladen...",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
+  },
+  "theme": {
+    "toggle_light": "Zum hellen Modus wechseln",
+    "toggle_dark": "Zum dunklen Modus wechseln"
+  },
+  "language": {
+    "label": "Sprache",
+    "en": "Englisch",
+    "de": "Deutsch",
+    "ru": "Russisch",
+    "uk": "Ukrainisch"
+  }
+}
