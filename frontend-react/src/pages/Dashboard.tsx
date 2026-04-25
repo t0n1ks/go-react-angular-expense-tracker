@@ -4,17 +4,21 @@ import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp } from 'lucide-react';
 import UfoWelcome from '../components/UfoWelcome';
+import AiUfo from '../components/AiUfo';
+import { useAIAssistant } from '../hooks/useAIAssistant';
 import './Dashboard.css';
 
 interface Transaction {
   id: number;
   amount: number;
   type: 'expense' | 'income';
+  date: string;
+  category?: { name: string };
 }
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount } = useSettings();
+  const { formatAmount, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal } = useSettings();
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +40,13 @@ const Dashboard: React.FC = () => {
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
+
+  const { message, dismiss } = useAIAssistant({
+    transactions,
+    aiAdviceEnabled,
+    aiHumorEnabled,
+    monthlySpendingGoal,
+  });
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
@@ -68,6 +79,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       <UfoWelcome />
+      <AiUfo message={message} onDismiss={dismiss} />
     </div>
   );
 };

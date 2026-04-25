@@ -121,5 +121,17 @@
     "de": "Deutsch",
     "ru": "Russisch",
     "uk": "Ukrainisch"
+  },
+  "ai": {
+    "goal_alert": "Kapitän, wir sind bei {{percent}}% des Monatsziels. Zeit zum Bremsen!",
+    "category_alert": "{{category}} macht {{percent}}% deiner Ausgaben aus. Das ist bemerkenswert!",
+    "savings_compliment": "Ausgezeichnet! Du hast {{percent}}% weniger als letzten Monat ausgegeben. Weiter so!",
+    "humor": [
+      "Spaßfakt: 67% der Ökonomen sind sich einig, dass Ausgaben beobachten gut ist. Die anderen 33% arbeiten in Einkaufszentren.",
+      "Beep boop. Brieftasche scannen... Analyse abgeschlossen: Du gibst Geld aus. Erstaunlich.",
+      "Wusstest du? Das Wort 'Budget' kommt vom französischen Wort für 'Ledertasche'. Jetzt weißt du, was du beschuldigen kannst.",
+      "Eilmeldung vom Planeten Finanzen: Zinsen bleiben kompliziert. Film um 23 Uhr. Zurück zu Ihnen, Mensch.",
+      "Wirtschaftstipp: Gesparte Geld ist verdientes Geld. Auch Geld, das nicht für Essen ausgegeben wird, ist immer noch Geld."
+    ]
   }
 }

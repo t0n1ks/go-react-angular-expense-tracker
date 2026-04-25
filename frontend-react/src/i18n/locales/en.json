@@ -121,5 +121,17 @@
     "de": "German",
     "ru": "Russian",
     "uk": "Ukrainian"
+  },
+  "ai": {
+    "goal_alert": "Captain, we're at {{percent}}% of the monthly goal. Time to slow down!",
+    "category_alert": "{{category}} takes up {{percent}}% of your expenses. Might be worth a look!",
+    "savings_compliment": "Excellent! You spent {{percent}}% less than last month. Keep it up!",
+    "humor": [
+      "Fun fact: 67% of economists agree that watching your spending is good. The other 33% work for shopping malls.",
+      "Beep boop. Scanning wallet... Analysis complete: you spend money. Extraordinary.",
+      "Did you know? The word 'budget' comes from the French word for 'leather bag'. Now you know what to blame.",
+      "Breaking news from Planet Finance: interest rates remain complicated. Film at 11. Back to you, human.",
+      "Economy tip: money saved is money earned. Also money not spent on takeout is... still money."
+    ]
   }
 }
