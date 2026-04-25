@@ -27,6 +27,7 @@ const Transactions: React.FC = () => {
     category_id: '',
     type: 'expense'
   });
+  const [formError, setFormError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editState, setEditState] = useState({
     amount: '',
@@ -61,9 +62,10 @@ const Transactions: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formState.category_id) {
-      alert(t('transactions.error_no_cat'));
+      setFormError(t('transactions.error_no_cat'));
       return;
     }
+    setFormError('');
     try {
       const payload = {
         ...formState,
@@ -74,17 +76,18 @@ const Transactions: React.FC = () => {
       setFormState(prev => ({ ...prev, amount: '', description: '' }));
       fetchData();
     } catch {
-      alert(t('transactions.error_save'));
+      setFormError(t('transactions.error_save'));
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm(t('transactions.confirm_delete'))) return;
+    setFormError('');
     try {
       await axiosInstance.delete(`/transactions/${id}`);
       setTransactions(prev => prev.filter(tr => tr.id !== id));
     } catch {
-      alert(t('transactions.error_delete'));
+      setFormError(t('transactions.error_delete'));
     }
   };
 
@@ -100,6 +103,7 @@ const Transactions: React.FC = () => {
   };
 
   const handleUpdate = async (id: number) => {
+    setFormError('');
     try {
       const payload = {
         ...editState,
@@ -110,7 +114,7 @@ const Transactions: React.FC = () => {
       setEditingId(null);
       fetchData();
     } catch {
-      alert(t('transactions.error_update'));
+      setFormError(t('transactions.error_update'));
     }
   };
 
@@ -121,6 +125,8 @@ const Transactions: React.FC = () => {
   return (
     <div className="transactions-wrapper">
       <h1 className="transactions-title">{t('transactions.title')}</h1>
+
+      {formError && <div className="error-alert">{formError}</div>}
 
       <div className="transaction-card">
         <div className="card-title"><Plus size={20} style={{marginRight: '8px'}}/> {t('transactions.new_record')}</div>

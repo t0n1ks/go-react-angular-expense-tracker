@@ -59,6 +59,8 @@ yarn-error.log*
 
 # Build output for frontend projects
 /frontend-react/dist/
-/frontend-angular/dist/
 backend/expenses.db
 backend/tmp/
+
+# Claude Code local session files
+.claude/settings.local.json

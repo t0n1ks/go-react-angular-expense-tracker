@@ -1,9 +1,7 @@
-// frontend-react/src/context/AuthContext.tsx
-
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:8080/api';
 
 interface User {
   id: number;
@@ -19,7 +17,7 @@ interface AuthContextType {
   logout: () => void;
   // Используем any, так как axiosInstance часто ведет себя капризно в типах
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  axiosInstance: any; 
+  axiosInstance: any;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -29,7 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth должен использоваться внутри AuthProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
@@ -53,7 +51,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       (config) => {
         const currentToken = localStorage.getItem('token');
         if (currentToken && config.headers) {
-          // ИСПОЛЬЗУЕМ .set() — это современный способ работы с заголовками в Axios
           config.headers.set('Authorization', `Bearer ${currentToken}`);
         }
         return config;

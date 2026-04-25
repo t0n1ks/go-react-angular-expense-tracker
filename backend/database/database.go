@@ -1,35 +1,35 @@
-// backend/database/database.go
 package database
 
 import (
 	"log"
+	"os"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models" // Обновите путь!
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
-var DB *gorm.DB // Глобальная переменная для хранения подключения к БД
+var DB *gorm.DB
 
 func Connect() {
-	var err error
-	// Инициализируем соединение с SQLite базой данных.
-	// Файл базы данных будет создан в корневой папке Go-бэкенда.
-	DB, err = gorm.Open(sqlite.Open("expenses.db"), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Не удалось подключиться к базе данных: %v", err)
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "expenses.db"
 	}
 
-	log.Println("Успешное подключение к базе данных!")
+	var err error
+	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 
-	// Автоматическая миграция моделей в таблицы базы данных.
-	// Если таблиц нет, GORM их создаст. Если есть, добавит новые колонки,
-	// но не будет удалять или изменять существующие колонки без дополнительных настроек.
+	log.Println("Database connected successfully")
+
 	err = DB.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{})
 	if err != nil {
-		log.Fatalf("Не удалось выполнить миграцию базы данных: %v", err)
+		log.Fatalf("Failed to run database migration: %v", err)
 	}
 
-	log.Println("Миграция базы данных успешно завершена!")
+	log.Println("Database migration completed")
 }

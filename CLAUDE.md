@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A pet project for learning Go, React, and Angular — a full-stack expense tracker with two separate frontends sharing one Go backend.
+A pet project for learning Go and React — a full-stack expense tracker with a Go backend and a React frontend.
 
 ## Running the Project
 
@@ -29,21 +29,13 @@ npm run build      # TypeScript check + Vite build
 npm run lint       # ESLint
 ```
 
-**Angular frontend** (from `frontend-angular/`):
-```bash
-npm install
-npm start          # ng serve → http://localhost:4200
-npm run build
-npm test           # Karma/Jasmine unit tests
-```
-
 ## Architecture
 
 ### Backend (`backend/`)
 
 Gin HTTP server with JWT-based auth and SQLite storage via GORM.
 
-- `main.go` — router setup, CORS config (allows `:5173` and `:4200`), route registration
+- `main.go` — router setup, CORS config (allows `:5173`), route registration
 - `database/database.go` — GORM connection + `AutoMigrate` for all models; DB file is `backend/expenses.db`
 - `models/` — GORM model structs: `User`, `Category`, `Transaction`
 - `handlers/` — one file per resource (`user.go`, `category.go`, `transaction.go`); `user.go` owns the `jwtSecret` and exports `GetJWTSecret()` for middleware
@@ -63,10 +55,6 @@ Vite + React 19 + TypeScript + Tailwind CSS.
 - `src/pages/` — full-page views: `Login`, `Register`, `Dashboard`, `Transactions`, `Categories`, `Statistics`
 - `src/components/` — shared UI: `Layout` (sidebar/nav), `CategoryChart`, `PrivateRoute` (redirect wrapper)
 - `src/App.tsx` — router setup; wraps everything in `AuthProvider`
-
-### Angular Frontend (`frontend-angular/`)
-
-Angular 20, standalone components (no NgModules), minimal — currently a scaffold with routing in `app.routes.ts`.
 
 ## Git: Auto-commit and Push After Tasks
 
