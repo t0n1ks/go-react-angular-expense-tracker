@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
 import './Categories.css';
 
@@ -10,9 +11,10 @@ interface Category {
 
 const Categories: React.FC = () => {
   const { axiosInstance } = useAuth();
+  const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(''); // Теперь будем использовать это состояние
+  const [error, setError] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
@@ -20,16 +22,16 @@ const Categories: React.FC = () => {
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
-    setError(''); // Сбрасываем ошибку перед загрузкой
+    setError('');
     try {
       const response = await axiosInstance.get('/categories');
       setCategories(response.data.categories || []);
     } catch {
-      setError("Не удалось загрузить категории. Проверьте соединение с сервером.");
+      setError(t('categories.error_load'));
     } finally {
       setLoading(false);
     }
-  }, [axiosInstance]);
+  }, [axiosInstance, t]);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
@@ -42,7 +44,7 @@ const Categories: React.FC = () => {
       setCategories((prev) => [...prev, response.data.category]);
       setCategoryName('');
     } catch {
-      setFormError("Ошибка при создании категории.");
+      setFormError(t('categories.error_create'));
     }
   };
 
@@ -54,47 +56,46 @@ const Categories: React.FC = () => {
       setCategories((prev) => prev.map((cat) => (cat.id === categoryId ? response.data.category : cat)));
       setIsEditing(null);
     } catch {
-      setFormError("Ошибка при обновлении названия.");
+      setFormError(t('categories.error_update'));
     }
   };
 
   const handleDeleteCategory = async (categoryId: number) => {
-    if (!window.confirm("Удалить эту категорию?")) return;
+    if (!window.confirm(t('categories.confirm_delete'))) return;
     setFormError('');
     try {
       await axiosInstance.delete(`/categories/${categoryId}`);
       setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
     } catch {
-      setFormError("Не удалось удалить. Возможно, категория используется в транзакциях.");
+      setFormError(t('categories.error_delete'));
     }
   };
 
-  if (loading) return <div className="categories-wrapper">Загрузка...</div>;
+  if (loading) return <div className="categories-wrapper">{t('common.loading')}</div>;
 
   return (
     <div className="categories-wrapper">
-      <h1 className="categories-title">Управление категориями</h1>
+      <h1 className="categories-title">{t('categories.title')}</h1>
 
-      {/* Используем состояние error, чтобы TS не ругался */}
       {error && <div className="error-alert">{error}</div>}
       {formError && <div className="error-alert">{formError}</div>}
 
       <div className="category-card">
-        <h2 className="category-card-title"><Plus size={20} style={{marginRight: '8px'}}/> Добавить категорию</h2>
+        <h2 className="category-card-title"><Plus size={20} style={{marginRight: '8px'}}/> {t('categories.add_title')}</h2>
         <form onSubmit={handleCreateCategory} className="category-form">
           <input
             type="text"
             className="category-input"
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
-            placeholder="Например: Еда, Транспорт..."
+            placeholder={t('categories.placeholder')}
           />
-          <button type="submit" className="btn-create">Создать</button>
+          <button type="submit" className="btn-create">{t('categories.create_btn')}</button>
         </form>
       </div>
 
       <div className="category-card">
-        <h2 className="category-card-title">Ваши категории ({categories.length})</h2>
+        <h2 className="category-card-title">{t('categories.list_title', { count: categories.length })}</h2>
         <ul className="categories-list">
           {categories.map((category) => (
             <li key={category.id} className="category-item">
@@ -107,16 +108,16 @@ const Categories: React.FC = () => {
                     onChange={(e) => setEditName(e.target.value)}
                   />
                   <div className="category-actions">
-                    <button onClick={() => handleUpdateCategory(category.id)} className="action-btn save-btn" title="Сохранить"><Save size={18}/></button>
-                    <button onClick={() => setIsEditing(null)} className="action-btn" title="Отмена"><X size={18}/></button>
+                    <button onClick={() => handleUpdateCategory(category.id)} className="action-btn save-btn" title={t('transactions.save_btn')}><Save size={18}/></button>
+                    <button onClick={() => setIsEditing(null)} className="action-btn" title={t('transactions.cancel_btn')}><X size={18}/></button>
                   </div>
                 </div>
               ) : (
                 <>
                   <span className="category-name">{category.name}</span>
                   <div className="category-actions">
-                    <button onClick={() => { setIsEditing(category.id); setEditName(category.name); }} className="action-btn edit-btn" title="Редактировать"><Edit size={18}/></button>
-                    <button onClick={() => handleDeleteCategory(category.id)} className="action-btn delete-btn" title="Удалить"><Trash2 size={18}/></button>
+                    <button onClick={() => { setIsEditing(category.id); setEditName(category.name); }} className="action-btn edit-btn" title={t('common.edit') ?? 'Edit'}><Edit size={18}/></button>
+                    <button onClick={() => handleDeleteCategory(category.id)} className="action-btn delete-btn" title={t('common.delete') ?? 'Delete'}><Trash2 size={18}/></button>
                   </div>
                 </>
               )}

@@ -86,9 +86,41 @@
 }
 
 .main-content {
-    margin-left: 260px; /* Отступ равен ширине сайдбара */
+    margin-left: 260px;
     flex-grow: 1;
     min-height: 100vh;
     width: calc(100vw - 260px);
     background: #f8fafc;
+}
+
+.user-info-label {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.user-info-name {
+    color: white;
+    font-weight: 600;
+    margin-left: 4px;
+    font-size: 13px;
+}
+
+.language-switcher {
+    margin: 0 16px 8px;
+    background: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    transition: border-color 0.2s;
+}
+
+.language-switcher:hover,
+.language-switcher:focus {
+    border-color: #38bdf8;
+    color: white;
+    outline: none;
 }

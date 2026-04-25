@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 import { PieChart as PieIcon, TrendingUp } from "lucide-react";
 import {
   AreaChart,
@@ -22,6 +23,7 @@ interface Transaction {
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +33,7 @@ const Statistics: React.FC = () => {
       const data = response.data.transactions || response.data;
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Ошибка загрузки статистики:", err);
+      console.error("Error loading statistics:", err);
     } finally {
       setLoading(false);
     }
@@ -41,13 +43,12 @@ const Statistics: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // 1. Данные для "бублика" расходов по категориям
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
     transactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
-        const name = t.category?.name || "Без категории";
+        const name = t.category?.name || "—";
         map[name] = (map[name] || 0) + Math.abs(Number(t.amount));
       });
 
@@ -56,7 +57,6 @@ const Statistics: React.FC = () => {
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
-  // 2. Данные для графика динамики (накопительный баланс)
   const timelineData = useMemo(() => {
     if (transactions.length === 0) return [];
 
@@ -84,29 +84,27 @@ const Statistics: React.FC = () => {
   }, [transactions]);
 
   if (loading)
-    return <div className="statistics-wrapper">Загрузка аналитики...</div>;
+    return <div className="statistics-wrapper">{t('statistics.loading')}</div>;
 
   return (
     <div className="statistics-wrapper">
-      <h1 className="statistics-title">Аналитика</h1>
+      <h1 className="statistics-title">{t('statistics.title')}</h1>
 
       <div className="charts-layout">
-        {/* Карточка 1: Расходы по категориям */}
         <div className="stat-chart-card">
           <h2>
-            <PieIcon size={22} color="#6366f1" /> Расходы по категориям
+            <PieIcon size={22} color="#6366f1" /> {t('statistics.expenses_by_cat')}
           </h2>
           {categoryData.length > 0 ? (
             <CategoryChart data={categoryData} />
           ) : (
-            <div className="no-data-msg">Добавьте расходы для анализа</div>
+            <div className="no-data-msg">{t('statistics.no_expenses')}</div>
           )}
         </div>
 
-        {/* Карточка 2: Динамика баланса */}
         <div className="stat-chart-card">
           <h2>
-            <TrendingUp size={22} color="#10b981" /> Динамика баланса
+            <TrendingUp size={22} color="#10b981" /> {t('statistics.balance_timeline')}
           </h2>
           {timelineData.length > 0 ? (
             <div style={{ width: "100%", height: 300 }}>
@@ -135,10 +133,9 @@ const Statistics: React.FC = () => {
                     tickLine={false}
                     tick={{ fill: "#94a3b8", fontSize: 12 }}
                     dy={10}
-                    // Добавь эти три свойства ниже:
-                    interval={0} // Показывает ВСЕ метки дат, не пропуская ни одной
-                    padding={{ left: 20, right: 20 }} // Добавляет отступы, чтобы крайние даты не прилипали
-                    minTickGap={5} // Минимальное расстояние между датами
+                    interval={0}
+                    padding={{ left: 20, right: 20 }}
+                    minTickGap={5}
                   />
                   <YAxis hide={true} />
                   <Tooltip
@@ -162,8 +159,8 @@ const Statistics: React.FC = () => {
             </div>
           ) : (
             <div className="no-data-msg">
-              <p>Нет данных для графика</p>
-              <span>Добавьте первые транзакции</span>
+              <p>{t('statistics.no_data')}</p>
+              <span>{t('statistics.no_data_sub')}</span>
             </div>
           )}
         </div>

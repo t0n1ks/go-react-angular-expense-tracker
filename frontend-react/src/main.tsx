@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import App from './App.tsx';
 import './index.css';
+import './i18n/index';
 import { AuthProvider } from './context/AuthContext.tsx';
 
 import Register from './pages/Register.tsx';

@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import axios from 'axios';
-import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -45,13 +44,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
-  const axiosInstance: AxiosInstance = useMemo(() => {
+  const axiosInstance = useMemo(() => {
     const instance = axios.create({
       baseURL: API_BASE_URL,
     });
 
     instance.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
+      (config) => {
         const currentToken = localStorage.getItem('token');
         if (currentToken && config.headers) {
           // ИСПОЛЬЗУЕМ .set() — это современный способ работы с заголовками в Axios

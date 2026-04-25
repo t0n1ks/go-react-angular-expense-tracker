@@ -1,10 +1,9 @@
-// frontend-react/src/pages/Login.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import './Login.css';
 
-// Определяем интерфейс для структуры ошибки Axios, чтобы избежать использования 'any'
 interface AxiosErrorResponse {
   response?: {
     data?: {
@@ -18,46 +17,34 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, axiosInstance } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); // Очищаем предыдущие ошибки
+    setError('');
 
     try {
       const response = await axiosInstance.post('/login', { username, password });
       const token = response.data.token;
-
-      // В Go-бэкенде мы не возвращали user_id при входе, но мы можем его декодировать,
-      // или, для простоты, предположим, что мы вернем его позже, или пока просто используем заглушку.
-      // В продакшене лучше декодировать JWT или получить данные пользователя отдельным запросом.
-      // Для целей MVP, мы пока используем заглушку ID 1, хотя это не идеально.
-      // *ПРИМЕЧАНИЕ*: Идеальное решение - изменить Go-бэкенд для возврата ID и Username.
-      const tempUserId = 1; // Заглушка, пока не изменим бэкенд
-
+      const tempUserId = 1;
       login(token, username, tempUserId);
       navigate('/', { replace: true });
-
     } catch (err) {
       console.error("Login failed:", err);
-      
-      let errorMessage = "Ошибка входа. Проверьте данные.";
-
-      // Проверяем, что ошибка имеет структуру, похожую на ошибку Axios, 
-      // и только тогда безопасно получаем сообщение об ошибке.
+      let errorMessage = t('auth.login_error');
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const axiosError = err as AxiosErrorResponse;
         errorMessage = axiosError.response?.data?.error || errorMessage;
       }
-
       setError(errorMessage);
     }
   };
 
-return (
+  return (
     <div className="auth-page">
       <div className="auth-card">
-        <h2 className="auth-title">С возвращением</h2>
+        <h2 className="auth-title">{t('auth.login_title')}</h2>
 
         {error && (
           <div className="auth-error" role="alert">
@@ -67,12 +54,12 @@ return (
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="auth-field">
-            <label className="auth-label" htmlFor="username">Имя пользователя</label>
+            <label className="auth-label" htmlFor="username">{t('auth.username')}</label>
             <input
               className="auth-input"
               id="username"
               type="text"
-              placeholder="Введите имя"
+              placeholder={t('auth.username_ph')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -80,12 +67,12 @@ return (
           </div>
 
           <div className="auth-field">
-            <label className="auth-label" htmlFor="password">Пароль</label>
+            <label className="auth-label" htmlFor="password">{t('auth.password')}</label>
             <input
               className="auth-input"
               id="password"
               type="password"
-              placeholder="Введите пароль"
+              placeholder={t('auth.password_ph')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -93,13 +80,13 @@ return (
           </div>
 
           <button type="submit" className="auth-submit-button">
-            Войти
+            {t('auth.login_btn')}
           </button>
         </form>
 
         <div className="auth-footer">
           <Link to="/register" className="auth-link">
-            Нет аккаунта? Зарегистрироваться
+            {t('auth.no_account')}
           </Link>
         </div>
       </div>
