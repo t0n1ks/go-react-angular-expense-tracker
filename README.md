@@ -2,28 +2,7 @@
 
 A full-stack personal finance tracker built with **Go** and **React**. Track your income and expenses, organize them by category, and visualize spending trends — with multi-language support and a dark/light theme toggle.
 
-## Features
-
-- **Authentication** — JWT-based register / login with protected routes
-- **Transactions** — Create, edit (inline), and delete income/expense records
-- **Categories** — Manage custom categories; deletion is blocked if transactions exist
-- **Statistics** — Pie charts and period summaries powered by Recharts
-- **Internationalization** — EN / DE / RU / UK language switcher (persisted to localStorage)
-- **Dark / Light mode** — Toggles via CSS custom properties; respects `prefers-color-scheme` on first visit
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | Go 1.24, Gin, GORM, SQLite |
-| Auth | JWT (24h expiry) |
-| Frontend | React 19, TypeScript, Vite |
-| Styling | Tailwind CSS v4, CSS custom properties |
-| i18n | react-i18next |
-| Charts | Recharts |
-| Containerization | Docker, Docker Compose |
-
-## Quick Start — Docker
+## Quick Start
 
 The recommended way to run the full stack. No Go or Node.js installation required.
 
@@ -48,6 +27,27 @@ Example with a custom secret:
 ```bash
 JWT_SECRET=my-secure-secret docker compose up --build
 ```
+
+## Features
+
+- **Authentication** — JWT-based register / login with protected routes
+- **Transactions** — Create, edit (inline), and delete income/expense records
+- **Categories** — Manage custom categories; deletion is blocked if transactions exist
+- **Statistics** — Pie charts and period summaries powered by Recharts
+- **Internationalization** — EN / DE / RU / UK language switcher (persisted to localStorage)
+- **Dark / Light mode** — Toggles via CSS custom properties; respects `prefers-color-scheme` on first visit
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Go 1.24, Gin, GORM, SQLite |
+| Auth | JWT (24h expiry) |
+| Frontend | React 19, TypeScript, Vite |
+| Styling | Tailwind CSS v4, CSS custom properties |
+| i18n | react-i18next |
+| Charts | Recharts |
+| Containerization | Docker, Docker Compose |
 
 ## Local Development
 
