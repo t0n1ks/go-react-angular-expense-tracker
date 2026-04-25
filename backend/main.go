@@ -53,6 +53,9 @@ func main() {
 		protected.PUT("/transactions/:id", handlers.UpdateTransaction)
 		protected.DELETE("/transactions/:id", handlers.DeleteTransaction)
 
+		protected.GET("/profile", handlers.GetProfile)
+		protected.PUT("/profile", handlers.UpdateProfile)
+
 		protected.GET("/summary/daily", handlers.GetDailySummary)
 		protected.GET("/summary/period", handlers.GetPeriodSummary)
 		protected.GET("/stats", handlers.GetPeriodSummary)

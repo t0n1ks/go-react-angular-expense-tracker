@@ -1,0 +1,219 @@
+.settings-wrapper {
+    padding: 2rem;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.settings-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+}
+
+.settings-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 1.25rem;
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.settings-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    margin: 0 0 1.25rem 0;
+}
+
+/* Currency selector */
+.currency-selector {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.currency-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--color-border-card);
+    background: var(--color-bg-card);
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    font-family: inherit;
+    min-width: 80px;
+}
+
+.currency-btn:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    color: var(--color-text-heading);
+}
+
+.currency-btn--active {
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.currency-symbol {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+/* Toggle rows */
+.settings-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--color-border-card);
+}
+
+.settings-toggle-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.settings-toggle-row:first-of-type {
+    padding-top: 0;
+}
+
+.settings-toggle-text {
+    flex: 1;
+}
+
+.toggle-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-heading);
+    margin: 0 0 0.2rem 0;
+}
+
+.toggle-desc {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Toggle switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: var(--color-border-card);
+    border-radius: 26px;
+    transition: background-color 0.25s ease;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #38bdf8;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+/* Goal input */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.settings-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-heading);
+}
+
+.settings-input {
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.625rem;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
+    font-size: 0.9rem;
+    font-family: inherit;
+    max-width: 220px;
+    transition: border-color 0.2s ease;
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: #38bdf8;
+}
+
+/* Save area */
+.settings-save-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.btn-save-settings {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.625rem 1.5rem;
+    background: var(--color-btn-primary);
+    color: #fff;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-save-settings:hover:not(:disabled) {
+    background: var(--color-btn-primary-hover);
+}
+
+.btn-save-settings:disabled,
+.btn-save-settings.saving {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.settings-save-error {
+    font-size: 0.82rem;
+    color: var(--color-error-text);
+}

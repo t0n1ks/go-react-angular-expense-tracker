@@ -36,6 +36,8 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 	user.Password = string(hashedPassword)
+	user.Currency = "USD"
+	user.AIAdviceEnabled = true
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
@@ -90,4 +92,72 @@ func LoginUser(c *gin.Context) {
 
 func GetJWTSecret() []byte {
 	return jwtSecret
+}
+
+func GetProfile(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID.(uint)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	currency := user.Currency
+	if currency == "" {
+		currency = "USD"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":                    user.ID,
+		"username":              user.Username,
+		"currency":              currency,
+		"ai_advice_enabled":    user.AIAdviceEnabled,
+		"ai_humor_enabled":     user.AIHumorEnabled,
+		"monthly_spending_goal": user.MonthlySpendingGoal,
+	})
+}
+
+func UpdateProfile(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req struct {
+		Currency            string  `json:"currency"`
+		AIAdviceEnabled     bool    `json:"ai_advice_enabled"`
+		AIHumorEnabled      bool    `json:"ai_humor_enabled"`
+		MonthlySpendingGoal float64 `json:"monthly_spending_goal"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	validCurrencies := map[string]bool{"USD": true, "EUR": true, "UAH": true}
+	if req.Currency == "" {
+		req.Currency = "USD"
+	} else if !validCurrencies[req.Currency] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid currency"})
+		return
+	}
+
+	updates := map[string]interface{}{
+		"currency":              req.Currency,
+		"ai_advice_enabled":    req.AIAdviceEnabled,
+		"ai_humor_enabled":     req.AIHumorEnabled,
+		"monthly_spending_goal": req.MonthlySpendingGoal,
+	}
+	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile updated"})
 }

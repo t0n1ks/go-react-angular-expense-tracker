@@ -5,6 +5,7 @@
     "categories": "Categories",
     "transactions": "Transactions",
     "statistics": "Statistics",
+    "settings": "Settings",
     "logout": "Logout",
     "user_label": "User:"
   },
@@ -89,6 +90,21 @@
     "no_data": "No data available",
     "no_data_sub": "Add your first transactions",
     "loading": "Loading analytics..."
+  },
+  "settings": {
+    "title": "Settings",
+    "currency_title": "Currency",
+    "ai_title": "AI Assistant",
+    "ai_advice": "Enable Financial Advice",
+    "ai_advice_desc": "Get data-driven tips based on your spending patterns",
+    "ai_humor": "Enable Humor & Interaction",
+    "ai_humor_desc": "Receive fun facts and jokes when idle",
+    "goals_title": "Financial Goals",
+    "monthly_goal": "Monthly Spending Goal",
+    "monthly_goal_ph": "e.g. 2000",
+    "save": "Save Settings",
+    "saved": "Saved!",
+    "save_error": "Failed to save settings"
   },
   "common": {
     "loading": "Loading...",

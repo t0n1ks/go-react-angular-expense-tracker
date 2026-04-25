@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Settings } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import './Layout.css';
 
@@ -28,6 +28,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <NavLink to="/categories" className="nav-item">{t('nav.categories')}</NavLink>
           <NavLink to="/transactions" className="nav-item">{t('nav.transactions')}</NavLink>
           <NavLink to="/statistics" className="nav-item">{t('nav.statistics')}</NavLink>
+          <NavLink to="/settings" className="nav-item">
+            <Settings size={14} style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
+            {t('nav.settings')}
+          </NavLink>
         </nav>
 
         <LanguageSwitcher />

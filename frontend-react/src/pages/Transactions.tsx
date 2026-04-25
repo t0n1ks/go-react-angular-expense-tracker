@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check } from 'lucide-react';
 import './Transactions.css';
@@ -16,6 +17,7 @@ interface Transaction {
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
+  const { formatAmount } = useSettings();
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -258,7 +260,7 @@ const Transactions: React.FC = () => {
                         </span>
                       </td>
                       <td className={tr.type === 'income' ? 'amount-income' : 'amount-expense'}>
-                        {tr.type === 'income' ? '+' : '-'}${Math.abs(tr.amount).toLocaleString()}
+                        {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
                       </td>
                       <td>
                         <button onClick={() => handleEditStart(tr)} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>

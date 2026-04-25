@@ -9,12 +9,12 @@ interface CategoryData {
 
 interface Props {
   data: CategoryData[];
+  formatAmount?: (amount: number) => string;
 }
 
-// Наша мягкая палитра
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4'];
 
-const CategoryChart: React.FC<Props> = ({ data }) => {
+const CategoryChart: React.FC<Props> = ({ data, formatAmount }) => {
   return (
     <div className="category-chart-wrapper">
       <ResponsiveContainer width="100%" height={300}>
@@ -22,7 +22,7 @@ const CategoryChart: React.FC<Props> = ({ data }) => {
           <Pie
             data={data}
             cx="50%"
-            cy="45%" // Чуть выше центра, чтобы легенда влезла
+            cy="45%"
             innerRadius={70}
             outerRadius={90}
             paddingAngle={5}
@@ -33,12 +33,17 @@ const CategoryChart: React.FC<Props> = ({ data }) => {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip 
-            contentStyle={{ 
-              borderRadius: '12px', 
-              border: 'none', 
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' 
-            }} 
+          <Tooltip
+            contentStyle={{
+              borderRadius: '12px',
+              border: 'none',
+              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+            }}
+            formatter={(value) =>
+              formatAmount && typeof value === 'number'
+                ? [formatAmount(value), '']
+                : [`${value ?? ''}`, '']
+            }
           />
           <Legend 
             verticalAlign="bottom" 

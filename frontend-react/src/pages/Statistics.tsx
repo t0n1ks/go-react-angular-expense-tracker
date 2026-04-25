@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext";
 import { PieChart as PieIcon, TrendingUp } from "lucide-react";
@@ -24,6 +25,7 @@ interface Transaction {
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
+  const { formatAmount } = useSettings();
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -98,7 +100,7 @@ const Statistics: React.FC = () => {
             <PieIcon size={22} color="#6366f1" /> {t('statistics.expenses_by_cat')}
           </h2>
           {categoryData.length > 0 ? (
-            <CategoryChart data={categoryData} />
+            <CategoryChart data={categoryData} formatAmount={formatAmount} />
           ) : (
             <div className="no-data-msg">{t('statistics.no_expenses')}</div>
           )}
@@ -147,6 +149,7 @@ const Statistics: React.FC = () => {
                       boxShadow: "0 10px 15px rgba(0,0,0,0.1)",
                     }}
                     itemStyle={{ color: "#10b981", fontWeight: "bold" }}
+                    formatter={(value) => [formatAmount(typeof value === 'number' ? value : 0), '']}
                   />
                   <Area
                     type="monotone"

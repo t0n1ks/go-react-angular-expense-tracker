@@ -5,6 +5,7 @@
     "categories": "Kategorien",
     "transactions": "Transaktionen",
     "statistics": "Statistiken",
+    "settings": "Einstellungen",
     "logout": "Abmelden",
     "user_label": "Benutzer:"
   },
@@ -89,6 +90,21 @@
     "no_data": "Keine Daten verfügbar",
     "no_data_sub": "Fügen Sie Ihre ersten Transaktionen hinzu",
     "loading": "Analysen werden geladen..."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "currency_title": "Währung",
+    "ai_title": "KI-Assistent",
+    "ai_advice": "Finanzberatung aktivieren",
+    "ai_advice_desc": "Datengestützte Tipps basierend auf deinen Ausgaben",
+    "ai_humor": "Humor & Interaktion aktivieren",
+    "ai_humor_desc": "Erhalte Witze und Fakten bei Inaktivität",
+    "goals_title": "Finanzziele",
+    "monthly_goal": "Monatliches Ausgabenziel",
+    "monthly_goal_ph": "z.B. 2000",
+    "save": "Einstellungen speichern",
+    "saved": "Gespeichert!",
+    "save_error": "Speichern fehlgeschlagen"
   },
   "common": {
     "loading": "Wird geladen...",

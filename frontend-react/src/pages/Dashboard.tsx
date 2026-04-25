@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp } from 'lucide-react';
 import UfoWelcome from '../components/UfoWelcome';
@@ -13,6 +14,7 @@ interface Transaction {
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
+  const { formatAmount } = useSettings();
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,21 +48,21 @@ const Dashboard: React.FC = () => {
           <div className="stat-icon wallet"><Wallet size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.balance')}</p>
-            <p className="value">${balance.toLocaleString()}</p>
+            <p className="value">{formatAmount(balance)}</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon income"><TrendingUp size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.income')}</p>
-            <p className="value-plus">+${totalIncome.toLocaleString()}</p>
+            <p className="value-plus">+{formatAmount(totalIncome)}</p>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon expense"><TrendingDown size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.expenses')}</p>
-            <p className="value-minus">-${totalExpense.toLocaleString()}</p>
+            <p className="value-minus">-{formatAmount(totalExpense)}</p>
           </div>
         </div>
       </div>
