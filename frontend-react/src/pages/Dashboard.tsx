@@ -18,7 +18,7 @@ interface Transaction {
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal } = useSettings();
+  const { formatAmount, currencySymbol, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal } = useSettings();
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,13 +39,15 @@ const Dashboard: React.FC = () => {
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
+  // Balance = monthly goal (initial budget pool) + income - expenses
+  const balance = monthlySpendingGoal + totalIncome - totalExpense;
 
   const { message, dismiss } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
     aiHumorEnabled,
     monthlySpendingGoal,
+    currencySymbol,
   });
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
