@@ -1,0 +1,46 @@
+<div class="auth-page-reg">
+  <div class="auth-card-reg">
+    <h2 class="auth-title-reg">{{ 'auth.register_title' | translate }}</h2>
+
+    @if (error()) {
+      <div class="auth-status-msg msg-error">{{ error() | translate }}</div>
+    }
+    @if (success()) {
+      <div class="auth-status-msg msg-success">{{ success() | translate }}</div>
+    }
+
+    <form class="auth-form-reg" (ngSubmit)="onSubmit()">
+      <div class="auth-field-reg">
+        <label class="auth-label-reg" for="username">{{ 'auth.username' | translate }}</label>
+        <input
+          class="auth-input-reg"
+          id="username"
+          type="text"
+          [placeholder]="'auth.username_ph' | translate"
+          [(ngModel)]="username"
+          name="username"
+          required
+        />
+      </div>
+
+      <div class="auth-field-reg">
+        <label class="auth-label-reg" for="password">{{ 'auth.password' | translate }}</label>
+        <input
+          class="auth-input-reg"
+          id="password"
+          type="password"
+          [placeholder]="'auth.password_ph' | translate"
+          [(ngModel)]="password"
+          name="password"
+          required
+        />
+      </div>
+
+      <button type="submit" class="auth-submit-button-reg">{{ 'auth.register_btn' | translate }}</button>
+    </form>
+
+    <div class="auth-footer">
+      <a routerLink="/login" class="auth-link-reg">{{ 'auth.have_account' | translate }}</a>
+    </div>
+  </div>
+</div>
