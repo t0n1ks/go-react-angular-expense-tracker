@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - db-data:/app/data
+    environment:
+      - DB_PATH=/app/data/expenses.db
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey_change_me_in_production}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build: ./frontend-react
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:
