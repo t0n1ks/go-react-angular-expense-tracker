@@ -90,6 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('ufo_intro_seen');
     localStorage.removeItem('user_settings');
     localStorage.removeItem('ai_shown_items');
+    sessionStorage.removeItem('ai_advice_session');
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);

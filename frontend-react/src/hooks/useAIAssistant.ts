@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
+// ─── Shuffle pool (idle humor) ───────────────────────────────────────────────
+
 const SHOWN_KEY = 'ai_shown_items';
 
 interface PoolItem {
@@ -28,21 +30,53 @@ function getShown(): Set<string> {
 function pickRandom(pool: PoolItem[]): PoolItem {
   const shown = getShown();
   const available = pool.filter(item => !shown.has(item.id));
-  // Fall back to full pool if nothing available (shouldn't happen with 80% reset, but safe)
   const source = available.length > 0 ? available : pool;
   const picked = source[Math.floor(Math.random() * source.length)];
-
   const newShown = new Set(shown);
   newShown.add(picked.id);
-  // Reset once 80% of the library has been shown
   if (newShown.size >= pool.length * 0.8) {
     localStorage.removeItem(SHOWN_KEY);
   } else {
     localStorage.setItem(SHOWN_KEY, JSON.stringify([...newShown]));
   }
-
   return picked;
 }
+
+// ─── Session memory (financial advice) ───────────────────────────────────────
+
+const SESSION_KEY = 'ai_advice_session';
+
+function getSessionFingerprint(): string | null {
+  try {
+    return sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionFingerprint(fp: string): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, fp);
+  } catch { /* ignore */ }
+}
+
+function computeFingerprint(
+  totalExp: number,
+  totalInc: number,
+  goal: number,
+  topCatShare: number,
+  totalLast: number,
+): string {
+  return [
+    Math.round(totalExp),
+    Math.round(totalInc),
+    Math.round(goal),
+    Math.round(topCatShare * 100),
+    Math.round(totalLast),
+  ].join(':');
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 interface Transaction {
   amount: number;
@@ -69,17 +103,18 @@ export function useAIAssistant({
   const { t } = useTranslation();
   const [queue, setQueue] = useState<string[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
-  const hasAnalyzed = useRef(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const enqueue = useCallback((msg: string) => {
     setQueue(q => (q.length < 2 ? [...q, msg] : q));
   }, []);
 
-  // Financial analysis — runs once per Dashboard mount after transactions load
+  // ── Financial analysis ────────────────────────────────────────────────────
+  // Runs whenever transactions or settings change.
+  // Picks at most ONE insight (priority cascade), skips if data hasn't changed
+  // since the last shown insight this session.
   useEffect(() => {
-    if (!aiAdviceEnabled || hasAnalyzed.current || transactions.length === 0) return;
-    hasAnalyzed.current = true;
+    if (!aiAdviceEnabled || transactions.length === 0) return;
 
     const now = new Date();
     const thisMonth = now.getMonth();
@@ -105,27 +140,9 @@ export function useAIAssistant({
     const totalInc = thisMonthInc.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
     const surplus = totalInc - totalExp;
 
-    // 1. Goal tracking: spending ≥ 80% of monthly goal
-    if (monthlySpendingGoal > 0 && totalExp >= 0.8 * monthlySpendingGoal) {
-      const percent = Math.round((totalExp / monthlySpendingGoal) * 100);
-      enqueue(t('ai.goal_alert', { percent }));
-    }
-
-    // 2. No income recorded but spending exists — worried mode
-    if (totalInc === 0 && totalExp > 0) {
-      const percent = monthlySpendingGoal > 0
-        ? Math.round((totalExp / monthlySpendingGoal) * 100)
-        : 100;
-      enqueue(t('ai.worried_no_income', { percent }));
-    }
-
-    // 3. Surplus with income — suggest investing
-    if (surplus > 0 && totalInc > 0 && (monthlySpendingGoal === 0 || surplus > monthlySpendingGoal * 0.3)) {
-      const formatted = `${currencySymbol}${Math.round(surplus).toLocaleString()}`;
-      enqueue(t('ai.invest_surplus', { surplus: formatted }));
-    }
-
-    // 4. Category dominance: one category > 50% of this month's expenses
+    // Build category map for fingerprint + category alert
+    let topCatShare = 0;
+    let topCatName = '';
     if (thisMonthExp.length > 0 && totalExp > 0) {
       const catMap: Record<string, number> = {};
       thisMonthExp.forEach(tx => {
@@ -133,20 +150,36 @@ export function useAIAssistant({
         catMap[name] = (catMap[name] || 0) + Math.abs(Number(tx.amount));
       });
       const top = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0];
-      if (top && top[1] / totalExp > 0.5) {
-        const percent = Math.round((top[1] / totalExp) * 100);
-        enqueue(t('ai.category_alert', { category: top[0], percent }));
-      }
+      if (top) { topCatShare = top[1] / totalExp; topCatName = top[0]; }
     }
 
-    // 5. Savings compliment: spending lower than last month
-    if (totalLast > 0 && totalExp < totalLast) {
-      const percent = Math.round(((totalLast - totalExp) / totalLast) * 100);
-      enqueue(t('ai.savings_compliment', { percent }));
+    // Skip if the same numbers were already analyzed this session
+    const fingerprint = computeFingerprint(totalExp, totalInc, monthlySpendingGoal, topCatShare, totalLast);
+    if (getSessionFingerprint() === fingerprint) return;
+    saveSessionFingerprint(fingerprint);
+
+    // Priority cascade — exactly ONE insight fires per unique data state
+    let msg: string | null = null;
+
+    if (monthlySpendingGoal > 0 && totalExp >= 0.8 * monthlySpendingGoal) {
+      msg = t('ai.goal_alert', { percent: Math.round((totalExp / monthlySpendingGoal) * 100) });
+    } else if (totalInc === 0 && totalExp > 0) {
+      const percent = monthlySpendingGoal > 0
+        ? Math.round((totalExp / monthlySpendingGoal) * 100)
+        : 100;
+      msg = t('ai.worried_no_income', { percent });
+    } else if (surplus > 0 && totalInc > 0 && (monthlySpendingGoal === 0 || surplus > monthlySpendingGoal * 0.3)) {
+      msg = t('ai.invest_surplus', { surplus: `${currencySymbol}${Math.round(surplus).toLocaleString()}` });
+    } else if (topCatShare > 0.5) {
+      msg = t('ai.category_alert', { category: topCatName, percent: Math.round(topCatShare * 100) });
+    } else if (totalLast > 0 && totalExp < totalLast) {
+      msg = t('ai.savings_compliment', { percent: Math.round(((totalLast - totalExp) / totalLast) * 100) });
     }
+
+    if (msg) enqueue(msg);
   }, [transactions, aiAdviceEnabled, monthlySpendingGoal, currencySymbol, t, enqueue]);
 
-  // Idle humor timer: fires after 45s of inactivity
+  // ── Idle humor timer ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!aiHumorEnabled) return;
 
@@ -154,9 +187,7 @@ export function useAIAssistant({
       const humor = t('ai.humor', { returnObjects: true }) as string[];
       const facts = t('ai.facts', { returnObjects: true }) as string[];
       const tips = t('ai.tips', { returnObjects: true }) as string[];
-      const pool = buildPool(humor, facts, tips);
-      const picked = pickRandom(pool);
-      enqueue(picked.text);
+      enqueue(pickRandom(buildPool(humor, facts, tips)).text);
     };
 
     const resetTimer = () => {
@@ -173,7 +204,7 @@ export function useAIAssistant({
     };
   }, [aiHumorEnabled, t, enqueue]);
 
-  // Dequeue: promote first item from queue to currentMessage when slot is free
+  // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (currentMessage === null && queue.length > 0) {
       setCurrentMessage(queue[0]);
