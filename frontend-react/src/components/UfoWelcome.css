@@ -1,0 +1,134 @@
+.ufo-welcome {
+    position: relative;
+    background: var(--color-bg-card);
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+    border: 1px solid var(--color-border-card);
+    margin-top: 1rem;
+    min-height: 260px;
+    user-select: none;
+    cursor: default;
+}
+
+.ufo-welcome--clickable {
+    cursor: pointer;
+}
+
+/* UFO wrapper — absolutely positioned, floats above everything */
+.ufo-ship {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Speech bubble */
+.ufo-bubble {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    max-width: 200px;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.45;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* Downward pointer — border layer */
+.ufo-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--color-border-card);
+}
+
+/* Downward pointer — fill layer (covers border) */
+.ufo-bubble::before {
+    content: '';
+    position: absolute;
+    top: calc(100% - 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--color-bg-card);
+    z-index: 1;
+}
+
+/* Intro text — centered in upper portion of card */
+.ufo-intro-text {
+    position: absolute;
+    top: 80px;
+    left: 1.5rem;
+    right: 1.5rem;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    margin: 0;
+    pointer-events: none;
+}
+
+/* Tiles row — anchored to bottom of card */
+.ufo-tiles {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.ufo-tile {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 0.5rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--color-border-card);
+    background: var(--color-bg-card);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+}
+
+.ufo-tile--active {
+    border-color: #38bdf8;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
+    color: var(--color-text-heading);
+}
+
+.ufo-tile-icon {
+    opacity: 0.6;
+    color: #38bdf8;
+    transition: opacity 0.3s ease;
+}
+
+.ufo-tile--active .ufo-tile-icon {
+    opacity: 1;
+}
+
+/* Replay hint — bottom-right corner */
+.ufo-replay-hint {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 1rem;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    opacity: 0.55;
+    pointer-events: none;
+}

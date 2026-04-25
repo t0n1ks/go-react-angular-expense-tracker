@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp } from 'lucide-react';
+import UfoWelcome from '../components/UfoWelcome';
 import './Dashboard.css';
 
 interface Transaction {
@@ -64,10 +65,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="welcome-card">
-        <h2>{t('dashboard.welcome_title')}</h2>
-        <p>{t('dashboard.welcome_body')}</p>
-      </div>
+      <UfoWelcome />
     </div>
   );
 };

@@ -30,7 +30,12 @@
     "expenses": "Ausgaben",
     "welcome_title": "Willkommen zurück!",
     "welcome_body": "Ihre Finanzen sind unter Kontrolle. Detaillierte Analysen nach Kategorie finden Sie im Bereich Statistiken.",
-    "loading": "Wird geladen..."
+    "loading": "Wird geladen...",
+    "ufo_intro": "Willkommen zurück! In diesen Bereichen findest du nützliche Funktionen",
+    "ufo_cat_desc": "Hier kannst du deine Ausgabenkategorien erstellen",
+    "ufo_tx_desc": "Hier kannst du Transaktionen hinzufügen und sortieren",
+    "ufo_stats_desc": "Hier kannst du Statistiken für jeden Zeitraum sehen",
+    "ufo_replay": "Klicken zum Wiederholen"
   },
   "transactions": {
     "title": "Transaktionen",

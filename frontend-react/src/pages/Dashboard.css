@@ -59,14 +59,3 @@
 .stat-content .value { color: var(--color-text-heading); }
 .stat-content .value-plus { color: var(--color-income-text); }
 .stat-content .value-minus { color: var(--color-expense-text); }
-
-.welcome-card {
-    background: var(--color-bg-card);
-    padding: 2rem;
-    border-radius: 1.25rem;
-    border: 1px solid var(--color-border-card);
-    margin-top: 1rem;
-}
-
-.welcome-card h2 { margin-top: 0; font-size: 1.25rem; color: var(--color-text-heading); }
-.welcome-card p { color: var(--color-text-muted); line-height: 1.6; }
