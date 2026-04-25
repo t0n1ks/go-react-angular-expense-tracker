@@ -4,14 +4,13 @@
     box-sizing: border-box;
 }
 
-/* Стилизуем стандартные элементы Recharts, чтобы они не были черными */
 .recharts-legend-item-text {
-    color: #64748b !important;
+    color: var(--color-text-muted) !important;
     font-size: 13px !important;
     font-weight: 500 !important;
     margin-left: 5px;
 }
 
 .recharts-tooltip-label {
-    display: none; /* Убираем лишние заголовки в тултипе */
+    display: none;
 }

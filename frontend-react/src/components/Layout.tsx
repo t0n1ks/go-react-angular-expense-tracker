@@ -1,12 +1,15 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { Sun, Moon } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import './Layout.css';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
+  const { toggleTheme, isDark } = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -28,6 +31,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </nav>
 
         <LanguageSwitcher />
+
+        <button
+          onClick={toggleTheme}
+          className="theme-toggle-btn"
+          title={isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
+        >
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          {isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
+        </button>
 
         <div className="user-info">
           <span className="user-info-label">{t('nav.user_label')}</span>

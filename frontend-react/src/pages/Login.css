@@ -4,12 +4,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--color-auth-page-login);
     font-family: 'Inter', sans-serif;
 }
 
 .auth-card {
-    background: white;
+    background: var(--color-auth-card-bg);
     padding: 40px;
     border-radius: 20px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -22,7 +22,7 @@
     font-size: 28px;
     font-weight: 800;
     margin-bottom: 30px;
-    color: #1a202c;
+    color: var(--color-auth-title);
 }
 
 .auth-form {
@@ -39,24 +39,26 @@
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: #4a5568;
+    color: var(--color-auth-label);
     margin-bottom: 8px;
 }
 
 .auth-input {
     width: 100%;
     padding: 12px 16px;
-    border: 2px solid #edf2f7;
+    border: 2px solid var(--color-border-input-auth);
     border-radius: 10px;
     font-size: 16px;
     transition: all 0.3s ease;
-    box-sizing: border-box; /* Это важно, чтобы инпуты не вылезали за края */
+    box-sizing: border-box;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
 }
 
 .auth-input:focus {
-    border-color: #667eea;
+    border-color: var(--color-auth-input-focus-login);
     outline: none;
-    background: #f8fafc;
+    background: var(--color-auth-input-focus-bg);
 }
 
 .auth-submit-button {
@@ -78,13 +80,13 @@
 }
 
 .auth-error {
-    background: #fff5f5;
-    color: #c53030;
+    background: var(--color-error-bg-auth);
+    color: var(--color-error-text-auth);
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 20px;
     font-size: 14px;
-    border: 1px solid #feb2b2;
+    border: 1px solid var(--color-error-border-auth);
 }
 
 .auth-footer {
@@ -92,7 +94,7 @@
 }
 
 .auth-link {
-    color: #667eea;
+    color: var(--color-auth-link-login);
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;

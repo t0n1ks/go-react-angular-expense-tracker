@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "../context/ThemeContext";
 import { PieChart as PieIcon, TrendingUp } from "lucide-react";
 import {
   AreaChart,
@@ -24,6 +25,7 @@ interface Transaction {
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -125,13 +127,13 @@ const Statistics: React.FC = () => {
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="#f1f5f9"
+                    stroke={isDark ? '#1e2a3a' : '#f1f5f9'}
                   />
                   <XAxis
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    tick={{ fill: isDark ? '#94a3b8' : '#94a3b8', fontSize: 12 }}
                     dy={10}
                     interval={0}
                     padding={{ left: 20, right: 20 }}

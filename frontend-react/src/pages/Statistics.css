@@ -8,26 +8,25 @@
 .statistics-title {
     font-size: 2rem;
     font-weight: 800;
-    color: #111827;
+    color: var(--color-text-heading);
     margin-bottom: 2rem;
     letter-spacing: -0.025em;
 }
 
 .charts-layout {
     display: grid;
-    /* Адаптивная сетка: графики встают в ряд на ПК и друг под друга на мобильных */
     grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
     gap: 2rem;
 }
 
 .stat-chart-card {
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 1.5rem;
     padding: 2rem;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--color-border-card);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     transition: transform 0.2s ease;
-    overflow: hidden; /* Важно для скругления графиков */
+    overflow: hidden;
 }
 
 .stat-chart-card:hover {
@@ -37,7 +36,7 @@
 .stat-chart-card h2 {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-heading);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -50,10 +49,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
-    background: #f8fafc;
+    color: var(--color-no-data-text);
+    background: var(--color-no-data-bg);
     border-radius: 1rem;
-    border: 2px dashed #e2e8f0;
+    border: 2px dashed var(--color-no-data-border);
     font-weight: 500;
     text-align: center;
 }
@@ -64,17 +63,15 @@
     margin-top: 4px;
 }
 
-/* Убираем синюю обводку Recharts при клике */
 .recharts-surface:focus {
     outline: none;
 }
 
-/* Адаптация для маленьких экранов */
 @media (max-width: 600px) {
     .charts-layout {
         grid-template-columns: 1fr;
     }
-    
+
     .statistics-wrapper {
         padding: 1rem;
     }

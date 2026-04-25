@@ -6,6 +6,7 @@ import App from './App.tsx';
 import './index.css';
 import './i18n/index';
 import { AuthProvider } from './context/AuthContext.tsx';
+import { ThemeProvider } from './context/ThemeContext.tsx';
 
 import Register from './pages/Register.tsx';
 import Login from './pages/Login.tsx';
@@ -42,8 +43,10 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );

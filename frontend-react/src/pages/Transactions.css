@@ -9,16 +9,15 @@
 .transactions-title {
     font-size: 1.875rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-heading);
     margin-bottom: 2rem;
 }
 
-/* Карточки для формы и таблицы */
 .transaction-card {
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 1rem;
     padding: 2rem;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--color-border-card);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     margin-bottom: 2rem;
 }
@@ -33,13 +32,12 @@
 .card-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-heading);
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-/* Стили формы */
 .transaction-form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -55,24 +53,26 @@
 .form-group label {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--color-text-muted);
 }
 
 .form-input {
     padding: 0.625rem 1rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border-input);
     border-radius: 0.5rem;
     font-size: 0.95rem;
     transition: border-color 0.2s;
     outline: none;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
 }
 
 .form-input:focus {
-    border-color: #3b82f6;
+    border-color: var(--color-input-focus);
 }
 
 .btn-add-transaction {
-    background-color: #3b82f6;
+    background-color: var(--color-btn-primary);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
@@ -85,10 +85,9 @@
 }
 
 .btn-add-transaction:hover {
-    background-color: #2563eb;
+    background-color: var(--color-btn-primary-hover);
 }
 
-/* Таблица транзакций */
 .table-container {
     overflow-x: auto;
 }
@@ -100,28 +99,27 @@
 }
 
 .styled-table th {
-    background-color: #f8fafc;
+    background-color: var(--color-table-header-bg);
     padding: 1rem;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--color-table-header-text);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--color-table-border);
 }
 
 .styled-table td {
     padding: 1rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--color-table-border);
     font-size: 0.95rem;
-    color: #334155;
+    color: var(--color-text-body);
 }
 
 .styled-table tr:hover {
-    background-color: #fcfcfd;
+    background-color: var(--color-table-hover);
 }
 
-/* Цвета для типов транзакций */
 .type-badge {
     padding: 0.25rem 0.625rem;
     border-radius: 2rem;
@@ -130,37 +128,36 @@
     text-transform: uppercase;
 }
 
-.type-income { background: #ecfdf5; color: #059669; }
-.type-expense { background: #fff1f2; color: #e11d48; }
+.type-income { background: var(--color-income-bg); color: var(--color-income-text); }
+.type-expense { background: var(--color-expense-bg); color: var(--color-expense-text); }
 
-.amount-income { color: #059669; font-weight: 700; }
-.amount-expense { color: #e11d48; font-weight: 700; }
+.amount-income { color: var(--color-income-text); font-weight: 700; }
+.amount-expense { color: var(--color-expense-text); font-weight: 700; }
 
 .category-tag {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--color-category-tag-bg);
+    color: var(--color-category-tag-text);
     padding: 0.25rem 0.5rem;
     border-radius: 0.375rem;
     font-size: 0.85rem;
 }
 
-/* Кнопки действий */
 .action-btn {
     padding: 0.4rem;
     border-radius: 0.375rem;
     border: none;
     cursor: pointer;
     background: transparent;
-    color: #94a3b8;
+    color: var(--color-text-placeholder);
     transition: color 0.2s;
 }
 
-.action-btn:hover.edit { color: #3b82f6; }
-.action-btn:hover.delete { color: #ef4444; }
-.action-btn:hover.save { color: #10b981; }
-.action-btn:hover.cancel { color: #64748b; }
+.action-btn:hover.edit { color: var(--color-btn-primary); }
+.action-btn:hover.delete { color: var(--color-btn-logout); }
+.action-btn:hover.save { color: var(--color-btn-create); }
+.action-btn:hover.cancel { color: var(--color-text-muted); }
 .action-btn + .action-btn { margin-left: 4px; }
 
-.edit-row td { background-color: #f8fafc; padding: 0.5rem; vertical-align: middle; }
+.edit-row td { background-color: var(--color-table-header-bg); padding: 0.5rem; vertical-align: middle; }
 .edit-input { padding: 0.4rem 0.6rem; font-size: 0.875rem; width: 100%; min-width: 80px; }
 .edit-actions { white-space: nowrap; }
