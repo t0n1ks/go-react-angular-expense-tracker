@@ -1,12 +1,16 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  template: '<router-outlet />'
 })
 export class App {
-  protected readonly title = signal('tmp-angular-app');
+  constructor(private translate: TranslateService) {
+    const stored = localStorage.getItem('angular_lang') || 'en';
+    translate.setDefaultLang('en');
+    translate.use(stored);
+  }
 }
