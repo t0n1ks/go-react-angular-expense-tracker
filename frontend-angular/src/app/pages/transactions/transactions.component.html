@@ -1,0 +1,122 @@
+<div class="transactions-wrapper">
+  @if (loading()) {
+    <div>{{ 'common.loading' | translate }}</div>
+  } @else {
+    <h1 class="transactions-title">{{ 'transactions.title' | translate }}</h1>
+
+    <!-- Add form -->
+    <div class="transaction-card">
+      <div class="card-title">+ {{ 'transactions.new_record' | translate }}</div>
+      <form class="transaction-form-grid" (ngSubmit)="handleSubmit()">
+        <div class="form-group">
+          <label>{{ 'transactions.amount' | translate }}</label>
+          <input type="number" class="form-input" [(ngModel)]="formState.amount" name="amount" required step="0.01" />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'transactions.type' | translate }}</label>
+          <select class="form-input" [(ngModel)]="formState.type" name="type">
+            <option value="expense">{{ 'transactions.type_expense' | translate }}</option>
+            <option value="income">{{ 'transactions.type_income' | translate }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'transactions.date' | translate }}</label>
+          <input type="date" class="form-input" [(ngModel)]="formState.date" name="date" required />
+        </div>
+
+        <div class="form-group">
+          <label>{{ 'transactions.category' | translate }}</label>
+          <select class="form-input" [(ngModel)]="formState.category_id" name="category_id" required>
+            <option value="" disabled>{{ 'transactions.select_cat' | translate }}</option>
+            @for (cat of categories(); track cat.id) {
+              <option [value]="cat.id">{{ cat.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group form-group-full">
+          <label>{{ 'transactions.description' | translate }}</label>
+          <input type="text" class="form-input" [(ngModel)]="formState.description" name="description"
+            [placeholder]="'transactions.desc_ph' | translate" />
+        </div>
+
+        <button type="submit" class="btn-add-transaction">{{ 'transactions.add_btn' | translate }}</button>
+      </form>
+    </div>
+
+    <!-- Transaction table -->
+    <div class="transaction-card">
+      <div class="card-header">
+        <div class="card-title">📋 {{ 'transactions.history' | translate }}</div>
+      </div>
+      <div class="table-container">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>{{ 'transactions.col_date' | translate }}</th>
+              <th>{{ 'transactions.col_category' | translate }}</th>
+              <th>{{ 'transactions.col_description' | translate }}</th>
+              <th>{{ 'transactions.col_type' | translate }}</th>
+              <th>{{ 'transactions.col_amount' | translate }}</th>
+              <th>{{ 'transactions.col_actions' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (transactions().length === 0) {
+              <tr>
+                <td colspan="6" class="empty-row">{{ 'transactions.no_transactions' | translate }}</td>
+              </tr>
+            } @else {
+              @for (t of transactions(); track t.id) {
+                @if (editingId() === t.id) {
+                  <tr class="edit-row">
+                    <td><input type="date" class="form-input edit-input" [(ngModel)]="editState.date" [name]="'ed_' + t.id + '_date'" /></td>
+                    <td>
+                      <select class="form-input edit-input" [(ngModel)]="editState.category_id" [name]="'ed_' + t.id + '_cat'">
+                        @for (cat of categories(); track cat.id) {
+                          <option [value]="cat.id">{{ cat.name }}</option>
+                        }
+                      </select>
+                    </td>
+                    <td><input type="text" class="form-input edit-input" [(ngModel)]="editState.description" [name]="'ed_' + t.id + '_desc'" /></td>
+                    <td>
+                      <select class="form-input edit-input" [(ngModel)]="editState.type" [name]="'ed_' + t.id + '_type'">
+                        <option value="expense">{{ 'transactions.type_expense' | translate }}</option>
+                        <option value="income">{{ 'transactions.type_income' | translate }}</option>
+                      </select>
+                    </td>
+                    <td><input type="number" class="form-input edit-input" [(ngModel)]="editState.amount" [name]="'ed_' + t.id + '_amt'" step="0.01" min="0.01" /></td>
+                    <td class="edit-actions">
+                      <button class="action-btn save" (click)="handleUpdate(t.id)" [title]="'transactions.save_btn' | translate">✓</button>
+                      <button class="action-btn cancel" (click)="handleCancelEdit()" [title]="'transactions.cancel_btn' | translate">✕</button>
+                    </td>
+                  </tr>
+                } @else {
+                  <tr>
+                    <td>{{ formatDate(t.date) }}</td>
+                    <td><span class="category-tag">{{ t.category.name || ('transactions.no_category' | translate) }}</span></td>
+                    <td>{{ t.description || '—' }}</td>
+                    <td>
+                      <span class="type-badge" [class.type-income]="t.type === 'income'" [class.type-expense]="t.type === 'expense'">
+                        {{ (t.type === 'income' ? 'transactions.type_income' : 'transactions.type_expense') | translate }}
+                      </span>
+                    </td>
+                    <td [class.amount-income]="t.type === 'income'" [class.amount-expense]="t.type === 'expense'">
+                      {{ t.type === 'income' ? '+' : '-' }}${{ formatAmount(t.amount) }}
+                    </td>
+                    <td>
+                      <button class="action-btn edit" (click)="handleEditStart(t)" [title]="'common.edit' | translate">✎</button>
+                      <button class="action-btn delete" (click)="handleDelete(t.id)" [title]="'common.delete' | translate">🗑</button>
+                    </td>
+                  </tr>
+                }
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
