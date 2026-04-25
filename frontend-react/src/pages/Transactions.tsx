@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Trash2, ReceiptText } from 'lucide-react';
+import { Plus, Trash2, ReceiptText, Pencil, X, Check } from 'lucide-react';
 import './Transactions.css';
 
 interface Category { id: number; name: string; }
@@ -24,6 +24,14 @@ const Transactions: React.FC = () => {
     description: '',
     category_id: '',
     type: 'expense'
+  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editState, setEditState] = useState({
+    amount: '',
+    date: '',
+    description: '',
+    category_id: '',
+    type: 'expense' as 'expense' | 'income'
   });
 
   const fetchData = useCallback(async () => {
@@ -55,14 +63,14 @@ const Transactions: React.FC = () => {
       return;
     }
     try {
-      const payload = { 
-        ...formState, 
-        amount: parseFloat(formState.amount), 
-        category_id: parseInt(formState.category_id) 
+      const payload = {
+        ...formState,
+        amount: parseFloat(formState.amount),
+        category_id: parseInt(formState.category_id)
       };
       await axiosInstance.post('/transactions', payload);
       setFormState(prev => ({ ...prev, amount: '', description: '' }));
-      fetchData(); 
+      fetchData();
     } catch {
       alert("Ошибка при сохранении");
     }
@@ -78,6 +86,34 @@ const Transactions: React.FC = () => {
     }
   };
 
+  const handleEditStart = (t: Transaction) => {
+    setEditingId(t.id);
+    setEditState({
+      amount: t.amount.toString(),
+      date: t.date.split('T')[0],
+      description: t.description,
+      category_id: t.category?.id.toString() ?? '',
+      type: t.type
+    });
+  };
+
+  const handleUpdate = async (id: number) => {
+    try {
+      const payload = {
+        ...editState,
+        amount: parseFloat(editState.amount),
+        category_id: parseInt(editState.category_id)
+      };
+      await axiosInstance.put(`/transactions/${id}`, payload);
+      setEditingId(null);
+      fetchData();
+    } catch {
+      alert("Ошибка при обновлении");
+    }
+  };
+
+  const handleCancelEdit = () => setEditingId(null);
+
   if (loading) return <div className="transactions-wrapper">Загрузка...</div>;
 
   return (
@@ -89,15 +125,15 @@ const Transactions: React.FC = () => {
         <form onSubmit={handleSubmit} className="transaction-form-grid">
           <div className="form-group">
             <label>Сумма</label>
-            <input type="number" className="form-input" value={formState.amount} 
+            <input type="number" className="form-input" value={formState.amount}
               onChange={e => setFormState({...formState, amount: e.target.value})} required step="0.01"/>
           </div>
-          
+
           <div className="form-group">
             <label>Тип</label>
-            <select 
-        className="form-input" 
-           value={formState.type} 
+            <select
+        className="form-input"
+           value={formState.type}
           onChange={e => {
             const value = e.target.value;
          if (value === 'expense' || value === 'income') {
@@ -117,10 +153,10 @@ const Transactions: React.FC = () => {
 
           <div className="form-group">
             <label>Категория</label>
-            <select 
-              className="form-input" 
-              value={formState.category_id} 
-              onChange={e => setFormState({...formState, category_id: e.target.value})} 
+            <select
+              className="form-input"
+              value={formState.category_id}
+              onChange={e => setFormState({...formState, category_id: e.target.value})}
               required
             >
               <option value="" disabled>Выберите категорию</option>
@@ -132,10 +168,10 @@ const Transactions: React.FC = () => {
 
           <div className="form-group" style={{gridColumn: 'span 2'}}>
             <label>Описание</label>
-            <input type="text" className="form-input" value={formState.description} 
+            <input type="text" className="form-input" value={formState.description}
               onChange={e => setFormState({...formState, description: e.target.value})} placeholder="На что потратили?"/>
           </div>
-          
+
           <button type="submit" className="btn-add-transaction">Добавить</button>
         </form>
       </div>
@@ -163,24 +199,72 @@ const Transactions: React.FC = () => {
                 </tr>
               ) : (
                 transactions.map(t => (
-                  <tr key={t.id}>
-                    <td>{new Date(t.date).toLocaleDateString()}</td>
-                    <td><span className="category-tag">{t.category?.name || 'Без категории'}</span></td>
-                    <td>{t.description || '—'}</td>
-                    <td>
-                      <span className={`type-badge ${t.type === 'income' ? 'type-income' : 'type-expense'}`}>
-                        {t.type === 'income' ? 'Доход' : 'Расход'}
-                      </span>
-                    </td>
-                    <td className={t.type === 'income' ? 'amount-income' : 'amount-expense'}>
-                      {t.type === 'income' ? '+' : '-'}${Math.abs(t.amount).toLocaleString()}
-                    </td>
-                    <td>
-                      <button onClick={() => handleDelete(t.id)} className="action-btn delete" title="Удалить">
-                        <Trash2 size={18}/>
-                      </button>
-                    </td>
-                  </tr>
+                  editingId === t.id ? (
+                    <tr key={t.id} className="edit-row">
+                      <td>
+                        <input type="date" className="form-input edit-input" value={editState.date}
+                          onChange={e => setEditState({...editState, date: e.target.value})}/>
+                      </td>
+                      <td>
+                        <select className="form-input edit-input" value={editState.category_id}
+                          onChange={e => setEditState({...editState, category_id: e.target.value})}>
+                          {categories.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input type="text" className="form-input edit-input" value={editState.description}
+                          onChange={e => setEditState({...editState, description: e.target.value})}
+                          placeholder="Описание"/>
+                      </td>
+                      <td>
+                        <select className="form-input edit-input" value={editState.type}
+                          onChange={e => {
+                            const v = e.target.value;
+                            if (v === 'expense' || v === 'income') setEditState({...editState, type: v});
+                          }}>
+                          <option value="expense">Расход</option>
+                          <option value="income">Доход</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" className="form-input edit-input" value={editState.amount}
+                          onChange={e => setEditState({...editState, amount: e.target.value})}
+                          step="0.01" min="0.01"/>
+                      </td>
+                      <td className="edit-actions">
+                        <button onClick={() => handleUpdate(t.id)} className="action-btn save" title="Сохранить">
+                          <Check size={18}/>
+                        </button>
+                        <button onClick={handleCancelEdit} className="action-btn cancel" title="Отмена">
+                          <X size={18}/>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={t.id}>
+                      <td>{new Date(t.date).toLocaleDateString()}</td>
+                      <td><span className="category-tag">{t.category?.name || 'Без категории'}</span></td>
+                      <td>{t.description || '—'}</td>
+                      <td>
+                        <span className={`type-badge ${t.type === 'income' ? 'type-income' : 'type-expense'}`}>
+                          {t.type === 'income' ? 'Доход' : 'Расход'}
+                        </span>
+                      </td>
+                      <td className={t.type === 'income' ? 'amount-income' : 'amount-expense'}>
+                        {t.type === 'income' ? '+' : '-'}${Math.abs(t.amount).toLocaleString()}
+                      </td>
+                      <td>
+                        <button onClick={() => handleEditStart(t)} className="action-btn edit" title="Редактировать">
+                          <Pencil size={18}/>
+                        </button>
+                        <button onClick={() => handleDelete(t.id)} className="action-btn delete" title="Удалить">
+                          <Trash2 size={18}/>
+                        </button>
+                      </td>
+                    </tr>
+                  )
                 ))
               )}
             </tbody>

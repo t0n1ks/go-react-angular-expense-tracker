@@ -157,3 +157,10 @@
 
 .action-btn:hover.edit { color: #3b82f6; }
 .action-btn:hover.delete { color: #ef4444; }
+.action-btn:hover.save { color: #10b981; }
+.action-btn:hover.cancel { color: #64748b; }
+.action-btn + .action-btn { margin-left: 4px; }
+
+.edit-row td { background-color: #f8fafc; padding: 0.5rem; vertical-align: middle; }
+.edit-input { padding: 0.4rem 0.6rem; font-size: 0.875rem; width: 100%; min-width: 80px; }
+.edit-actions { white-space: nowrap; }
