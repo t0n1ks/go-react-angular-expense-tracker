@@ -35,7 +35,8 @@
     "ufo_cat_desc": "Hier kannst du deine Ausgabenkategorien erstellen",
     "ufo_tx_desc": "Hier kannst du Transaktionen hinzufügen und sortieren",
     "ufo_stats_desc": "Hier kannst du Statistiken für jeden Zeitraum sehen",
-    "ufo_replay": "Klicken zum Wiederholen"
+    "ufo_skip": "Überspringen",
+    "ufo_replay": "Intro wiederholen"
   },
   "transactions": {
     "title": "Transaktionen",

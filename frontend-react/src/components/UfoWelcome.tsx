@@ -1,22 +1,26 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './UfoWelcome.css';
 
+const SEEN_KEY = 'ufo_intro_seen';
+
 type Phase = 'flyIn' | 'showText' | 'hideText' | 'showTiles' | 'touring' | 'flyOut' | 'done';
 
 interface TileDef {
   key: string;
   navKey: string;
+  path: string;
   Icon: LucideIcon;
 }
 
 const TILES: TileDef[] = [
-  { key: 'categories', navKey: 'nav.categories', Icon: Tag },
-  { key: 'transactions', navKey: 'nav.transactions', Icon: ArrowLeftRight },
-  { key: 'statistics', navKey: 'nav.statistics', Icon: BarChart2 },
+  { key: 'categories', navKey: 'nav.categories', path: '/categories', Icon: Tag },
+  { key: 'transactions', navKey: 'nav.transactions', path: '/transactions', Icon: ArrowLeftRight },
+  { key: 'statistics', navKey: 'nav.statistics', path: '/statistics', Icon: BarChart2 },
 ];
 
 const TILE_DESC_KEYS = [
@@ -47,13 +51,9 @@ const UfoSvg: React.FC<UfoSvgProps> = ({ beamVisible }) => (
     {beamVisible && (
       <polygon points="22,36 42,36 50,116 14,116" fill="url(#ufo-beam-grad)" />
     )}
-    {/* Dome */}
     <ellipse cx="32" cy="20" rx="13" ry="10" fill="#475569" stroke="#64748b" strokeWidth="1.5" />
-    {/* Window */}
     <ellipse cx="32" cy="18" rx="7" ry="6" fill="#38bdf8" opacity="0.9" />
-    {/* Disc */}
     <ellipse cx="32" cy="28" rx="29" ry="8.5" fill="#334155" stroke="#475569" strokeWidth="1.5" />
-    {/* Lights */}
     <circle cx="16" cy="29" r="2.5" fill="#fbbf24" />
     <circle cx="32" cy="32" r="2.5" fill="#fbbf24" />
     <circle cx="48" cy="29" r="2.5" fill="#fbbf24" />
@@ -63,19 +63,26 @@ const UfoSvg: React.FC<UfoSvgProps> = ({ beamVisible }) => (
 const UfoWelcome: React.FC = () => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const alreadySeen = useRef(localStorage.getItem(SEEN_KEY) === 'true');
   const [containerWidth, setContainerWidth] = useState(0);
-  const [phase, setPhase] = useState<Phase>('flyIn');
+  const [phase, setPhase] = useState<Phase>(alreadySeen.current ? 'done' : 'flyIn');
   const [showText, setShowText] = useState(false);
-  const [showTiles, setShowTiles] = useState(false);
+  const [showTiles, setShowTiles] = useState(alreadySeen.current);
   const [activeTile, setActiveTile] = useState(-1);
   const [showBubble, setShowBubble] = useState(false);
   const ufoControls = useAnimation();
   const generation = useRef(0);
 
+  // Measure container; if already seen, position UFO off-screen immediately
   useEffect(() => {
     const el = containerRef.current;
-    if (el) setContainerWidth(el.offsetWidth);
-  }, []);
+    if (!el) return;
+    const w = el.offsetWidth;
+    setContainerWidth(w);
+    if (alreadySeen.current) {
+      ufoControls.set({ x: w + 80, y: 10 });
+    }
+  }, [ufoControls]);
 
   const runSequence = useCallback(
     async (width: number) => {
@@ -137,37 +144,45 @@ const UfoWelcome: React.FC = () => {
         transition: { duration: 0.9, ease: 'easeIn' },
       });
       if (!alive()) return;
+
+      localStorage.setItem(SEEN_KEY, 'true');
       setPhase('done');
     },
     [ufoControls]
   );
 
+  // Only auto-start the animation on first-ever visit
   useEffect(() => {
-    if (containerWidth > 0) runSequence(containerWidth);
+    if (containerWidth > 0 && !alreadySeen.current) {
+      runSequence(containerWidth);
+    }
     return () => {
       generation.current++;
     };
   }, [containerWidth, runSequence]);
 
+  const handleSkip = () => {
+    generation.current++; // cancels the running async chain
+    setShowText(false);
+    setShowBubble(false);
+    setActiveTile(-1);
+    setShowTiles(true);
+    ufoControls.set({ x: containerWidth + 80, y: 10 });
+    localStorage.setItem(SEEN_KEY, 'true');
+    setPhase('done');
+  };
+
   const handleReplay = () => {
-    if (phase !== 'done') return;
     ufoControls.set({ x: -100, y: 10 });
     runSequence(containerWidth);
   };
 
+  const isDone = phase === 'done';
+
   return (
-    <div
-      ref={containerRef}
-      className={`ufo-welcome${phase === 'done' ? ' ufo-welcome--clickable' : ''}`}
-      onClick={handleReplay}
-    >
+    <div ref={containerRef} className="ufo-welcome">
       {/* UFO unit */}
-      <motion.div
-        className="ufo-ship"
-        initial={{ x: -100, y: 10 }}
-        animate={ufoControls}
-      >
-        {/* Speech bubble */}
+      <motion.div className="ufo-ship" initial={{ x: -100, y: 10 }} animate={ufoControls}>
         <AnimatePresence>
           {showBubble && activeTile >= 0 && (
             <motion.div
@@ -182,8 +197,6 @@ const UfoWelcome: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* UFO with infinite bob */}
         <motion.div
           animate={{ y: [0, -5, 0] }}
           transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
@@ -191,6 +204,38 @@ const UfoWelcome: React.FC = () => {
           <UfoSvg beamVisible={activeTile >= 0} />
         </motion.div>
       </motion.div>
+
+      {/* Corner controls */}
+      <div className="ufo-controls">
+        <AnimatePresence>
+          {!isDone && containerWidth > 0 && (
+            <motion.button
+              className="ufo-btn"
+              onClick={handleSkip}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, delay: 0.8 }}
+            >
+              {t('dashboard.ufo_skip')}
+            </motion.button>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {isDone && (
+            <motion.button
+              className="ufo-btn"
+              onClick={handleReplay}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+            >
+              {t('dashboard.ufo_replay')}
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Intro text */}
       <AnimatePresence>
@@ -207,36 +252,28 @@ const UfoWelcome: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Section tiles */}
-      <div className="ufo-tiles">
+      {/* Section tiles — become clickable links once animation is done */}
+      <div className={`ufo-tiles${isDone ? ' ufo-tiles--active' : ''}`}>
         {TILES.map((tile, i) => (
-          <motion.div
+          <Link
             key={tile.key}
-            className={`ufo-tile${activeTile === i ? ' ufo-tile--active' : ''}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={showTiles ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ delay: showTiles ? i * 0.15 : 0, duration: 0.4 }}
+            to={tile.path}
+            className="ufo-tile-link"
+            tabIndex={isDone ? 0 : -1}
           >
-            <tile.Icon size={20} className="ufo-tile-icon" />
-            <span>{t(tile.navKey)}</span>
-          </motion.div>
+            <motion.div
+              className={`ufo-tile${activeTile === i ? ' ufo-tile--active' : ''}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={showTiles ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+              whileHover={isDone ? { y: -3 } : undefined}
+              transition={{ delay: showTiles ? i * 0.15 : 0, duration: 0.4 }}
+            >
+              <tile.Icon size={20} className="ufo-tile-icon" />
+              <span>{t(tile.navKey)}</span>
+            </motion.div>
+          </Link>
         ))}
       </div>
-
-      {/* Replay hint */}
-      <AnimatePresence>
-        {phase === 'done' && (
-          <motion.span
-            className="ufo-replay-hint"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            {t('dashboard.ufo_replay')}
-          </motion.span>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

@@ -7,11 +7,6 @@
     margin-top: 1rem;
     min-height: 260px;
     user-select: none;
-    cursor: default;
-}
-
-.ufo-welcome--clickable {
-    cursor: pointer;
 }
 
 /* UFO wrapper — absolutely positioned, floats above everything */
@@ -55,7 +50,7 @@
     border-top-color: var(--color-border-card);
 }
 
-/* Downward pointer — fill layer (covers border) */
+/* Downward pointer — fill layer */
 .ufo-bubble::before {
     content: '';
     position: absolute;
@@ -67,7 +62,32 @@
     z-index: 1;
 }
 
-/* Intro text — centered in upper portion of card */
+/* Corner controls — Skip / Replay intro buttons */
+.ufo-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20;
+}
+
+.ufo-btn {
+    background: transparent;
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+    font-family: inherit;
+}
+
+.ufo-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+
+/* Intro text — centered in the upper portion of the card */
 .ufo-intro-text {
     position: absolute;
     top: 80px;
@@ -81,7 +101,7 @@
     pointer-events: none;
 }
 
-/* Tiles row — anchored to bottom of card */
+/* Tiles row — anchored to the bottom of the card */
 .ufo-tiles {
     position: absolute;
     bottom: 1.5rem;
@@ -91,8 +111,22 @@
     gap: 0.75rem;
 }
 
-.ufo-tile {
+/* Link wrapper: flex child, no decoration, non-interactive until animation ends */
+.ufo-tile-link {
     flex: 1;
+    text-decoration: none;
+    display: block;
+    pointer-events: none;
+    border-radius: 0.875rem;
+}
+
+.ufo-tiles--active .ufo-tile-link {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.ufo-tile {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -106,9 +140,16 @@
     transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
+/* UFO-hover highlight during animation */
 .ufo-tile--active {
     border-color: #38bdf8;
     box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
+    color: var(--color-text-heading);
+}
+
+/* Mouse-hover highlight after animation finishes */
+.ufo-tiles--active .ufo-tile-link:hover .ufo-tile {
+    border-color: rgba(56, 189, 248, 0.5);
     color: var(--color-text-heading);
 }
 
@@ -118,17 +159,7 @@
     transition: opacity 0.3s ease;
 }
 
-.ufo-tile--active .ufo-tile-icon {
+.ufo-tile--active .ufo-tile-icon,
+.ufo-tiles--active .ufo-tile-link:hover .ufo-tile-icon {
     opacity: 1;
-}
-
-/* Replay hint — bottom-right corner */
-.ufo-replay-hint {
-    position: absolute;
-    bottom: 0.5rem;
-    right: 1rem;
-    font-size: 0.7rem;
-    color: var(--color-text-muted);
-    opacity: 0.55;
-    pointer-events: none;
 }

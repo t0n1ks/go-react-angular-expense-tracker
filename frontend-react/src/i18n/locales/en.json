@@ -35,7 +35,8 @@
     "ufo_cat_desc": "Here you can create your spending categories",
     "ufo_tx_desc": "Here you can add and sort your transactions",
     "ufo_stats_desc": "Here you can see your statistics for any period",
-    "ufo_replay": "Click to replay"
+    "ufo_skip": "Skip",
+    "ufo_replay": "Replay intro"
   },
   "transactions": {
     "title": "Transactions",
