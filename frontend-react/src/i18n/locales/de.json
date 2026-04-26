@@ -22,7 +22,12 @@
     "have_account": "Bereits ein Konto? Anmelden",
     "login_error": "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.",
     "register_error": "Registrierung fehlgeschlagen. Versuchen Sie einen anderen Benutzernamen.",
-    "register_success": "Registrierung erfolgreich! Sie können sich jetzt anmelden."
+    "register_success": "Registrierung erfolgreich! Sie können sich jetzt anmelden.",
+    "show_password": "Passwort anzeigen",
+    "hide_password": "Passwort verbergen",
+    "confirm_password": "Passwort bestätigen",
+    "confirm_password_ph": "Passwort wiederholen",
+    "passwords_mismatch": "Passwörter stimmen nicht überein"
   },
   "dashboard": {
     "title": "Finanzübersicht",

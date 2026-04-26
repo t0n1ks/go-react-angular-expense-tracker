@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import PasswordField from '../components/PasswordField';
 import './Login.css';
 
 interface AxiosErrorResponse {
@@ -68,13 +69,12 @@ const Login: React.FC = () => {
 
           <div className="auth-field">
             <label className="auth-label" htmlFor="password">{t('auth.password')}</label>
-            <input
-              className="auth-input"
+            <PasswordField
               id="password"
-              type="password"
-              placeholder={t('auth.password_ph')}
+              className="auth-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder={t('auth.password_ph')}
               required
             />
           </div>

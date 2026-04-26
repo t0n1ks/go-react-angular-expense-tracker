@@ -22,7 +22,12 @@
     "have_account": "Already have an account? Sign In",
     "login_error": "Login failed. Please check your credentials.",
     "register_error": "Registration failed. Try a different username.",
-    "register_success": "Registration successful! You can now log in."
+    "register_success": "Registration successful! You can now log in.",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "confirm_password": "Confirm Password",
+    "confirm_password_ph": "Repeat your password",
+    "passwords_mismatch": "Passwords do not match"
   },
   "dashboard": {
     "title": "Financial Overview",

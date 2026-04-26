@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import PasswordField from '../components/PasswordField';
 import './Register.css';
 
 interface AxiosErrorResponse {
@@ -15,6 +16,7 @@ interface AxiosErrorResponse {
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const { axiosInstance } = useAuth();
@@ -25,6 +27,11 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError(t('auth.passwords_mismatch'));
+      return;
+    }
 
     try {
       const response = await axiosInstance.post('/register', { username, password });
@@ -70,13 +77,24 @@ const Register: React.FC = () => {
 
           <div className="auth-field-reg">
             <label className="auth-label-reg" htmlFor="password">{t('auth.password')}</label>
-            <input
-              className="auth-input-reg"
+            <PasswordField
               id="password"
-              type="password"
-              placeholder={t('auth.password_ph')}
+              className="auth-input-reg"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder={t('auth.password_ph')}
+              required
+            />
+          </div>
+
+          <div className="auth-field-reg">
+            <label className="auth-label-reg" htmlFor="confirmPassword">{t('auth.confirm_password')}</label>
+            <PasswordField
+              id="confirmPassword"
+              className="auth-input-reg"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t('auth.confirm_password_ph')}
               required
             />
           </div>
