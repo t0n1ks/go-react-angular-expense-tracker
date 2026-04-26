@@ -3,8 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, Settings } from 'lucide-react';
-import LanguageSwitcher from './LanguageSwitcher';
+import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
 import './Layout.css';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -34,8 +33,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </NavLink>
         </nav>
 
-        <LanguageSwitcher />
-
         <button
           onClick={toggleTheme}
           className="theme-toggle-btn"
@@ -58,6 +55,29 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <main className="main-content">
         {children}
       </main>
+
+      <nav className="bottom-nav">
+        <NavLink to="/" end className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
+          <LayoutDashboard size={20} />
+          <span>{t('nav.home')}</span>
+        </NavLink>
+        <NavLink to="/categories" className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
+          <Tag size={20} />
+          <span>{t('nav.categories')}</span>
+        </NavLink>
+        <NavLink to="/transactions" className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
+          <ArrowLeftRight size={20} />
+          <span>{t('nav.transactions')}</span>
+        </NavLink>
+        <NavLink to="/statistics" className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
+          <BarChart2 size={20} />
+          <span>{t('nav.statistics')}</span>
+        </NavLink>
+        <NavLink to="/settings" className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
+          <Settings size={20} />
+          <span>{t('nav.settings')}</span>
+        </NavLink>
+      </nav>
     </div>
   );
 };

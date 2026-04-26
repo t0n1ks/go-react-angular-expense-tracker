@@ -61,3 +61,9 @@
 .snackbar-close:hover {
     color: #f1f5f9;
 }
+
+@media (max-width: 768px) {
+  .delete-snackbar {
+    bottom: calc(var(--bottom-nav-height) + 0.75rem);
+  }
+}

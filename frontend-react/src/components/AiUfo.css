@@ -62,3 +62,9 @@
 .ai-ufo-ship {
   pointer-events: auto;
 }
+
+@media (max-width: 768px) {
+  .ai-ufo-overlay {
+    bottom: calc(var(--bottom-nav-height) + 1rem);
+  }
+}
