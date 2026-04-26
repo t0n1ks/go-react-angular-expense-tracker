@@ -8,8 +8,9 @@ export const TOUR_KEY = 'tour_v1_done';
 const UFO_W = 60;
 const UFO_H = 42;
 const HOVER_MS = 4500;
-const BUBBLE_W = 240;
-const BUBBLE_EST_H = 160;
+const DESKTOP_BUBBLE_W = 240;
+const BOTTOM_NAV_H = 60;
+const HIGHLIGHT_CLASS = 'tour-highlight-active';
 
 interface Step {
   desktopSel: string;
@@ -30,13 +31,12 @@ function clamp(min: number, val: number, max: number): number {
   return Math.max(min, Math.min(max, val));
 }
 
-function getTargetCenter(step: Step): { x: number; y: number } | null {
-  const isMobile = window.matchMedia('(max-width: 1024px)').matches;
-  const sel = isMobile ? step.mobileSel : step.desktopSel;
-  const el = document.querySelector<HTMLElement>(sel);
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  return r.width > 0 ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+function isMob(): boolean {
+  return window.matchMedia('(max-width: 1024px)').matches;
+}
+
+function getTargetEl(step: Step): HTMLElement | null {
+  return document.querySelector<HTMLElement>(isMob() ? step.mobileSel : step.desktopSel);
 }
 
 const UfoSvg: React.FC = () => (
@@ -57,32 +57,32 @@ const GuidedTour: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [showBubble, setShowBubble] = useState(false);
-  const [bubblePos, setBubblePos] = useState({ x: 0, y: 0 });
+  const [bubblePos, setBubblePos] = useState({ x: 0, y: 0, mobile: false });
 
   const visibleRef = useRef(false);
   const stepRef = useRef(0);
   const ufoPosRef = useRef({ x: 0, y: 0 });
+  const highlightedElRef = useRef<HTMLElement | null>(null);
   const stepTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const delayTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const setStepSync = (s: number) => {
-    stepRef.current = s;
-    setStep(s);
-  };
+  const setStepSync = (s: number) => { stepRef.current = s; setStep(s); };
+  const setVisibleSync = (v: boolean) => { visibleRef.current = v; setVisible(v); };
 
-  const setVisibleSync = (v: boolean) => {
-    visibleRef.current = v;
-    setVisible(v);
+  const clearHighlight = () => {
+    highlightedElRef.current?.classList.remove(HIGHLIGHT_CLASS);
+    highlightedElRef.current = null;
   };
 
   const finish = async () => {
     clearTimeout(stepTimer.current);
     clearTimeout(delayTimer.current);
+    clearHighlight();
     setShowBubble(false);
     await controls.start({
       opacity: 0,
       y: ufoPosRef.current.y - 80,
-      transition: { duration: 0.4, ease: 'easeIn' },
+      transition: { duration: 0.35, ease: 'easeIn' as const },
     });
     setVisibleSync(false);
     localStorage.setItem(TOUR_KEY, '1');
@@ -90,103 +90,114 @@ const GuidedTour: React.FC = () => {
 
   const runStep = async (idx: number) => {
     if (!visibleRef.current) return;
-    if (idx >= STEPS.length) {
-      finish();
-      return;
-    }
+    if (idx >= STEPS.length) { finish(); return; }
 
     clearTimeout(stepTimer.current);
+    clearHighlight();
     setShowBubble(false);
 
-    const delay = idx === 0 ? 80 : 200;
-    await new Promise<void>((res) => {
-      delayTimer.current = setTimeout(res, delay);
-    });
-
+    await new Promise<void>((res) => { delayTimer.current = setTimeout(res, idx === 0 ? 80 : 200); });
     if (!visibleRef.current) return;
 
     setStepSync(idx);
 
-    const center = getTargetCenter(STEPS[idx]);
+    const mob = isMob();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    let targetX: number;
-    let targetY: number;
+    // Apply glow to target element
+    const el = getTargetEl(STEPS[idx]);
+    if (el) { highlightedElRef.current = el; el.classList.add(HIGHLIGHT_CLASS); }
 
-    if (center) {
-      targetX = clamp(8, center.x - UFO_W / 2, vw - UFO_W - 8);
-      targetY = clamp(64, center.y - UFO_H - 28, vh - 200);
+    if (mob) {
+      // UFO: static at center-right, clear of mobile header (54px) and bottom nav (60px)
+      const ufoX = vw - UFO_W - 16;
+      const ufoY = vh - BOTTOM_NAV_H - UFO_H - 32;
+      ufoPosRef.current = { x: ufoX, y: ufoY };
+
+      // Bubble: full-width, tucked above the UFO
+      const bubbleH = 148;
+      const by = Math.max(58, ufoY - bubbleH - 10);
+      setBubblePos({ x: 12, y: by, mobile: true });
+
+      if (idx === 0) {
+        // Slide in from right edge on first step only
+        await controls.start({
+          x: ufoX, y: ufoY, opacity: 1,
+          transition: { type: 'tween' as const, duration: 0.45, ease: 'easeOut' as const },
+        });
+      }
+      // Subsequent steps: UFO stays put — no animation
     } else {
-      targetX = vw / 2 - UFO_W / 2;
-      targetY = vh / 2 - UFO_H / 2;
+      // Desktop: UFO animates to hover above the glowing element
+      const rect = el?.getBoundingClientRect();
+      let ufoX: number, ufoY: number;
+
+      if (rect && rect.width > 0) {
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        ufoX = clamp(8, cx - UFO_W / 2, vw - UFO_W - 8);
+        ufoY = clamp(64, cy - UFO_H - 28, vh - 200);
+      } else {
+        ufoX = vw / 2 - UFO_W / 2;
+        ufoY = vh / 2 - UFO_H / 2;
+      }
+
+      ufoPosRef.current = { x: ufoX, y: ufoY };
+
+      // Bubble: beside UFO, avoiding the glow
+      const goRight = ufoX + UFO_W / 2 < vw * 0.55;
+      setBubblePos({
+        x: goRight ? ufoX + UFO_W + 12 : ufoX - DESKTOP_BUBBLE_W - 12,
+        y: Math.max(64, ufoY - 8),
+        mobile: false,
+      });
+
+      await controls.start({
+        x: ufoX, y: ufoY, opacity: 1,
+        transition: idx === 0
+          ? { type: 'tween' as const, duration: 0.6, ease: 'easeOut' as const }
+          : { type: 'spring' as const, stiffness: 120, damping: 18 },
+      });
     }
-
-    ufoPosRef.current = { x: targetX, y: targetY };
-
-    const isMobile = window.matchMedia('(max-width: 1024px)').matches;
-    let bx: number;
-    let by: number;
-
-    if (isMobile) {
-      bx = clamp(8, targetX + UFO_W / 2 - BUBBLE_W / 2, vw - BUBBLE_W - 8);
-      by = Math.max(60, targetY - BUBBLE_EST_H - 14);
-    } else {
-      const goRight = targetX + UFO_W / 2 < vw * 0.55;
-      bx = goRight ? targetX + UFO_W + 12 : targetX - BUBBLE_W - 12;
-      by = Math.max(64, targetY - 8);
-    }
-
-    setBubblePos({ x: bx, y: by });
-
-    const transitionConfig =
-      idx === 0
-        ? { type: 'tween' as const, duration: 0.6, ease: 'easeOut' as const }
-        : { type: 'spring' as const, stiffness: 120, damping: 18 };
-
-    await controls.start({
-      x: targetX,
-      y: targetY,
-      opacity: 1,
-      transition: transitionConfig,
-    });
 
     if (!visibleRef.current) return;
     setShowBubble(true);
 
     if (idx < STEPS.length - 1) {
       stepTimer.current = setTimeout(() => {
-        if (visibleRef.current && stepRef.current === idx) {
-          runStep(idx + 1);
-        }
+        if (visibleRef.current && stepRef.current === idx) runStep(idx + 1);
       }, HOVER_MS);
     }
   };
 
   const handleNext = () => {
     const nextIdx = stepRef.current + 1;
-    if (nextIdx >= STEPS.length) {
-      finish();
-    } else {
-      runStep(nextIdx);
-    }
+    if (nextIdx >= STEPS.length) finish(); else runStep(nextIdx);
   };
 
   useEffect(() => {
     if (localStorage.getItem(TOUR_KEY)) return;
 
-    controls.set({ x: window.innerWidth / 2, y: window.innerHeight + 60, opacity: 0 });
-    setVisibleSync(true);
+    const mob = isMob();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-    delayTimer.current = setTimeout(() => {
-      runStep(0);
-    }, 1500);
+    if (mob) {
+      controls.set({ x: vw + UFO_W, y: vh - BOTTOM_NAV_H - UFO_H - 32, opacity: 0 });
+    } else {
+      controls.set({ x: vw / 2 - UFO_W / 2, y: vh + 60, opacity: 0 });
+    }
+
+    setVisibleSync(true);
+    delayTimer.current = setTimeout(() => { runStep(0); }, 1500);
 
     return () => {
       clearTimeout(stepTimer.current);
       clearTimeout(delayTimer.current);
+      clearHighlight();
     };
-    // finish / runStep intentionally excluded — stable via refs
+    // runStep / finish stable via refs — intentionally excluded
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -196,7 +207,7 @@ const GuidedTour: React.FC = () => {
 
   return (
     <div className="guided-tour-root">
-      <div className="guided-tour-overlay" onClick={finish} />
+      {/* No overlay — page stays fully readable and interactive */}
 
       <motion.div
         className="tour-ufo-wrap"
@@ -215,7 +226,7 @@ const GuidedTour: React.FC = () => {
       <AnimatePresence>
         {showBubble && (
           <motion.div
-            className="tour-bubble"
+            className={`tour-bubble${bubblePos.mobile ? ' tour-bubble--mobile' : ''}`}
             style={{ position: 'fixed', left: bubblePos.x, top: bubblePos.y }}
             initial={{ opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

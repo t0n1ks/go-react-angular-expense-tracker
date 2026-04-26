@@ -1,45 +1,61 @@
+/* ── Tour root: invisible container, never blocks interaction ────────────── */
 .guided-tour-root {
   position: fixed;
   inset: 0;
   z-index: 9998;
   pointer-events: none;
-  overflow: hidden;
 }
 
-.guided-tour-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.15);
-  backdrop-filter: blur(1px);
-  pointer-events: auto;
-  cursor: pointer;
-}
-
+/* ── UFO wrapper ─────────────────────────────────────────────────────────── */
 .tour-ufo-wrap {
   z-index: 9999;
   pointer-events: none;
 }
 
+/* Soft downward glow below UFO — subtle beacon */
 .tour-spotlight {
   position: absolute;
-  top: 42px;
+  top: 40px;
   left: 50%;
   transform: translateX(-50%);
-  width: 140px;
-  height: 140px;
+  width: 100px;
+  height: 100px;
   background: radial-gradient(
     ellipse at top,
-    rgba(14, 165, 233, 0.22) 0%,
-    rgba(16, 185, 129, 0.08) 45%,
-    transparent 70%
+    rgba(14, 165, 233, 0.18) 0%,
+    rgba(16, 185, 129, 0.06) 50%,
+    transparent 72%
   );
   pointer-events: none;
 }
 
+/* ── Peripheral glow — injected on the active nav element ───────────────── */
+.tour-highlight-active {
+  box-shadow:
+    0 0 0 2px rgba(14, 165, 233, 0.65),
+    0 0 18px rgba(14, 165, 233, 0.32);
+  border-radius: 8px;
+  animation: tour-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tour-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(14, 165, 233, 0.65),
+      0 0 16px rgba(14, 165, 233, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(14, 165, 233, 0.9),
+      0 0 30px rgba(14, 165, 233, 0.52);
+  }
+}
+
+/* ── Speech bubble ───────────────────────────────────────────────────────── */
 .tour-bubble {
   z-index: 9999;
   pointer-events: auto;
-  width: clamp(180px, 38vw, 240px);
+  width: clamp(200px, 38vw, 240px);
   background: var(--color-bg-card);
   border: 1px solid var(--color-border-card);
   border-radius: 14px;
@@ -47,18 +63,24 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Mobile: stretch full-width, compact height */
+.tour-bubble--mobile {
+  width: calc(100vw - 24px);
+  max-width: none;
+}
+
 .tour-bubble-title {
   font-weight: 700;
   font-size: clamp(0.8rem, 2.5vw, 0.95rem);
   color: var(--color-text-heading);
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.3rem;
 }
 
 .tour-bubble-text {
   font-size: clamp(0.72rem, 2vw, 0.82rem);
   color: var(--color-text-muted);
   line-height: 1.5;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.7rem;
 }
 
 .tour-bubble-footer {
@@ -105,6 +127,7 @@
   padding: 0.3rem 0.5rem;
   border-radius: 6px;
   transition: color 0.15s;
+  pointer-events: auto;
 }
 
 .tour-btn-skip:hover {
@@ -123,19 +146,9 @@
   border-radius: 8px;
   transition: opacity 0.15s;
   white-space: nowrap;
+  pointer-events: auto;
 }
 
 .tour-btn-next:hover {
   opacity: 0.85;
-}
-
-@media (max-width: 1024px) {
-  .tour-bubble {
-    width: clamp(200px, 82vw, 300px);
-  }
-
-  .tour-spotlight {
-    width: 90px;
-    height: 90px;
-  }
 }
