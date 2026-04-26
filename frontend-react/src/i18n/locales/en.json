@@ -32,6 +32,9 @@
     "welcome_title": "Welcome Back!",
     "welcome_body": "Your finances are under control. Find detailed analytics by category in the Statistics section.",
     "loading": "Loading...",
+    "budget_health": "Budget Health",
+    "income_of_expected": "of expected salary",
+    "forecast": "Forecast",
     "ufo_intro": "Welcome back! In these sections, you will find useful functionality",
     "ufo_cat_desc": "Here you can create your spending categories",
     "ufo_tx_desc": "Here you can add and sort your transactions",
@@ -102,6 +105,12 @@
     "goals_title": "Financial Goals",
     "monthly_goal": "Monthly Spending Goal",
     "monthly_goal_ph": "e.g. 2000",
+    "expected_salary": "Expected Monthly Salary",
+    "expected_salary_ph": "e.g. 3000",
+    "apply_rule": "Apply 50/30/20 Rule",
+    "rule_tooltip": "50% Needs + 30% Wants = 80% spending limit. The remaining 20% goes to savings.",
+    "rule_applied": "Applied! Spending goal set to {{goal}} (80% of salary). Save the other 20%.",
+    "language_title": "Language",
     "save": "Save Settings",
     "saved": "Saved!",
     "save_error": "Failed to save settings"
@@ -109,7 +118,12 @@
   "common": {
     "loading": "Loading...",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "undo": "Undo"
+  },
+  "snackbar": {
+    "transaction_deleted": "Transaction deleted",
+    "category_deleted": "Category deleted"
   },
   "theme": {
     "toggle_light": "Switch to light mode",

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
+import DeleteSnackbar from '../components/DeleteSnackbar';
 import './Categories.css';
 
 interface Category {
@@ -19,6 +20,8 @@ const Categories: React.FC = () => {
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [formError, setFormError] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<{ item: Category; index: number } | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -60,16 +63,47 @@ const Categories: React.FC = () => {
     }
   };
 
-  const handleDeleteCategory = async (categoryId: number) => {
-    if (!window.confirm(t('categories.confirm_delete'))) return;
-    setFormError('');
+  const commitDelete = useCallback(async (id: number) => {
     try {
-      await axiosInstance.delete(`/categories/${categoryId}`);
-      setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
+      await axiosInstance.delete(`/categories/${id}`);
     } catch {
       setFormError(t('categories.error_delete'));
     }
-  };
+  }, [axiosInstance, t]);
+
+  const handleDeleteCategory = useCallback(async (category: Category) => {
+    if (pendingDelete) {
+      clearTimeout(deleteTimerRef.current);
+      await commitDelete(pendingDelete.item.id);
+    }
+    const index = categories.findIndex(c => c.id === category.id);
+    setCategories(prev => prev.filter(c => c.id !== category.id));
+    setPendingDelete({ item: category, index });
+    deleteTimerRef.current = setTimeout(async () => {
+      await commitDelete(category.id);
+      setPendingDelete(null);
+    }, 5500);
+  }, [pendingDelete, categories, commitDelete]);
+
+  const handleUndoDelete = useCallback(() => {
+    clearTimeout(deleteTimerRef.current);
+    if (pendingDelete) {
+      setCategories(prev => {
+        const next = [...prev];
+        next.splice(pendingDelete.index, 0, pendingDelete.item);
+        return next;
+      });
+      setPendingDelete(null);
+    }
+  }, [pendingDelete]);
+
+  const handleSnackbarClose = useCallback(async () => {
+    clearTimeout(deleteTimerRef.current);
+    if (pendingDelete) {
+      await commitDelete(pendingDelete.item.id);
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, commitDelete]);
 
   if (loading) return <div className="categories-wrapper">{t('common.loading')}</div>;
 
@@ -117,7 +151,7 @@ const Categories: React.FC = () => {
                   <span className="category-name">{category.name}</span>
                   <div className="category-actions">
                     <button onClick={() => { setIsEditing(category.id); setEditName(category.name); }} className="action-btn edit-btn" title={t('common.edit') ?? 'Edit'}><Edit size={18}/></button>
-                    <button onClick={() => handleDeleteCategory(category.id)} className="action-btn delete-btn" title={t('common.delete') ?? 'Delete'}><Trash2 size={18}/></button>
+                    <button onClick={() => handleDeleteCategory(category)} className="action-btn delete-btn" title={t('common.delete') ?? 'Delete'}><Trash2 size={18}/></button>
                   </div>
                 </>
               )}
@@ -125,6 +159,12 @@ const Categories: React.FC = () => {
           ))}
         </ul>
       </div>
+
+      <DeleteSnackbar
+        message={pendingDelete ? t('snackbar.category_deleted') : null}
+        onUndo={handleUndoDelete}
+        onClose={handleSnackbarClose}
+      />
     </div>
   );
 };

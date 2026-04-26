@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check } from 'lucide-react';
+import DeleteSnackbar from '../components/DeleteSnackbar';
 import './Transactions.css';
 
 interface Category { id: number; name: string; }
@@ -31,6 +32,8 @@ const Transactions: React.FC = () => {
   });
   const [formError, setFormError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ item: Transaction; index: number } | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [editState, setEditState] = useState({
     amount: '',
     date: '',
@@ -82,16 +85,48 @@ const Transactions: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('transactions.confirm_delete'))) return;
-    setFormError('');
+  const commitDelete = useCallback(async (id: number) => {
     try {
       await axiosInstance.delete(`/transactions/${id}`);
-      setTransactions(prev => prev.filter(tr => tr.id !== id));
     } catch {
       setFormError(t('transactions.error_delete'));
     }
-  };
+  }, [axiosInstance, t]);
+
+  const handleDelete = useCallback(async (tr: Transaction) => {
+    // If a delete is already pending, commit it immediately before starting a new one
+    if (pendingDelete) {
+      clearTimeout(deleteTimerRef.current);
+      await commitDelete(pendingDelete.item.id);
+    }
+    const index = transactions.findIndex(tx => tx.id === tr.id);
+    setTransactions(prev => prev.filter(tx => tx.id !== tr.id));
+    setPendingDelete({ item: tr, index });
+    deleteTimerRef.current = setTimeout(async () => {
+      await commitDelete(tr.id);
+      setPendingDelete(null);
+    }, 5500);
+  }, [pendingDelete, transactions, commitDelete]);
+
+  const handleUndoDelete = useCallback(() => {
+    clearTimeout(deleteTimerRef.current);
+    if (pendingDelete) {
+      setTransactions(prev => {
+        const next = [...prev];
+        next.splice(pendingDelete.index, 0, pendingDelete.item);
+        return next;
+      });
+      setPendingDelete(null);
+    }
+  }, [pendingDelete]);
+
+  const handleSnackbarClose = useCallback(async () => {
+    clearTimeout(deleteTimerRef.current);
+    if (pendingDelete) {
+      await commitDelete(pendingDelete.item.id);
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, commitDelete]);
 
   const handleEditStart = (tr: Transaction) => {
     setEditingId(tr.id);
@@ -266,7 +301,7 @@ const Transactions: React.FC = () => {
                         <button onClick={() => handleEditStart(tr)} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
                           <Pencil size={18}/>
                         </button>
-                        <button onClick={() => handleDelete(tr.id)} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
+                        <button onClick={() => handleDelete(tr)} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
                           <Trash2 size={18}/>
                         </button>
                       </td>
@@ -278,6 +313,12 @@ const Transactions: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <DeleteSnackbar
+        message={pendingDelete ? t('snackbar.transaction_deleted') : null}
+        onUndo={handleUndoDelete}
+        onClose={handleSnackbarClose}
+      />
     </div>
   );
 };

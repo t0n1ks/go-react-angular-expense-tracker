@@ -32,6 +32,9 @@
     "welcome_title": "Willkommen zurück!",
     "welcome_body": "Ihre Finanzen sind unter Kontrolle. Detaillierte Analysen nach Kategorie finden Sie im Bereich Statistiken.",
     "loading": "Wird geladen...",
+    "budget_health": "Budgetgesundheit",
+    "income_of_expected": "des erwarteten Gehalts",
+    "forecast": "Prognose",
     "ufo_intro": "Willkommen zurück! In diesen Bereichen findest du nützliche Funktionen",
     "ufo_cat_desc": "Hier kannst du deine Ausgabenkategorien erstellen",
     "ufo_tx_desc": "Hier kannst du Transaktionen hinzufügen und sortieren",
@@ -102,6 +105,12 @@
     "goals_title": "Finanzziele",
     "monthly_goal": "Monatliches Ausgabenziel",
     "monthly_goal_ph": "z.B. 2000",
+    "expected_salary": "Erwartetes Monatsgehalt",
+    "expected_salary_ph": "z.B. 3000",
+    "apply_rule": "50/30/20-Regel anwenden",
+    "rule_tooltip": "50% Bedürfnisse + 30% Wünsche = 80% Ausgabenlimit. Die restlichen 20% gehen in Ersparnisse.",
+    "rule_applied": "Angewendet! Ausgabenziel: {{goal}} (80% des Gehalts). Spare die restlichen 20%.",
+    "language_title": "Sprache",
     "save": "Einstellungen speichern",
     "saved": "Gespeichert!",
     "save_error": "Speichern fehlgeschlagen"
@@ -109,7 +118,12 @@
   "common": {
     "loading": "Wird geladen...",
     "edit": "Bearbeiten",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "undo": "Rückgängig"
+  },
+  "snackbar": {
+    "transaction_deleted": "Transaktion gelöscht",
+    "category_deleted": "Kategorie gelöscht"
   },
   "theme": {
     "toggle_light": "Zum hellen Modus wechseln",
