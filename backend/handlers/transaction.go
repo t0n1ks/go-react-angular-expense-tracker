@@ -26,6 +26,7 @@ func CreateTransaction(c *gin.Context) {
 		Description string  `json:"description"`
 		Date        string  `json:"date" binding:"required"`
 		Type        string  `json:"type" binding:"required,oneof=expense income"`
+		IncomeType  string  `json:"income_type"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -54,6 +55,11 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 
+	incomeType := "one_time"
+	if input.Type == "income" && (input.IncomeType == "one_time" || input.IncomeType == "part") {
+		incomeType = input.IncomeType
+	}
+
 	transaction := models.Transaction{
 		UserID:      userID.(uint),
 		CategoryID:  input.CategoryID,
@@ -61,6 +67,7 @@ func CreateTransaction(c *gin.Context) {
 		Description: input.Description,
 		Date:        parsedDate,
 		Type:        input.Type,
+		IncomeType:  incomeType,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -168,6 +175,7 @@ func UpdateTransaction(c *gin.Context) {
 		Description *string  `json:"description"`
 		Date        *string  `json:"date"`
 		Type        *string  `json:"type"`
+		IncomeType  *string  `json:"income_type"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -180,6 +188,13 @@ func UpdateTransaction(c *gin.Context) {
 			return
 		}
 		transaction.Type = *input.Type
+	}
+	if input.IncomeType != nil && transaction.Type == "income" {
+		if *input.IncomeType != "one_time" && *input.IncomeType != "part" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid income_type. Allowed values: one_time, part"})
+			return
+		}
+		transaction.IncomeType = *input.IncomeType
 	}
 	if input.CategoryID != nil {
 		var newCategory models.Category

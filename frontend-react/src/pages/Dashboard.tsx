@@ -12,6 +12,7 @@ interface Transaction {
   id: number;
   amount: number;
   type: 'expense' | 'income';
+  income_type?: string;
   date: string;
   category?: { name: string };
 }
@@ -40,10 +41,19 @@ const Dashboard: React.FC = () => {
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
-  const forecast = expectedSalary > 0 ? expectedSalary + totalIncome - totalExpense : null;
 
-  const incomePercent = expectedSalary > 0 ? Math.min((totalIncome / expectedSalary) * 100, 100) : 0;
-  const incomeOver = expectedSalary > 0 && totalIncome >= expectedSalary;
+  // Any income marked "one_time" (full salary received) means the salary goal is met
+  const hasFull = transactions.some(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type));
+
+  const incomePercent = expectedSalary > 0
+    ? (hasFull ? 100 : Math.min((totalIncome / expectedSalary) * 100, 100))
+    : 0;
+  const incomeOver = expectedSalary > 0 && (hasFull || totalIncome >= expectedSalary);
+
+  // Forecast: if full salary received, no more expected; else project remaining salary gap
+  const forecast = expectedSalary > 0
+    ? (hasFull ? totalIncome - totalExpense : Math.max(totalIncome, expectedSalary) - totalExpense)
+    : null;
 
   const budgetPercent = monthlySpendingGoal > 0 ? (totalExpense / monthlySpendingGoal) * 100 : 0;
   const budgetBarColor = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';

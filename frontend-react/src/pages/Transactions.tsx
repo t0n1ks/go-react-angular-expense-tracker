@@ -13,6 +13,7 @@ interface Transaction {
   date: string;
   description: string;
   type: 'expense' | 'income';
+  income_type?: string;
   category: Category;
 }
 
@@ -28,7 +29,8 @@ const Transactions: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     description: '',
     category_id: '',
-    type: 'expense'
+    type: 'expense',
+    income_type: 'one_time',
   });
   const [formError, setFormError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -39,7 +41,8 @@ const Transactions: React.FC = () => {
     date: '',
     description: '',
     category_id: '',
-    type: 'expense' as 'expense' | 'income'
+    type: 'expense' as 'expense' | 'income',
+    income_type: 'one_time',
   });
 
   const fetchData = useCallback(async () => {
@@ -75,7 +78,8 @@ const Transactions: React.FC = () => {
       const payload = {
         ...formState,
         amount: parseFloat(formState.amount),
-        category_id: parseInt(formState.category_id)
+        category_id: parseInt(formState.category_id),
+        income_type: formState.type === 'income' ? formState.income_type : undefined,
       };
       await axiosInstance.post('/transactions', payload);
       setFormState(prev => ({ ...prev, amount: '', description: '' }));
@@ -135,7 +139,8 @@ const Transactions: React.FC = () => {
       date: tr.date.split('T')[0],
       description: tr.description,
       category_id: tr.category?.id.toString() ?? '',
-      type: tr.type
+      type: tr.type,
+      income_type: tr.income_type || 'one_time',
     });
   };
 
@@ -145,7 +150,8 @@ const Transactions: React.FC = () => {
       const payload = {
         ...editState,
         amount: parseFloat(editState.amount),
-        category_id: parseInt(editState.category_id)
+        category_id: parseInt(editState.category_id),
+        income_type: editState.type === 'income' ? editState.income_type : undefined,
       };
       await axiosInstance.put(`/transactions/${id}`, payload);
       setEditingId(null);
@@ -187,6 +193,28 @@ const Transactions: React.FC = () => {
               <option value="income">{t('transactions.type_income')}</option>
             </select>
           </div>
+
+          {formState.type === 'income' && (
+            <div className="income-type-row">
+              <span className="income-type-label">{t('transactions.income_type')}:</span>
+              <div className="income-type-pills">
+                <button
+                  type="button"
+                  className={`income-pill${formState.income_type === 'one_time' ? ' income-pill--active' : ''}`}
+                  onClick={() => setFormState(prev => ({ ...prev, income_type: 'one_time' }))}
+                >
+                  {t('transactions.income_type_full')}
+                </button>
+                <button
+                  type="button"
+                  className={`income-pill${formState.income_type === 'part' ? ' income-pill--active' : ''}`}
+                  onClick={() => setFormState(prev => ({ ...prev, income_type: 'part' }))}
+                >
+                  {t('transactions.income_type_part')}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label>{t('transactions.date')}</label>
@@ -269,6 +297,20 @@ const Transactions: React.FC = () => {
                           <option value="expense">{t('transactions.type_expense')}</option>
                           <option value="income">{t('transactions.type_income')}</option>
                         </select>
+                        {editState.type === 'income' && (
+                          <div className="edit-income-type">
+                            <button type="button"
+                              className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
+                              onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
+                              {t('transactions.income_type_full')}
+                            </button>
+                            <button type="button"
+                              className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
+                              onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
+                              {t('transactions.income_type_part')}
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <input type="number" className="form-input edit-input" value={editState.amount}
