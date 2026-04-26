@@ -233,7 +233,7 @@ const Transactions: React.FC = () => {
             </select>
           </div>
 
-          <div className="form-group" style={{gridColumn: 'span 2'}}>
+          <div className="form-group form-group--full">
             <label>{t('transactions.description')}</label>
             <input type="text" className="form-input" value={formState.description}
               onChange={e => setFormState({...formState, description: e.target.value})}
@@ -248,6 +248,7 @@ const Transactions: React.FC = () => {
         <div className="card-header">
           <div className="card-title"><ReceiptText size={20} style={{marginRight: '8px'}}/> {t('transactions.history')}</div>
         </div>
+        {/* Desktop table */}
         <div className="table-container">
           <table className="styled-table">
             <thead>
@@ -353,6 +354,61 @@ const Transactions: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card list */}
+        <div className="tx-cards-mobile">
+          {transactions.length === 0 ? (
+            <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
+          ) : (
+            transactions.map(tr => (
+              <div key={tr.id} className="tx-card-item">
+                {editingId === tr.id ? (
+                  <div className="tx-card-edit">
+                    <div className="tx-card-edit-row">
+                      <input type="date" className="form-input" value={editState.date}
+                        onChange={e => setEditState({...editState, date: e.target.value})}/>
+                      <input type="number" className="form-input" value={editState.amount}
+                        onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01"/>
+                    </div>
+                    <select className="form-input" value={editState.category_id}
+                      onChange={e => setEditState({...editState, category_id: e.target.value})}>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <input type="text" className="form-input" value={editState.description}
+                      onChange={e => setEditState({...editState, description: e.target.value})}
+                      placeholder={t('transactions.description')}/>
+                    <select className="form-input" value={editState.type}
+                      onChange={e => { const v = e.target.value; if (v === 'expense' || v === 'income') setEditState({...editState, type: v}); }}>
+                      <option value="expense">{t('transactions.type_expense')}</option>
+                      <option value="income">{t('transactions.type_income')}</option>
+                    </select>
+                    <div className="tx-card-edit-actions">
+                      <button onClick={() => handleUpdate(tr.id)} className="action-btn save"><Check size={18}/></button>
+                      <button onClick={handleCancelEdit} className="action-btn cancel"><X size={18}/></button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="tx-card-top">
+                      <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
+                      <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
+                        {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                      </span>
+                    </div>
+                    <div className="tx-card-meta">
+                      <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
+                      {tr.description && <span className="tx-card-desc">{tr.description}</span>}
+                    </div>
+                    <div className="tx-card-actions">
+                      <button onClick={() => handleEditStart(tr)} className="action-btn edit"><Pencil size={16}/></button>
+                      <button onClick={() => handleDelete(tr)} className="action-btn delete"><Trash2 size={16}/></button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

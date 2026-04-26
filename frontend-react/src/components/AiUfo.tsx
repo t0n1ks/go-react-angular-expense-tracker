@@ -36,10 +36,10 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
     clearTimeout(autoTimer.current);
     setPhaseSync('flying-out');
     await ufoControls.start({
-      x: 200,
-      y: -200,
+      y: -100,
       opacity: 0,
-      transition: { duration: 0.55, ease: 'easeIn' },
+      scale: 0.85,
+      transition: { duration: 0.45, ease: 'easeIn' },
     });
     setPhaseSync('idle');
     onDismiss();
@@ -55,12 +55,12 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
 
     const run = async () => {
       setPhaseSync('flying-in');
-      ufoControls.set({ x: 200, y: 200, opacity: 0 });
+      ufoControls.set({ y: 80, opacity: 0, scale: 0.8 });
       await ufoControls.start({
-        x: 0,
         y: 0,
         opacity: 1,
-        transition: { type: 'spring', stiffness: 180, damping: 20 },
+        scale: 1,
+        transition: { type: 'spring', stiffness: 200, damping: 22 },
       });
       if (cancelled) return;
       setPhaseSync('hovering');

@@ -15,7 +15,7 @@
   border: 1px solid var(--color-border-card);
   border-radius: 12px;
   padding: 0.75rem 1rem;
-  max-width: 240px;
+  max-width: min(240px, 90vw);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   position: relative;
   pointer-events: auto;
@@ -52,9 +52,9 @@
 }
 
 .ai-ufo-text {
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 2vw, 0.875rem);
   line-height: 1.45;
-  color: var(--color-text);
+  color: var(--color-text-body);
   margin: 0;
   padding-right: 1.2rem;
 }

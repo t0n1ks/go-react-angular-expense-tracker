@@ -40,9 +40,11 @@
 
 .transaction-form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1.25rem;
 }
+
+.form-group--full { grid-column: 1 / -1; }
 
 .form-group {
     display: flex;
@@ -240,4 +242,99 @@
     border-radius: 0.5rem;
     font-size: 0.875rem;
     margin-bottom: 1rem;
+}
+
+/* ── Mobile card list ─────────────────────────────────────────────────────── */
+.tx-cards-mobile { display: none; }
+
+@media (max-width: 1024px) {
+  .transactions-wrapper { padding: 1.25rem 1rem; }
+
+  .table-container { display: none; }
+
+  .btn-add-transaction { width: 100%; align-self: auto; }
+
+  .tx-cards-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .tx-cards-empty {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: 2rem 0;
+    font-size: 0.9rem;
+  }
+
+  .tx-card-item {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 14px;
+    padding: 0.875rem 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .tx-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+  }
+
+  .tx-card-category {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text-heading);
+  }
+
+  .tx-card-amount {
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .tx-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tx-card-date {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+
+  .tx-card-desc {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55vw;
+  }
+
+  .tx-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+
+  .tx-card-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tx-card-edit-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .tx-card-edit-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
 }

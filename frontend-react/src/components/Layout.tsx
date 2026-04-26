@@ -56,6 +56,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
 
+      <span className="mobile-logo" aria-hidden="true">F-SET</span>
+
       <nav className="bottom-nav">
         <NavLink to="/" end className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
           <LayoutDashboard size={20} />

@@ -55,31 +55,31 @@ body {
   /* Inputs */
   --color-border-input: #e2e8f0;
   --color-border-input-auth: #edf2f7;
-  --color-input-focus: #3b82f6;
+  --color-input-focus: #0ea5e9;
   --color-bg-input: #ffffff;
   --color-bg-input-focus: #f8fafc;
 
-  /* Buttons */
-  --color-btn-primary: #3b82f6;
-  --color-btn-primary-hover: #2563eb;
+  /* Buttons — Sky Blue primary, Mint create, Coral delete */
+  --color-btn-primary: #0ea5e9;
+  --color-btn-primary-hover: #0284c7;
   --color-btn-create: #10b981;
   --color-btn-create-hover: #059669;
-  --color-btn-logout: #ef4444;
-  --color-btn-logout-hover: #dc2626;
+  --color-btn-logout: #f43f5e;
+  --color-btn-logout-hover: #e11d48;
 
-  /* Income / Expense badges */
+  /* Income / Expense badges — Mint Green / Coral Soft Red */
   --color-income-bg: #ecfdf5;
-  --color-income-text: #059669;
-  --color-expense-bg: #fff1f2;
-  --color-expense-text: #e11d48;
+  --color-income-text: #10b981;
+  --color-expense-bg: #fff1f5;
+  --color-expense-text: #f43f5e;
 
   /* Dashboard stat icons */
-  --color-wallet-icon-bg: #eff6ff;
-  --color-wallet-icon-text: #3b82f6;
+  --color-wallet-icon-bg: #e0f2fe;
+  --color-wallet-icon-text: #0ea5e9;
   --color-income-icon-bg: #ecfdf5;
   --color-income-icon-text: #10b981;
-  --color-expense-icon-bg: #fef2f2;
-  --color-expense-icon-text: #ef4444;
+  --color-expense-icon-bg: #fff1f5;
+  --color-expense-icon-text: #f43f5e;
 
   /* Table */
   --color-table-header-bg: #f8fafc;

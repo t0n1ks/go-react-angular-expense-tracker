@@ -117,3 +117,24 @@
     color: var(--color-text-muted);
     margin: 0.2rem 0 0 0;
 }
+
+/* ── Mobile / Tablet responsive ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .dashboard-wrapper {
+    padding: 1.25rem 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .stat-card {
+    height: auto;
+  }
+
+  .dashboard-title {
+    font-size: clamp(1.25rem, 5vw, 1.875rem);
+    margin-bottom: 1.25rem;
+  }
+}

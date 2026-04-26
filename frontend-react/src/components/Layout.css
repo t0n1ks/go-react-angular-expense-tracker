@@ -147,6 +147,11 @@
     color: white;
 }
 
+/* ── Mobile logo badge ────────────────────────────────────────────────────── */
+.mobile-logo {
+  display: none;
+}
+
 /* ── Bottom navigation (mobile only) ─────────────────────────────────────── */
 .bottom-nav {
   display: none;
@@ -155,6 +160,20 @@
 @media (max-width: 1024px) {
   .sidebar {
     display: none;
+  }
+
+  .mobile-logo {
+    display: block;
+    position: fixed;
+    top: 0.75rem;
+    right: 1rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--color-logo);
+    z-index: 300;
+    pointer-events: none;
+    user-select: none;
   }
 
   .main-content {
