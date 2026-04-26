@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Check, Info } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import './Settings.css';
 
@@ -10,22 +10,39 @@ const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
   { code: 'UAH', label: 'UAH', symbol: '₴' },
 ];
 
+const LANGUAGES = [
+  { code: 'en', label: 'EN' },
+  { code: 'de', label: 'DE' },
+  { code: 'ru', label: 'RU' },
+  { code: 'uk', label: 'UK' },
+];
+
 const Settings: React.FC = () => {
-  const { t } = useTranslation();
-  const { currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, saveSettings } = useSettings();
+  const { t, i18n } = useTranslation();
+  const {
+    currency,
+    aiAdviceEnabled,
+    aiHumorEnabled,
+    monthlySpendingGoal,
+    expectedSalary,
+    currencySymbol,
+    saveSettings,
+  } = useSettings();
 
   const [local, setLocal] = useState<UserSettings>({
     currency,
     aiAdviceEnabled,
     aiHumorEnabled,
     monthlySpendingGoal,
+    expectedSalary,
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [ruleApplied, setRuleApplied] = useState(false);
 
-  // Sync local state when context loads from backend
+  // Sync when context loads from backend
   useEffect(() => {
-    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal });
-  }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal]);
+    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary });
+  }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -38,6 +55,15 @@ const Settings: React.FC = () => {
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
+
+  const applyRule = () => {
+    const goal = Math.round(local.expectedSalary * 0.8);
+    setLocal(prev => ({ ...prev, monthlySpendingGoal: goal }));
+    setRuleApplied(true);
+  };
+
+  const currentLang = i18n.language?.split('-')[0] ?? 'en';
+  const ruleGoalFormatted = `${currencySymbol}${Math.round(local.expectedSalary * 0.8).toLocaleString()}`;
 
   return (
     <div className="settings-wrapper">
@@ -58,6 +84,22 @@ const Settings: React.FC = () => {
             >
               <span className="currency-symbol">{c.symbol}</span>
               <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Language */}
+      <div className="settings-card">
+        <h2 className="settings-card-title">{t('settings.language_title')}</h2>
+        <div className="lang-selector">
+          {LANGUAGES.map(lang => (
+            <button
+              key={lang.code}
+              className={`lang-btn${currentLang === lang.code ? ' lang-btn--active' : ''}`}
+              onClick={() => i18n.changeLanguage(lang.code)}
+            >
+              {lang.label}
             </button>
           ))}
         </div>
@@ -98,10 +140,47 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* Financial Goal */}
+      {/* Budget Planning */}
       <div className="settings-card">
         <h2 className="settings-card-title">{t('settings.goals_title')}</h2>
-        <div className="form-group">
+
+        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+          <label className="settings-label">{t('settings.expected_salary')}</label>
+          <input
+            type="number"
+            className="settings-input"
+            value={local.expectedSalary || ''}
+            onChange={e => {
+              setLocal(prev => ({ ...prev, expectedSalary: Number(e.target.value) }));
+              setRuleApplied(false);
+            }}
+            placeholder={t('settings.expected_salary_ph')}
+            min="0"
+            step="1"
+          />
+        </div>
+
+        {local.expectedSalary > 0 && (
+          <div className="rule-row">
+            <button className="btn-rule" onClick={applyRule}>
+              {t('settings.apply_rule')}
+            </button>
+            <span
+              className="rule-info-icon"
+              title={t('settings.rule_tooltip')}
+              aria-label={t('settings.rule_tooltip')}
+            >
+              <Info size={15} />
+            </span>
+            {ruleApplied && (
+              <span className="rule-applied-msg">
+                {t('settings.rule_applied', { goal: ruleGoalFormatted })}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="form-group" style={{ marginTop: '1rem' }}>
           <label className="settings-label">{t('settings.monthly_goal')}</label>
           <input
             type="number"

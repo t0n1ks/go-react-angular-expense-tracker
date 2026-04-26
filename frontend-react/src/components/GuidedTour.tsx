@@ -9,7 +9,6 @@ const UFO_W = 60;
 const UFO_H = 42;
 const HOVER_MS = 4500;
 const DESKTOP_BUBBLE_W = 240;
-const BOTTOM_NAV_H = 60;
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 
 interface Step {
@@ -31,12 +30,8 @@ function clamp(min: number, val: number, max: number): number {
   return Math.max(min, Math.min(max, val));
 }
 
-function isMob(): boolean {
-  return window.matchMedia('(max-width: 1024px)').matches;
-}
-
-function getTargetEl(step: Step): HTMLElement | null {
-  return document.querySelector<HTMLElement>(isMob() ? step.mobileSel : step.desktopSel);
+function getTargetEl(step: Step, mob: boolean): HTMLElement | null {
+  return document.querySelector<HTMLElement>(mob ? step.mobileSel : step.desktopSel);
 }
 
 const UfoSvg: React.FC = () => (
@@ -54,14 +49,17 @@ const GuidedTour: React.FC = () => {
   const { t } = useTranslation();
   const controls = useAnimation();
 
+  // Determined once at mount — stable for the component's lifetime
+  const [mobile] = useState(() => window.matchMedia('(max-width: 1024px)').matches);
+
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [showBubble, setShowBubble] = useState(false);
-  const [bubblePos, setBubblePos] = useState({ x: 0, y: 0, mobile: false });
+  const [bubblePos, setBubblePos] = useState({ x: 0, y: 0 }); // desktop only
 
   const visibleRef = useRef(false);
   const stepRef = useRef(0);
-  const ufoPosRef = useRef({ x: 0, y: 0 });
+  const ufoPosRef = useRef({ x: 0, y: 0 }); // desktop only
   const highlightedElRef = useRef<HTMLElement | null>(null);
   const stepTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const delayTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -79,11 +77,18 @@ const GuidedTour: React.FC = () => {
     clearTimeout(delayTimer.current);
     clearHighlight();
     setShowBubble(false);
-    await controls.start({
-      opacity: 0,
-      y: ufoPosRef.current.y - 80,
-      transition: { duration: 0.35, ease: 'easeIn' as const },
-    });
+
+    if (mobile) {
+      // Give the bubble's AnimatePresence exit (0.18s) time to complete
+      await new Promise<void>((res) => setTimeout(res, 220));
+    } else {
+      await controls.start({
+        opacity: 0,
+        y: ufoPosRef.current.y - 80,
+        transition: { duration: 0.35, ease: 'easeIn' as const },
+      });
+    }
+
     setVisibleSync(false);
     localStorage.setItem(TOUR_KEY, '1');
   };
@@ -101,35 +106,16 @@ const GuidedTour: React.FC = () => {
 
     setStepSync(idx);
 
-    const mob = isMob();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    // Apply glow to target element
-    const el = getTargetEl(STEPS[idx]);
+    // Apply glow to current target element
+    const el = getTargetEl(STEPS[idx], mobile);
     if (el) { highlightedElRef.current = el; el.classList.add(HIGHLIGHT_CLASS); }
 
-    if (mob) {
-      // UFO: static at center-right, clear of mobile header (54px) and bottom nav (60px)
-      const ufoX = vw - UFO_W - 16;
-      const ufoY = vh - BOTTOM_NAV_H - UFO_H - 32;
-      ufoPosRef.current = { x: ufoX, y: ufoY };
-
-      // Bubble: full-width, tucked above the UFO
-      const bubbleH = 148;
-      const by = Math.max(58, ufoY - bubbleH - 10);
-      setBubblePos({ x: 12, y: by, mobile: true });
-
-      if (idx === 0) {
-        // Slide in from right edge on first step only
-        await controls.start({
-          x: ufoX, y: ufoY, opacity: 1,
-          transition: { type: 'tween' as const, duration: 0.45, ease: 'easeOut' as const },
-        });
-      }
-      // Subsequent steps: UFO stays put — no animation
+    if (mobile) {
+      // UFO is static (CSS-positioned) — nothing to animate, just show the bubble
     } else {
-      // Desktop: UFO animates to hover above the glowing element
+      // Desktop: UFO spring-animates to hover above the highlighted element
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
       const rect = el?.getBoundingClientRect();
       let ufoX: number, ufoY: number;
 
@@ -145,12 +131,10 @@ const GuidedTour: React.FC = () => {
 
       ufoPosRef.current = { x: ufoX, y: ufoY };
 
-      // Bubble: beside UFO, avoiding the glow
       const goRight = ufoX + UFO_W / 2 < vw * 0.55;
       setBubblePos({
         x: goRight ? ufoX + UFO_W + 12 : ufoX - DESKTOP_BUBBLE_W - 12,
         y: Math.max(64, ufoY - 8),
-        mobile: false,
       });
 
       await controls.start({
@@ -179,13 +163,9 @@ const GuidedTour: React.FC = () => {
   useEffect(() => {
     if (localStorage.getItem(TOUR_KEY)) return;
 
-    const mob = isMob();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    if (mob) {
-      controls.set({ x: vw + UFO_W, y: vh - BOTTOM_NAV_H - UFO_H - 32, opacity: 0 });
-    } else {
+    if (!mobile) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
       controls.set({ x: vw / 2 - UFO_W / 2, y: vh + 60, opacity: 0 });
     }
 
@@ -197,7 +177,7 @@ const GuidedTour: React.FC = () => {
       clearTimeout(delayTimer.current);
       clearHighlight();
     };
-    // runStep / finish stable via refs — intentionally excluded
+    // runStep / finish / mobile stable via closure — intentionally excluded
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -205,10 +185,67 @@ const GuidedTour: React.FC = () => {
 
   const isLast = step === STEPS.length - 1;
 
+  const BubbleContent = (
+    <>
+      <p className="tour-bubble-title">{t(STEPS[step].titleKey)}</p>
+      <p className="tour-bubble-text">{t(STEPS[step].textKey)}</p>
+      <footer className="tour-bubble-footer">
+        <span className="tour-dots">
+          {STEPS.map((_, i) => (
+            <span key={i} className={`tour-dot${i === step ? ' active' : ''}`} />
+          ))}
+        </span>
+        <div className="tour-actions">
+          <button className="tour-btn-skip" onClick={finish}>{t('tour.skip')}</button>
+          <button className="tour-btn-next" onClick={handleNext}>
+            {isLast ? t('tour.done') : t('tour.next')}
+          </button>
+        </div>
+      </footer>
+    </>
+  );
+
+  /* ── Mobile / Tablet: static side-by-side dock ──────────────────────────── */
+  if (mobile) {
+    return (
+      <div className="guided-tour-root">
+        <motion.div
+          className="tour-mobile-dock"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
+          {/* UFO — no positional animation, just the hover bob */}
+          <motion.div
+            className="tour-ufo-bob"
+            animate={showBubble ? { y: [0, -5, 0] } : {}}
+            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+          >
+            <UfoSvg />
+          </motion.div>
+
+          {/* Compact bubble to the right of the UFO */}
+          <AnimatePresence>
+            {showBubble && (
+              <motion.div
+                className="tour-bubble tour-bubble--compact"
+                initial={{ opacity: 0, scale: 0.9, x: -6 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.9, x: -6 }}
+                transition={{ duration: 0.18 }}
+              >
+                {BubbleContent}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* ── Desktop: UFO moves to each sidebar item ────────────────────────────── */
   return (
     <div className="guided-tour-root">
-      {/* No overlay — page stays fully readable and interactive */}
-
       <motion.div
         className="tour-ufo-wrap"
         style={{ position: 'fixed', top: 0, left: 0 }}
@@ -220,34 +257,19 @@ const GuidedTour: React.FC = () => {
         >
           <UfoSvg />
         </motion.div>
-        <div className="tour-spotlight" />
       </motion.div>
 
       <AnimatePresence>
         {showBubble && (
           <motion.div
-            className={`tour-bubble${bubblePos.mobile ? ' tour-bubble--mobile' : ''}`}
+            className="tour-bubble"
             style={{ position: 'fixed', left: bubblePos.x, top: bubblePos.y }}
             initial={{ opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
-            <p className="tour-bubble-title">{t(STEPS[step].titleKey)}</p>
-            <p className="tour-bubble-text">{t(STEPS[step].textKey)}</p>
-            <footer className="tour-bubble-footer">
-              <span className="tour-dots">
-                {STEPS.map((_, i) => (
-                  <span key={i} className={`tour-dot${i === step ? ' active' : ''}`} />
-                ))}
-              </span>
-              <div className="tour-actions">
-                <button className="tour-btn-skip" onClick={finish}>{t('tour.skip')}</button>
-                <button className="tour-btn-next" onClick={handleNext}>
-                  {isLast ? t('tour.done') : t('tour.next')}
-                </button>
-              </div>
-            </footer>
+            {BubbleContent}
           </motion.div>
         )}
       </AnimatePresence>

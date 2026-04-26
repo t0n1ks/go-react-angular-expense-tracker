@@ -1,6 +1,6 @@
 # Expense Tracker
 
-A full-stack personal finance tracker built with **Go** and **React**. Track your income and expenses, organize them by category, and visualize spending trends — with multi-language support and a dark/light theme toggle.
+A full-stack personal finance tracker built with **Go** and **React**. Track your income and expenses, organize them by category, visualize spending trends — with an interactive onboarding tour, multi-language support, and a seamless dark/light theme.
 
 ## Quick Start
 
@@ -35,7 +35,9 @@ JWT_SECRET=my-secure-secret docker compose up --build
 - **Categories** — Manage custom categories; deletion is blocked if transactions exist
 - **Statistics** — Pie charts and period summaries powered by Recharts
 - **Internationalization** — EN / DE / RU / UK language switcher (persisted to localStorage)
-- **Dark / Light mode** — Toggles via CSS custom properties; respects `prefers-color-scheme` on first visit
+- **Theme System** — Seamless dark/light mode with Fintech-inspired palettes; respects `prefers-color-scheme` on first visit
+- **Interactive Onboarding** — UFO-guided tour visits each nav item via `getBoundingClientRect()`, shows contextual speech bubbles, auto-advances, and fires once on first visit (restartable via the `?` button)
+- **Responsive Dashboard** — Personalized welcome widget with adaptive layouts for mobile, tablet, and desktop
 
 ## Tech Stack
 
@@ -44,8 +46,10 @@ JWT_SECRET=my-secure-secret docker compose up --build
 | Backend | Go 1.24, Gin, GORM, SQLite |
 | Auth | JWT (24h expiry) |
 | Frontend | React 19, TypeScript, Vite |
+| Animations | Framer Motion |
+| State / Context | React Context API (Auth, Theme, Tour) |
 | Styling | Tailwind CSS v4, CSS custom properties |
-| i18n | react-i18next |
+| i18n | react-i18next (EN / DE / RU / UK) |
 | Charts | Recharts |
 | Containerization | Docker, Docker Compose |
 
@@ -94,10 +98,10 @@ npm run dev
 │   └── Dockerfile
 ├── frontend-react/
 │   ├── src/
-│   │   ├── components/ # Layout, CategoryChart, LanguageSwitcher, PrivateRoute
-│   │   ├── context/    # AuthContext (axios + token), ThemeContext
+│   │   ├── components/ # Layout, GuidedTour, CategoryChart, LanguageSwitcher, PrivateRoute
+│   │   ├── context/    # AuthContext (axios + token), ThemeContext, TourContext
 │   │   ├── i18n/       # i18next config + EN/DE/RU/UK locale files
-│   │   └── pages/      # Login, Register, Dashboard, Transactions, Categories, Statistics
+│   │   └── pages/      # Login, Register, Dashboard, Transactions, Categories, Statistics, Settings
 │   ├── nginx.conf      # Reverse-proxies /api/ to the backend container
 │   └── Dockerfile
 └── docker-compose.yml

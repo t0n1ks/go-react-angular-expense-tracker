@@ -8,6 +8,7 @@ export interface UserSettings {
   aiAdviceEnabled: boolean;
   aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
+  expectedSalary: number;
 }
 
 interface SettingsContextType extends UserSettings {
@@ -30,6 +31,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   aiAdviceEnabled: true,
   aiHumorEnabled: false,
   monthlySpendingGoal: 0,
+  expectedSalary: 0,
 };
 
 const loadFromStorage = (): UserSettings => {
@@ -73,6 +75,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           aiAdviceEnabled: d.ai_advice_enabled ?? true,
           aiHumorEnabled: d.ai_humor_enabled ?? false,
           monthlySpendingGoal: d.monthly_spending_goal ?? 0,
+          expectedSalary: d.expected_salary ?? 0,
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
@@ -92,6 +95,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       ai_advice_enabled: next.aiAdviceEnabled,
       ai_humor_enabled: next.aiHumorEnabled,
       monthly_spending_goal: next.monthlySpendingGoal,
+      expected_salary: next.expectedSalary,
     });
   };
 

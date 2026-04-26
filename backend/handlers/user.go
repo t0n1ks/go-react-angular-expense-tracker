@@ -119,6 +119,7 @@ func GetProfile(c *gin.Context) {
 		"ai_advice_enabled":    user.AIAdviceEnabled,
 		"ai_humor_enabled":     user.AIHumorEnabled,
 		"monthly_spending_goal": user.MonthlySpendingGoal,
+		"expected_salary":      user.ExpectedSalary,
 	})
 }
 
@@ -134,6 +135,7 @@ func UpdateProfile(c *gin.Context) {
 		AIAdviceEnabled     bool    `json:"ai_advice_enabled"`
 		AIHumorEnabled      bool    `json:"ai_humor_enabled"`
 		MonthlySpendingGoal float64 `json:"monthly_spending_goal"`
+		ExpectedSalary      float64 `json:"expected_salary"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -153,6 +155,7 @@ func UpdateProfile(c *gin.Context) {
 		"ai_advice_enabled":    req.AIAdviceEnabled,
 		"ai_humor_enabled":     req.AIHumorEnabled,
 		"monthly_spending_goal": req.MonthlySpendingGoal,
+		"expected_salary":      req.ExpectedSalary,
 	}
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
