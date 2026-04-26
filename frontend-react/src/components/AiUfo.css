@@ -63,8 +63,14 @@
   pointer-events: auto;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .ai-ufo-overlay {
     bottom: calc(var(--bottom-nav-height) + 1rem);
+    right: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .ai-ufo-bubble {
+    max-width: min(220px, calc(100vw - 3rem));
   }
 }

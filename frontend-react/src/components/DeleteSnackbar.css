@@ -62,7 +62,7 @@
     color: #f1f5f9;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .delete-snackbar {
     bottom: calc(var(--bottom-nav-height) + 0.75rem);
   }
