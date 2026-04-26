@@ -35,6 +35,8 @@
     "budget_health": "Budgetgesundheit",
     "income_of_expected": "des erwarteten Gehalts",
     "forecast": "Prognose",
+    "greeting": "Willkommen zurück, {{name}}!",
+    "tour_relaunch": "Geführte Tour neu starten",
     "ufo_intro": "Willkommen zurück! In diesen Bereichen findest du nützliche Funktionen",
     "ufo_cat_desc": "Hier kannst du deine Ausgabenkategorien erstellen",
     "ufo_tx_desc": "Hier kannst du Transaktionen hinzufügen und sortieren",

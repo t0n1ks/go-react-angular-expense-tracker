@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2, HelpCircle } from 'lucide-react';
 import Logo from './Logo';
 import GuidedTour, { TOUR_KEY } from './GuidedTour';
+import { TourProvider } from '../context/TourContext';
 import './Layout.css';
 
 const ThemeBtn: React.FC = () => {
@@ -86,9 +87,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       </header>
 
       {/* ── Page content ─────────────────────────────────────────────────── */}
-      <main className="main-content">
-        {children}
-      </main>
+      <TourProvider startTour={handleStartTour}>
+        <main className="main-content">
+          {children}
+        </main>
+      </TourProvider>
 
       {/* ── Mobile bottom navigation ─────────────────────────────────────── */}
       <nav className="bottom-nav">

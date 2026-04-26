@@ -35,6 +35,8 @@
     "budget_health": "Budget Health",
     "income_of_expected": "of expected salary",
     "forecast": "Forecast",
+    "greeting": "Welcome back, {{name}}!",
+    "tour_relaunch": "Relaunch Guided Tour",
     "ufo_intro": "Welcome back! In these sections, you will find useful functionality",
     "ufo_cat_desc": "Here you can create your spending categories",
     "ufo_tx_desc": "Here you can add and sort your transactions",
