@@ -2,9 +2,9 @@
 
 A full-stack personal finance tracker built with **Go** and **React**. Track your income and expenses, organize them by category, visualize spending trends — with an interactive onboarding tour, multi-language support, and a seamless dark/light theme.
 
-## Quick Start
+## Quick Start (Local — Docker)
 
-The recommended way to run the full stack. No Go or Node.js installation required.
+The recommended way to run the full stack locally. No Go or Node.js installation required.
 
 ```bash
 docker compose up --build
@@ -14,7 +14,7 @@ The app will be available at **http://localhost**.
 
 > The SQLite database is persisted in a named Docker volume (`db-data`) and survives container restarts.
 
-### Environment variables
+### Environment variables (local)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -22,11 +22,75 @@ The app will be available at **http://localhost**.
 | `DB_PATH` | `expenses.db` | Path to the SQLite file inside the container. |
 | `CORS_ORIGINS` | `http://localhost,http://localhost:5173` | Comma-separated list of allowed CORS origins. |
 
-Example with a custom secret:
-
 ```bash
 JWT_SECRET=my-secure-secret docker compose up --build
 ```
+
+---
+
+## Production Deployment
+
+The production stack uses three free-tier services:
+
+| Layer | Service | Cost |
+|-------|---------|------|
+| Frontend | [Vercel](https://vercel.com) Hobby | $0/mo |
+| Backend | [Render](https://render.com) Web Service | $0/mo (sleeps after 15 min inactivity) |
+| Database | [Neon.tech](https://neon.tech) Serverless Postgres | $0/mo (free tier) |
+
+### Step 1 — Neon.tech (PostgreSQL)
+
+1. Sign up at **neon.tech** → create a new project.
+2. Copy the **connection string** — it looks like:
+   `postgres://user:password@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require`
+3. *(Optional)* Paste `schema.sql` (repo root) into the Neon SQL console to pre-create tables.
+   GORM `AutoMigrate` also creates all tables automatically on first backend boot.
+
+### Step 2 — Render (Go Backend)
+
+1. Go to **render.com** → New → **Web Service**.
+2. Connect your GitHub repository.
+3. Set the following:
+   - **Root Directory**: `backend`
+   - **Runtime**: Docker
+4. Add these **Environment Variables** in the Render dashboard:
+
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Your Neon connection string |
+| `JWT_SECRET` | Any random 64-character string |
+| `CORS_ORIGINS` | Your Vercel app URL (e.g. `https://myapp.vercel.app`) |
+
+> **Do not set `PORT`** — Render injects it automatically. The backend reads it via `os.Getenv("PORT")`.
+
+5. Deploy. Note your public backend URL: `https://your-app.onrender.com`.
+
+### Step 3 — Vercel (React Frontend)
+
+1. Go to **vercel.com** → New Project → import your GitHub repository.
+2. Set:
+   - **Framework Preset**: Vite
+   - **Root Directory**: `frontend-react`
+3. Add this **Environment Variable**:
+
+| Variable | Value |
+|----------|-------|
+| `VITE_API_URL` | `https://your-app.onrender.com/api` |
+
+4. Deploy. Vercel detects `vercel.json` in `frontend-react/` and applies SPA rewrite rules
+   so React Router routes like `/dashboard` load correctly on direct access.
+
+### Production environment variables — full reference
+
+| Service | Variable | Notes |
+|---------|----------|-------|
+| Render | `DATABASE_URL` | Neon postgres connection string (include `?sslmode=require`) |
+| Render | `JWT_SECRET` | Random 64-char secret — generate with `openssl rand -hex 32` |
+| Render | `CORS_ORIGINS` | Exact Vercel URL, e.g. `https://myapp.vercel.app` |
+| Render | `PORT` | **Do not set** — injected automatically by Render |
+| Vercel | `VITE_API_URL` | Render backend URL + `/api` suffix |
+
+---
 
 ## Features
 
@@ -43,7 +107,7 @@ JWT_SECRET=my-secure-secret docker compose up --build
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Go 1.24, Gin, GORM, SQLite |
+| Backend | Go 1.24, Gin, GORM, PostgreSQL (prod) / SQLite (local) |
 | Auth | JWT (24h expiry) |
 | Frontend | React 19, TypeScript, Vite |
 | Animations | Framer Motion |
@@ -51,9 +115,9 @@ JWT_SECRET=my-secure-secret docker compose up --build
 | Styling | Tailwind CSS v4, CSS custom properties |
 | i18n | react-i18next (EN / DE / RU / UK) |
 | Charts | Recharts |
-| Containerization | Docker, Docker Compose |
+| Containerization | Docker, Docker Compose (local dev) |
 
-## Local Development
+## Local Development (without Docker)
 
 ### Prerequisites
 
@@ -85,12 +149,14 @@ npm run dev
 # App starts on http://localhost:5173
 ```
 
+Copy `.env.example` to `.env.local` and set `VITE_API_URL=http://localhost:8080/api` for local dev.
+
 ## Project Structure
 
 ```
 .
 ├── backend/
-│   ├── database/       # GORM connection + AutoMigrate
+│   ├── database/       # GORM connection + AutoMigrate (SQLite / PostgreSQL)
 │   ├── handlers/       # Route handlers (users, categories, transactions, stats)
 │   ├── middleware/     # JWT auth middleware
 │   ├── models/         # GORM model structs
@@ -102,8 +168,11 @@ npm run dev
 │   │   ├── context/    # AuthContext (axios + token), ThemeContext, TourContext
 │   │   ├── i18n/       # i18next config + EN/DE/RU/UK locale files
 │   │   └── pages/      # Login, Register, Dashboard, Transactions, Categories, Statistics, Settings
-│   ├── nginx.conf      # Reverse-proxies /api/ to the backend container
+│   ├── vercel.json     # SPA rewrite rules for Vercel
+│   ├── .env.example    # Required environment variables
+│   ├── nginx.conf      # Reverse-proxies /api/ to the backend (Docker only)
 │   └── Dockerfile
+├── schema.sql          # PostgreSQL schema for Neon.tech console
 └── docker-compose.yml
 ```
 

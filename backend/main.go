@@ -61,5 +61,9 @@ func main() {
 		protected.GET("/stats", handlers.GetPeriodSummary)
 	}
 
-	log.Fatal(router.Run(":8080"))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(router.Run(":" + port))
 }
