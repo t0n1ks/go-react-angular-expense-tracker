@@ -59,3 +59,61 @@
 .stat-content .value { color: var(--color-text-heading); }
 .stat-content .value-plus { color: var(--color-income-text); }
 .stat-content .value-minus { color: var(--color-expense-text); }
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-icon.budget-icon {
+    background-color: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+}
+
+/* Income progress bar */
+.progress-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-border-card);
+    margin-top: 0.5rem;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.progress-track--glow {
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease, background 0.3s ease;
+}
+
+.progress-label {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin: 0.25rem 0 0 0;
+}
+
+/* Budget health bar */
+.budget-health-bar-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-border-card);
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.budget-health-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease, background 0.3s ease;
+}
+
+/* Forecast subtext */
+.forecast-text {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin: 0.2rem 0 0 0;
+}
