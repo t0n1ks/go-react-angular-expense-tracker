@@ -12,20 +12,22 @@
   pointer-events: none;
 }
 
-/* Soft downward glow below UFO — subtle beacon */
-.tour-spotlight {
-  position: absolute;
-  top: 40px;
+/* ── Mobile dock: UFO + bubble side-by-side above bottom nav ────────────── */
+.tour-mobile-dock {
+  position: fixed;
+  bottom: 74px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(
-    ellipse at top,
-    rgba(14, 165, 233, 0.18) 0%,
-    rgba(16, 185, 129, 0.06) 50%,
-    transparent 72%
-  );
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: calc(100vw - 24px);
+}
+
+.tour-ufo-bob {
+  flex-shrink: 0;
   pointer-events: none;
 }
 
@@ -63,10 +65,32 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Mobile: stretch full-width, compact height */
-.tour-bubble--mobile {
-  width: calc(100vw - 24px);
-  max-width: none;
+/* Mobile: compact side-by-side bubble */
+.tour-bubble--compact {
+  width: 190px;
+  max-width: 190px;
+  padding: 0.75rem;
+  pointer-events: auto;
+}
+
+.tour-bubble--compact .tour-bubble-title {
+  font-size: 0.8rem;
+  margin: 0 0 0.25rem;
+}
+
+.tour-bubble--compact .tour-bubble-text {
+  font-size: 0.72rem;
+  margin: 0 0 0.5rem;
+}
+
+.tour-bubble--compact .tour-btn-next {
+  padding: 0.28rem 0.65rem;
+  font-size: 0.74rem;
+}
+
+.tour-bubble--compact .tour-btn-skip {
+  font-size: 0.7rem;
+  padding: 0.28rem 0.4rem;
 }
 
 .tour-bubble-title {
