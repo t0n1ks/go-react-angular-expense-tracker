@@ -34,17 +34,19 @@ body {
   --color-bg-app: #f1f5f9;
   --color-bg-main: #f8fafc;
   --color-bg-card: #ffffff;
-  --color-border-card: #f1f5f9;
+  --color-border-card: #e8edf2;
 
-  /* Sidebar */
-  --color-bg-sidebar: #0f172a;
-  --color-bg-sidebar-hover: #1e293b;
-  --color-sidebar-border: #1e293b;
-  --color-sidebar-divider: #334155;
-  --color-logo: #38bdf8;
-  --color-nav-text: #94a3b8;
-  --color-nav-active-bg: #38bdf8;
-  --color-nav-active-text: #0f172a;
+  /* Sidebar — light mode: clean white panel */
+  --color-bg-sidebar: #ffffff;
+  --color-bg-sidebar-hover: #f1f5f9;
+  --color-sidebar-border: #e2e8f0;
+  --color-sidebar-divider: #e2e8f0;
+  --color-logo: #0ea5e9;
+  --color-nav-text: #64748b;
+  --color-nav-hover-text: #1e293b;
+  --color-nav-user-text: #1e293b;
+  --color-nav-active-bg: #e0f2fe;
+  --color-nav-active-text: #0284c7;
 
   /* Text */
   --color-text-heading: #1e293b;
@@ -138,13 +140,15 @@ body {
   --color-bg-card: #1e2a3a;
   --color-border-card: #2d3a4a;
 
-  /* Sidebar */
+  /* Sidebar — dark mode: deep navy */
   --color-bg-sidebar: #0a0e1a;
   --color-bg-sidebar-hover: #1a2234;
   --color-sidebar-border: #1a2234;
   --color-sidebar-divider: #2d3a4a;
   --color-logo: #38bdf8;
   --color-nav-text: #8899aa;
+  --color-nav-hover-text: #ffffff;
+  --color-nav-user-text: #e2e8f0;
   --color-nav-active-bg: #0ea5e9;
   --color-nav-active-text: #0f172a;
 

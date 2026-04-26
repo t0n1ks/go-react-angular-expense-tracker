@@ -11,7 +11,7 @@ interface Props {
 type Phase = 'idle' | 'flying-in' | 'hovering' | 'flying-out';
 
 const UfoSvg: React.FC = () => (
-  <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="60" height="42" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
     <ellipse cx="32" cy="20" rx="13" ry="10" fill="#475569" stroke="#64748b" strokeWidth="1.5" />
     <ellipse cx="32" cy="18" rx="7" ry="6" fill="#38bdf8" opacity="0.9" />
     <ellipse cx="32" cy="28" rx="29" ry="8.5" fill="#334155" stroke="#475569" strokeWidth="1.5" />
@@ -36,17 +36,13 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
     clearTimeout(autoTimer.current);
     setPhaseSync('flying-out');
     await ufoControls.start({
-      y: -100,
+      y: -110,
       opacity: 0,
-      scale: 0.85,
-      transition: { duration: 0.45, ease: 'easeIn' },
+      scale: 0.8,
+      transition: { duration: 0.5, ease: 'easeIn' },
     });
     setPhaseSync('idle');
     onDismiss();
-  };
-
-  const handleClose = () => {
-    flyOut();
   };
 
   useEffect(() => {
@@ -55,15 +51,24 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
 
     const run = async () => {
       setPhaseSync('flying-in');
-      ufoControls.set({ y: 80, opacity: 0, scale: 0.8 });
+
+      // Parabolic arc entrance: from bottom-left, swinging up through center
+      ufoControls.set({ x: -140, y: 130, opacity: 0, scale: 0.7 });
       await ufoControls.start({
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        transition: { type: 'spring', stiffness: 200, damping: 22 },
+        x: [-140, 18, 0],
+        y: [130, -65, 0],
+        opacity: [0, 1, 1],
+        scale: [0.7, 1.08, 1],
+        transition: {
+          duration: 1.35,
+          times: [0, 0.52, 1],
+          ease: 'easeOut',
+        },
       });
+
       if (cancelled) return;
       setPhaseSync('hovering');
+
       autoTimer.current = setTimeout(() => {
         if (!cancelled && phaseRef.current === 'hovering') flyOut();
       }, 9000);
@@ -74,7 +79,7 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
       cancelled = true;
       clearTimeout(autoTimer.current);
     };
-    // flyOut intentionally excluded — stable enough via phaseRef
+    // flyOut intentionally excluded — stable via phaseRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message, ufoControls]);
 
@@ -86,12 +91,12 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
         {phase === 'hovering' && (
           <motion.div
             className="ai-ufo-bubble"
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.22 }}
           >
-            <button className="ai-ufo-close" onClick={handleClose} aria-label="Close">
+            <button className="ai-ufo-close" onClick={flyOut} aria-label="Close">
               <X size={13} />
             </button>
             <p className="ai-ufo-text">{message}</p>
@@ -101,8 +106,8 @@ const AiUfo: React.FC<Props> = ({ message, onDismiss }) => {
 
       <motion.div className="ai-ufo-ship" animate={ufoControls}>
         <motion.div
-          animate={phase === 'hovering' ? { y: [0, -5, 0] } : {}}
-          transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+          animate={phase === 'hovering' ? { y: [0, -6, 0] } : {}}
+          transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
         >
           <UfoSvg />
         </motion.div>

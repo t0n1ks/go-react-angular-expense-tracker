@@ -1,0 +1,38 @@
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(14, 165, 233, 0.35));
+  transition: filter 0.2s ease;
+}
+
+.logo-link:hover .logo-icon {
+  filter: drop-shadow(0 3px 12px rgba(14, 165, 233, 0.55));
+}
+
+.logo-wordmark {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  transition: opacity 0.2s;
+}
+
+.logo-link:hover .logo-wordmark {
+  opacity: 0.85;
+}
+
+/* Sidebar context — sky-blue wordmark works on both dark and white sidebar */
+.sidebar .logo-wordmark {
+  color: var(--color-logo);
+}
+
+/* Mobile header context — matches header text color */
+.mobile-header .logo-wordmark {
+  color: var(--color-text-heading);
+}

@@ -4,11 +4,26 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
+import Logo from './Logo';
 import './Layout.css';
+
+const ThemeBtn: React.FC = () => {
+  const { toggleTheme, isDark } = useTheme();
+  const { t } = useTranslation();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="theme-icon-btn"
+      aria-label={isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
+      title={isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
+    >
+      {isDark ? <Sun size={17} /> : <Moon size={17} />}
+    </button>
+  );
+};
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
-  const { toggleTheme, isDark } = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -19,8 +34,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="app-container">
+
+      {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside className="sidebar">
-        <div className="sidebar-logo">{t('nav.app_title')}</div>
+        <div className="sidebar-header">
+          <Logo />
+          <ThemeBtn />
+        </div>
 
         <nav className="nav-links">
           <NavLink to="/" className="nav-item" end>{t('nav.home')}</NavLink>
@@ -33,15 +53,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </NavLink>
         </nav>
 
-        <button
-          onClick={toggleTheme}
-          className="theme-toggle-btn"
-          title={isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-          {isDark ? t('theme.toggle_light') : t('theme.toggle_dark')}
-        </button>
-
         <div className="user-info">
           <span className="user-info-label">{t('nav.user_label')}</span>
           <span className="user-info-name">{user?.username}</span>
@@ -52,12 +63,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </button>
       </aside>
 
+      {/* ── Mobile / tablet top header ───────────────────────────────────── */}
+      <header className="mobile-header">
+        <Logo />
+        <ThemeBtn />
+      </header>
+
+      {/* ── Page content ─────────────────────────────────────────────────── */}
       <main className="main-content">
         {children}
       </main>
 
-      <span className="mobile-logo" aria-hidden="true">F-SET</span>
-
+      {/* ── Mobile bottom navigation ─────────────────────────────────────── */}
       <nav className="bottom-nav">
         <NavLink to="/" end className={({ isActive }) => `bottom-nav-item${isActive ? ' active' : ''}`}>
           <LayoutDashboard size={20} />
