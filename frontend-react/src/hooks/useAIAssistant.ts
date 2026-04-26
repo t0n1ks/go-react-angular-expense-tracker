@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-// ─── Shuffle pool (idle humor) ───────────────────────────────────────────────
+// ─── Idle humor shuffle pool ──────────────────────────────────────────────────
 
 const SHOWN_KEY = 'ai_shown_items';
 
-interface PoolItem {
-  id: string;
-  text: string;
-}
+interface PoolItem { id: string; text: string; }
 
 function buildPool(humor: string[], facts: string[], tips: string[]): PoolItem[] {
   return [
@@ -22,9 +19,7 @@ function getShown(): Set<string> {
   try {
     const raw = localStorage.getItem(SHOWN_KEY);
     return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
+  } catch { return new Set(); }
 }
 
 function pickRandom(pool: PoolItem[]): PoolItem {
@@ -42,38 +37,30 @@ function pickRandom(pool: PoolItem[]): PoolItem {
   return picked;
 }
 
-// ─── Session memory (financial advice) ───────────────────────────────────────
+// ─── Weekly tier fingerprint ──────────────────────────────────────────────────
 
 const SESSION_KEY = 'ai_advice_session';
 
-function getSessionFingerprint(): string | null {
-  try {
-    return sessionStorage.getItem(SESSION_KEY);
-  } catch {
-    return null;
-  }
+function getMonday(d: Date): Date {
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 }
 
-function saveSessionFingerprint(fp: string): void {
-  try {
-    sessionStorage.setItem(SESSION_KEY, fp);
-  } catch { /* ignore */ }
+function getWeekKey(d: Date): string {
+  const m = getMonday(d);
+  return `${m.getFullYear()}-${m.getMonth()}-${m.getDate()}`;
 }
 
-function computeFingerprint(
-  totalExp: number,
-  totalInc: number,
-  goal: number,
-  topCatShare: number,
-  totalLast: number,
-): string {
-  return [
-    Math.round(totalExp),
-    Math.round(totalInc),
-    Math.round(goal),
-    Math.round(topCatShare * 100),
-    Math.round(totalLast),
-  ].join(':');
+function getStoredFp(): string | null {
+  try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; }
+}
+
+function storeFp(fp: string): void {
+  try { sessionStorage.setItem(SESSION_KEY, fp); } catch { /* ignore */ }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -81,6 +68,7 @@ function computeFingerprint(
 interface Transaction {
   amount: number;
   type: 'expense' | 'income';
+  income_type?: string;
   date: string;
   category?: { name: string };
 }
@@ -98,7 +86,6 @@ export function useAIAssistant({
   aiAdviceEnabled,
   aiHumorEnabled,
   monthlySpendingGoal,
-  currencySymbol,
 }: Options) {
   const { t } = useTranslation();
   const [queue, setQueue] = useState<string[]>([]);
@@ -109,75 +96,91 @@ export function useAIAssistant({
     setQueue(q => (q.length < 2 ? [...q, msg] : q));
   }, []);
 
-  // ── Financial analysis ────────────────────────────────────────────────────
-  // Runs whenever transactions or settings change.
-  // Picks at most ONE insight (priority cascade), skips if data hasn't changed
-  // since the last shown insight this session.
+  // Pick a random item from a locale array key, with optional {{percent}} interpolation
+  const pickFromKey = useCallback((key: string, percent?: number): string | null => {
+    const pool = t(`ai.${key}`, { returnObjects: true }) as string[];
+    if (!Array.isArray(pool) || pool.length === 0) return null;
+    const raw = pool[Math.floor(Math.random() * pool.length)];
+    return percent !== undefined ? raw.replace(/\{\{percent\}\}/g, String(percent)) : raw;
+  }, [t]);
+
+  // ── Weekly pacing analysis ────────────────────────────────────────────────
   useEffect(() => {
     if (!aiAdviceEnabled || transactions.length === 0) return;
 
     const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
-    const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
+    const monday = getMonday(now);
+    const weekKey = getWeekKey(now);
 
-    const thisMonthExp = transactions.filter(tx => {
+    // This week's expense transactions
+    const thisWeekExp = transactions.filter(tx => {
       const d = new Date(tx.date);
-      return tx.type === 'expense' && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+      return tx.type === 'expense' && d >= monday;
     });
-    const lastMonthExp = transactions.filter(tx => {
-      const d = new Date(tx.date);
-      return tx.type === 'expense' && d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
-    });
-    const thisMonthInc = transactions.filter(tx => {
-      const d = new Date(tx.date);
-      return tx.type === 'income' && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-    });
+    const weekSpending = thisWeekExp.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
 
-    const totalExp = thisMonthExp.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
-    const totalLast = lastMonthExp.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
-    const totalInc = thisMonthInc.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
-    const surplus = totalInc - totalExp;
+    // Did a full-salary income arrive in the last 3 days?
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const salaryJustIn = transactions.some(tx =>
+      tx.type === 'income' &&
+      (!tx.income_type || tx.income_type === 'one_time') &&
+      new Date(tx.date) >= threeDaysAgo,
+    );
 
-    // Build category map for fingerprint + category alert
-    let topCatShare = 0;
-    let topCatName = '';
-    if (thisMonthExp.length > 0 && totalExp > 0) {
-      const catMap: Record<string, number> = {};
-      thisMonthExp.forEach(tx => {
-        const name = tx.category?.name || '—';
-        catMap[name] = (catMap[name] || 0) + Math.abs(Number(tx.amount));
-      });
-      const top = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0];
-      if (top) { topCatShare = top[1] / totalExp; topCatName = top[0]; }
+    // Category balance: 2+ categories, no single one > 45% of week spending
+    const catMap: Record<string, number> = {};
+    thisWeekExp.forEach(tx => {
+      const cat = tx.category?.name ?? 'other';
+      catMap[cat] = (catMap[cat] || 0) + Math.abs(Number(tx.amount));
+    });
+    const catCount = Object.keys(catMap).length;
+    const maxShare = weekSpending > 0 && catCount > 0
+      ? Math.max(...Object.values(catMap)) / weekSpending
+      : 0;
+    const isBalanced = catCount >= 2 && maxShare < 0.45;
+
+    // Weekly pacing
+    const weeklyLimit = monthlySpendingGoal > 0 ? monthlySpendingGoal / 4.3 : 0;
+    const pace = weeklyLimit > 0 ? weekSpending / weeklyLimit : 0;
+    const dayOfWeek = now.getDay(); // 0=Sun
+    const isPastWednesday = dayOfWeek === 0 || dayOfWeek >= 3;
+
+    // Determine tier (priority order)
+    type Tier = 'salary_just_in' | 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
+    let tier: Tier | null = null;
+
+    if (salaryJustIn) {
+      tier = 'salary_just_in';
+    } else if (weeklyLimit > 0 && pace > 1.2) {
+      tier = 'pacing_over';
+    } else if (weeklyLimit > 0 && pace > 0.8) {
+      tier = 'pacing_warn';
+    } else if (weeklyLimit > 0 && pace < 0.5 && isPastWednesday && weekSpending > 0) {
+      tier = 'pacing_great';
+    } else if (isBalanced && weekSpending > 0 && pace < 0.8) {
+      tier = 'balanced';
+    } else if (weeklyLimit > 0 && weekSpending > 0 && pace < 0.8) {
+      tier = 'pacing_good';
     }
 
-    // Skip if the same numbers were already analyzed this session
-    const fingerprint = computeFingerprint(totalExp, totalInc, monthlySpendingGoal, topCatShare, totalLast);
-    if (getSessionFingerprint() === fingerprint) return;
-    saveSessionFingerprint(fingerprint);
+    if (!tier) return;
 
-    // Priority cascade — exactly ONE insight fires per unique data state
+    // Only fire if the tier changed this session/week
+    const fp = `${weekKey}:${tier}:s${salaryJustIn ? 1 : 0}`;
+    if (getStoredFp() === fp) return;
+    storeFp(fp);
+
+    // Pick message
     let msg: string | null = null;
-
-    if (monthlySpendingGoal > 0 && totalExp >= 0.8 * monthlySpendingGoal) {
-      msg = t('ai.goal_alert', { percent: Math.round((totalExp / monthlySpendingGoal) * 100) });
-    } else if (totalInc === 0 && totalExp > 0) {
-      const percent = monthlySpendingGoal > 0
-        ? Math.round((totalExp / monthlySpendingGoal) * 100)
-        : 100;
-      msg = t('ai.worried_no_income', { percent });
-    } else if (surplus > 0 && totalInc > 0 && (monthlySpendingGoal === 0 || surplus > monthlySpendingGoal * 0.3)) {
-      msg = t('ai.invest_surplus', { surplus: `${currencySymbol}${Math.round(surplus).toLocaleString()}` });
-    } else if (topCatShare > 0.5) {
-      msg = t('ai.category_alert', { category: topCatName, percent: Math.round(topCatShare * 100) });
-    } else if (totalLast > 0 && totalExp < totalLast) {
-      msg = t('ai.savings_compliment', { percent: Math.round(((totalLast - totalExp) / totalLast) * 100) });
+    if (tier === 'pacing_over') {
+      const percentOver = Math.round((pace - 1) * 100);
+      msg = pickFromKey('pacing_over', percentOver);
+    } else {
+      msg = pickFromKey(tier);
     }
 
     if (msg) enqueue(msg);
-  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, currencySymbol, t, enqueue]);
+  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
 
   // ── Idle humor timer ──────────────────────────────────────────────────────
   useEffect(() => {
