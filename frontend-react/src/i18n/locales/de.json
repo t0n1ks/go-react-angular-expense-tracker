@@ -338,5 +338,20 @@
       "Überprüfe jährlich deinen Versicherungsschutz — Lebensveränderungen erfordern angepassten Schutz.",
       "Kleine Lecks versenken große Schiffe: 5€/Tag unnötig = 1.825€/Jahr = eine solide Investition."
     ]
+  },
+  "tour": {
+    "home_title": "Dashboard",
+    "home_text": "Ihr finanzieller Überblick — Kontostand, Einnahmen vs. Ausgaben und Ausgabenprognose auf einen Blick.",
+    "categories_title": "Kategorien",
+    "categories_text": "Erstellen und verwalten Sie Ausgabenkategorien, um Ihr Budget organisiert zu halten.",
+    "transactions_title": "Transaktionen",
+    "transactions_text": "Erfassen Sie jeden Einnahme- und Ausgabebetrag. Filtern, bearbeiten und verfolgen Sie Ihre gesamte Historie.",
+    "statistics_title": "Statistiken",
+    "statistics_text": "Visuelle Diagramme zeigen, wohin Ihr Geld geht und wie sich Trends im Laufe der Zeit entwickeln.",
+    "settings_title": "Einstellungen",
+    "settings_text": "Legen Sie Ihre Währung und Ihr monatliches Ausgabenziel fest und aktivieren Sie den KI-Finanzassistenten.",
+    "next": "Weiter →",
+    "skip": "Überspringen",
+    "done": "Verstanden!"
   }
 }

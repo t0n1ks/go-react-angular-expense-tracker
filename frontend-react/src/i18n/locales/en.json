@@ -368,5 +368,20 @@
       "Review your insurance coverage annually — life changes mean coverage needs change too.",
       "Small leaks sink great ships: $5/day in unnecessary spending = $1,825/year = a solid investment."
     ]
+  },
+  "tour": {
+    "home_title": "Dashboard",
+    "home_text": "Your financial overview — balance, income vs expenses, and spending forecast at a glance.",
+    "categories_title": "Categories",
+    "categories_text": "Create and manage spending categories to keep your budget organized.",
+    "transactions_title": "Transactions",
+    "transactions_text": "Log every income and expense. Filter, edit, and track your full history.",
+    "statistics_title": "Statistics",
+    "statistics_text": "Visual charts reveal where your money goes and how trends develop over time.",
+    "settings_title": "Settings",
+    "settings_text": "Set your currency, monthly spending goal, and enable the AI financial assistant.",
+    "next": "Next →",
+    "skip": "Skip",
+    "done": "Got it!"
   }
 }

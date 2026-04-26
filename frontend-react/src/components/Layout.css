@@ -86,6 +86,41 @@
     background: var(--color-nav-active-bg);
 }
 
+/* ── Tour trigger button ─────────────────────────────────────────────────── */
+.tour-trigger-btn {
+    background: var(--color-bg-sidebar-hover);
+    border: 1px solid var(--color-sidebar-divider);
+    border-radius: 8px;
+    padding: 7px;
+    cursor: pointer;
+    color: var(--color-nav-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.18s, border-color 0.18s, background 0.18s;
+    margin: 4px 12px 8px;
+}
+
+.tour-trigger-btn:hover {
+    color: var(--color-logo);
+    border-color: var(--color-logo);
+    background: var(--color-nav-active-bg);
+}
+
+.mobile-header .tour-trigger-btn {
+    background: var(--color-bg-app);
+    border-color: var(--color-border-input);
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.mobile-header .tour-trigger-btn:hover {
+    border-color: var(--color-logo);
+    color: var(--color-logo);
+    background: var(--color-bg-app);
+}
+
 /* ── User footer ─────────────────────────────────────────────────────────── */
 .user-info {
     padding: 14px 20px;

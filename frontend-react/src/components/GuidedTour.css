@@ -1,0 +1,141 @@
+.guided-tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.guided-tour-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.15);
+  backdrop-filter: blur(1px);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.tour-ufo-wrap {
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.tour-spotlight {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(
+    ellipse at top,
+    rgba(14, 165, 233, 0.22) 0%,
+    rgba(16, 185, 129, 0.08) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.tour-bubble {
+  z-index: 9999;
+  pointer-events: auto;
+  width: clamp(180px, 38vw, 240px);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tour-bubble-title {
+  font-weight: 700;
+  font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+  color: var(--color-text-heading);
+  margin: 0 0 0.35rem;
+}
+
+.tour-bubble-text {
+  font-size: clamp(0.72rem, 2vw, 0.82rem);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+
+.tour-bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-input);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tour-dot.active {
+  width: 18px;
+  border-radius: 3px;
+  background: var(--color-logo);
+}
+
+.tour-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tour-btn-skip {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.tour-btn-skip:hover {
+  color: var(--color-text-body);
+}
+
+.tour-btn-next {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: white;
+  background: var(--color-logo);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.tour-btn-next:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 1024px) {
+  .tour-bubble {
+    width: clamp(200px, 82vw, 300px);
+  }
+
+  .tour-spotlight {
+    width: 90px;
+    height: 90px;
+  }
+}
