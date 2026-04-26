@@ -68,7 +68,7 @@
 /* Mobile: compact side-by-side bubble */
 .tour-bubble--compact {
   width: 190px;
-  max-width: 190px;
+  max-width: calc(100vw - 32px);
   padding: 0.75rem;
   pointer-events: auto;
 }
@@ -137,8 +137,9 @@
 
 .tour-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .tour-btn-skip {
@@ -175,4 +176,19 @@
 
 .tour-btn-next:hover {
   opacity: 0.85;
+}
+
+/* ── Responsive UFO sizing ───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .tour-ufo-bob svg {
+    width: 40px;
+    height: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .tour-ufo-bob svg {
+    width: 30px;
+    height: 21px;
+  }
 }
