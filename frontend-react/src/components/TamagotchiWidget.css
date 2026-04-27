@@ -1,0 +1,225 @@
+/* ── Tamagotchi mini-screen ────────────────────────────────────────────────── */
+
+.tama-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 2;
+  min-height: 160px;
+  background:
+    linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    #060f1e;
+  background-size: 20px 20px, 20px 20px, auto;
+  border-radius: 1.25rem;
+  border: 1.5px solid #1a3557;
+  box-shadow:
+    inset 0 2px 20px rgba(0, 0, 0, 0.55),
+    inset 0 0 60px rgba(0, 15, 40, 0.6),
+    0 4px 20px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+
+/* ── Corner control buttons ────────────────────────────────────────────────── */
+
+.tama-corner-btn {
+  position: absolute;
+  top: 9px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgba(56, 189, 248, 0.07);
+  color: rgba(56, 189, 248, 0.65);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  padding: 0;
+  line-height: 1;
+}
+
+.tama-corner-btn--tl { left: 9px; }
+.tama-corner-btn--tr { right: 9px; opacity: 0.4; cursor: not-allowed; }
+
+.tama-corner-btn--tl:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+/* ── Scene layer ───────────────────────────────────────────────────────────── */
+
+.tama-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.tama-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── UFO ───────────────────────────────────────────────────────────────────── */
+
+.tama-ufo {
+  position: absolute;
+  z-index: 5;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.45));
+  pointer-events: none;
+}
+
+/* ── Hovering scene: twinkling stars ───────────────────────────────────────── */
+
+.tama-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: tama-twinkle 1.8s ease-in-out infinite;
+}
+
+@keyframes tama-twinkle {
+  0%, 100% { opacity: 0.12; transform: scale(1); }
+  50%       { opacity: 0.85; transform: scale(1.7); }
+}
+
+/* ── Abduction scene ───────────────────────────────────────────────────────── */
+
+.tama-beam {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 52%;
+  background: linear-gradient(
+    180deg,
+    rgba(99, 255, 200, 0.32) 0%,
+    rgba(99, 255, 200, 0.03) 100%
+  );
+  clip-path: polygon(28% 0%, 72% 0%, 100% 100%, 0% 100%);
+  animation: tama-beam-pulse 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes tama-beam-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+
+.tama-cow {
+  position: absolute;
+  bottom: 10%;
+  animation: tama-cow-abduct 5.4s ease-in-out forwards;
+  pointer-events: none;
+}
+
+@keyframes tama-cow-abduct {
+  0%   { left: -10%; transform: translateY(0);     opacity: 1;   }
+  52%  { left:  33%; transform: translateY(0);     opacity: 1;   }
+  80%  { left:  33%; transform: translateY(-48px); opacity: 0.5; }
+  100% { left:  33%; transform: translateY(-88px); opacity: 0;   }
+}
+
+/* ── Coins scene ───────────────────────────────────────────────────────────── */
+
+.tama-coin {
+  position: absolute;
+  bottom: 18%;
+  animation: tama-coin-rise 2s ease-in infinite;
+  pointer-events: none;
+}
+
+@keyframes tama-coin-rise {
+  0%   { transform: translateY(0);     opacity: 1; }
+  100% { transform: translateY(-88px); opacity: 0; }
+}
+
+/* ── Speech bubble ─────────────────────────────────────────────────────────── */
+
+.tama-bubble {
+  position: absolute;
+  bottom: 9%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(5, 14, 28, 0.93);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 12px;
+  padding: 0.5rem 2rem 0.5rem 0.8rem;
+  max-width: 72%;
+  min-width: 140px;
+  z-index: 20;
+  backdrop-filter: blur(10px);
+  pointer-events: all;
+}
+
+.tama-bubble::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 7px solid rgba(56, 189, 248, 0.32);
+}
+
+.tama-bubble-text {
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: rgba(224, 242, 254, 0.88);
+  margin: 0;
+  font-family: inherit;
+}
+
+.tama-bubble-close {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  background: transparent;
+  border: none;
+  color: rgba(56, 189, 248, 0.55);
+  cursor: pointer;
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.tama-bubble-close:hover { color: #38bdf8; }
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .tama-screen {
+    aspect-ratio: 4 / 2;
+    min-height: 148px;
+    margin-top: 1rem;
+  }
+
+  .tama-bubble {
+    max-width: 80%;
+    padding: 0.4rem 1.75rem 0.4rem 0.7rem;
+  }
+
+  .tama-bubble-text { font-size: 0.66rem; }
+
+  .tama-beam { width: 52px; }
+
+  .tama-corner-btn {
+    width: 23px;
+    height: 23px;
+    font-size: 0.62rem;
+    top: 7px;
+  }
+  .tama-corner-btn--tl { left: 7px; }
+  .tama-corner-btn--tr { right: 7px; }
+}

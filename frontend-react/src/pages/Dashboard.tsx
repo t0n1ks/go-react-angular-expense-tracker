@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Wallet, TrendingDown, TrendingUp, Target, HelpCircle } from 'lucide-react';
-import { useTour } from '../context/TourContext';
-import AiUfo from '../components/AiUfo';
+import { Wallet, TrendingDown, TrendingUp, Target } from 'lucide-react';
+import TamagotchiWidget from '../components/TamagotchiWidget';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import './Dashboard.css';
 
@@ -16,24 +15,6 @@ interface Transaction {
   date: string;
   category?: { name: string };
 }
-
-const WelcomeWidget: React.FC = () => {
-  const { user } = useAuth();
-  const { t } = useTranslation();
-  const { startTour } = useTour();
-  return (
-    <div className="welcome-widget">
-      <div className="welcome-widget-left">
-        <p className="welcome-greeting">{t('dashboard.greeting', { name: user?.username })}</p>
-        <p className="welcome-sub">{t('dashboard.welcome_body')}</p>
-      </div>
-      <button className="welcome-tour-btn" onClick={startTour} title={t('dashboard.tour_relaunch')}>
-        <HelpCircle size={15} />
-        <span className="welcome-tour-label">{t('dashboard.tour_relaunch')}</span>
-      </button>
-    </div>
-  );
-};
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
@@ -135,8 +116,7 @@ const Dashboard: React.FC = () => {
         )}
       </div>
 
-      <WelcomeWidget />
-      <AiUfo message={message} onDismiss={dismiss} />
+      <TamagotchiWidget message={message} onDismiss={dismiss} />
     </div>
   );
 };
