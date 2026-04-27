@@ -58,14 +58,11 @@ const Register: React.FC = () => {
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
       console.error("Registration failed:", err);
-      let errorMessage = t('auth.register_error');
+      let errorMessage = t('auth.register_error_generic');
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const axiosError = err as AxiosErrorResponse;
-        if (axiosError.response?.data?.error) {
-          const apiError = axiosError.response.data.error;
-          errorMessage = apiError.includes("unique constraint failed")
-            ? t('auth.register_error')
-            : apiError;
+        if (axiosError.response?.data?.error === 'username_already_exists') {
+          errorMessage = t('auth.error_username_taken');
         }
       }
       setError(errorMessage);

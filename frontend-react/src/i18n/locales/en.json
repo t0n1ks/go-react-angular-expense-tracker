@@ -28,7 +28,9 @@
     "confirm_password": "Confirm Password",
     "confirm_password_ph": "Repeat your password",
     "passwords_mismatch": "Passwords do not match",
-    "username_space_warning": "Spaces are not allowed in usernames"
+    "username_space_warning": "Spaces are not allowed in usernames",
+    "error_username_taken": "This username is already taken. Please choose another one.",
+    "register_error_generic": "Something went wrong. Please try again later."
   },
   "dashboard": {
     "title": "Financial Overview",

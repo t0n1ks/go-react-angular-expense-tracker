@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -56,7 +58,12 @@ func RegisterUser(c *gin.Context) {
 	user.UpdatedAt = time.Now()
 
 	if result := database.DB.Create(&user); result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + result.Error.Error()})
+		if isDuplicateUsername(result.Error) {
+			c.JSON(http.StatusConflict, gin.H{"error": "username_already_exists"})
+			return
+		}
+		log.Printf("failed to create user: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
 
@@ -212,4 +219,14 @@ func DeleteAccount(c *gin.Context) {
 
 	log.Printf("account deleted: user_id=%d", uid)
 	c.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
+}
+
+// isDuplicateUsername detects unique constraint violations for both PostgreSQL (code 23505)
+// and SQLite ("UNIQUE constraint failed"), so raw DB errors are never sent to the client.
+func isDuplicateUsername(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

@@ -28,7 +28,9 @@
     "confirm_password": "Passwort bestätigen",
     "confirm_password_ph": "Passwort wiederholen",
     "passwords_mismatch": "Passwörter stimmen nicht überein",
-    "username_space_warning": "Leerzeichen sind im Benutzernamen nicht erlaubt"
+    "username_space_warning": "Leerzeichen sind im Benutzernamen nicht erlaubt",
+    "error_username_taken": "Dieser Benutzername ist bereits vergeben. Bitte wählen Sie einen anderen.",
+    "register_error_generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut."
   },
   "dashboard": {
     "title": "Finanzübersicht",

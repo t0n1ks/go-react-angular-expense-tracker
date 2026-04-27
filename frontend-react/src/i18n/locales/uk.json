@@ -28,7 +28,9 @@
     "confirm_password": "Підтвердіть пароль",
     "confirm_password_ph": "Повторіть пароль",
     "passwords_mismatch": "Паролі не збігаються",
-    "username_space_warning": "Пробіли в імені користувача не дозволені"
+    "username_space_warning": "Пробіли в імені користувача не дозволені",
+    "error_username_taken": "Цей логін уже зайнятий. Будь ласка, оберіть інше ім'я.",
+    "register_error_generic": "Щось пішло не так. Будь ласка, спробуйте пізніше."
   },
   "dashboard": {
     "title": "Фінансовий огляд",
