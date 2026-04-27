@@ -1,4 +1,4 @@
-/* ── Tamagotchi mini-screen ────────────────────────────────────────────────── */
+/* ── Tamagotchi mini-screen ─────────────────────────────────────────────────── */
 
 .tama-screen {
   position: relative;
@@ -6,32 +6,31 @@
   aspect-ratio: 5 / 2;
   min-height: 160px;
   background:
-    linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
-    #060f1e;
-  background-size: 20px 20px, 20px 20px, auto;
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    #080808;
+  background-size: 18px 18px, 18px 18px, auto;
   border-radius: 1.25rem;
-  border: 1.5px solid #1a3557;
+  border: 1.5px solid #1c1c1c;
   box-shadow:
-    inset 0 2px 20px rgba(0, 0, 0, 0.55),
-    inset 0 0 60px rgba(0, 15, 40, 0.6),
-    0 4px 20px rgba(0, 0, 0, 0.12);
+    inset 0 2px 24px rgba(0, 0, 0, 0.75),
+    0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   margin-top: 1.5rem;
 }
 
-/* ── Corner control buttons ────────────────────────────────────────────────── */
+/* ── Corner buttons ─────────────────────────────────────────────────────────── */
 
 .tama-corner-btn {
   position: absolute;
-  top: 9px;
-  width: 26px;
-  height: 26px;
+  top: 8px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  background: rgba(56, 189, 248, 0.07);
-  color: rgba(56, 189, 248, 0.65);
-  font-size: 0.68rem;
+  border: 1.5px solid rgba(255, 215, 0, 0.3);
+  background: rgba(255, 215, 0, 0.06);
+  color: rgba(255, 215, 0, 0.65);
+  font-size: 0.62rem;
   font-weight: 700;
   font-family: 'Courier New', monospace;
   cursor: pointer;
@@ -44,16 +43,16 @@
   line-height: 1;
 }
 
-.tama-corner-btn--tl { left: 9px; }
-.tama-corner-btn--tr { right: 9px; opacity: 0.4; cursor: not-allowed; }
+.tama-corner-btn--tl { left: 8px; }
+.tama-corner-btn--tr { right: 8px; opacity: 0.28; cursor: not-allowed; }
 
 .tama-corner-btn--tl:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.5);
-  color: #38bdf8;
+  background: rgba(255, 215, 0, 0.16);
+  border-color: rgba(255, 215, 0, 0.6);
+  color: #ffd700;
 }
 
-/* ── Scene layer ───────────────────────────────────────────────────────────── */
+/* ── Scene layer ────────────────────────────────────────────────────────────── */
 
 .tama-scene {
   position: absolute;
@@ -66,160 +65,297 @@
   pointer-events: none;
 }
 
-/* ── UFO ───────────────────────────────────────────────────────────────────── */
+/* ── Star field ─────────────────────────────────────────────────────────────── */
+
+.tama-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tama-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff;
+  animation: tama-twinkle 2.2s ease-in-out infinite;
+}
+
+@keyframes tama-twinkle {
+  0%, 100% { opacity: 0.08; transform: scale(1); }
+  50%       { opacity: 0.9;  transform: scale(1.6); }
+}
+
+/* ── Moon ───────────────────────────────────────────────────────────────────── */
+
+.tama-moon {
+  position: absolute;
+  top: 12%;
+  right: 13%;
+  pointer-events: none;
+}
+
+/* ── UFO ────────────────────────────────────────────────────────────────────── */
 
 .tama-ufo {
   position: absolute;
   z-index: 5;
-  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.45));
+  filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.45));
   pointer-events: none;
 }
 
-/* ── Hovering scene: twinkling stars ───────────────────────────────────────── */
-
-.tama-star {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #38bdf8;
-  animation: tama-twinkle 1.8s ease-in-out infinite;
-}
-
-@keyframes tama-twinkle {
-  0%, 100% { opacity: 0.12; transform: scale(1); }
-  50%       { opacity: 0.85; transform: scale(1.7); }
-}
-
-/* ── Abduction scene ───────────────────────────────────────────────────────── */
+/* ── Cow abduction ──────────────────────────────────────────────────────────── */
 
 .tama-beam {
   position: absolute;
   left: 50%;
-  top: 30%;
+  top: 28%;
   transform: translateX(-50%);
-  width: 72px;
-  height: 52%;
+  width: 48px;
+  height: 50%;
   background: linear-gradient(
     180deg,
-    rgba(99, 255, 200, 0.32) 0%,
-    rgba(99, 255, 200, 0.03) 100%
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.02) 100%
   );
   clip-path: polygon(28% 0%, 72% 0%, 100% 100%, 0% 100%);
-  animation: tama-beam-pulse 2.2s ease-in-out infinite;
+  animation: tama-beam-pulse 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes tama-beam-pulse {
-  0%, 100% { opacity: 0.55; }
+  0%, 100% { opacity: 0.45; }
   50%       { opacity: 1; }
 }
 
 .tama-cow {
   position: absolute;
-  bottom: 10%;
+  bottom: 12%;
   animation: tama-cow-abduct 5.4s ease-in-out forwards;
   pointer-events: none;
 }
 
 @keyframes tama-cow-abduct {
-  0%   { left: -10%; transform: translateY(0);     opacity: 1;   }
-  52%  { left:  33%; transform: translateY(0);     opacity: 1;   }
-  80%  { left:  33%; transform: translateY(-48px); opacity: 0.5; }
-  100% { left:  33%; transform: translateY(-88px); opacity: 0;   }
+  0%   { left: -8%;  transform: translateY(0);     opacity: 1;   }
+  52%  { left:  34%; transform: translateY(0);     opacity: 1;   }
+  80%  { left:  34%; transform: translateY(-42px); opacity: 0.5; }
+  100% { left:  34%; transform: translateY(-80px); opacity: 0;   }
 }
 
-/* ── Coins scene ───────────────────────────────────────────────────────────── */
+/* ── Coins ──────────────────────────────────────────────────────────────────── */
 
 .tama-coin {
   position: absolute;
   bottom: 18%;
-  animation: tama-coin-rise 2s ease-in infinite;
+  animation: tama-coin-rise 2.4s ease-in infinite;
   pointer-events: none;
 }
 
 @keyframes tama-coin-rise {
   0%   { transform: translateY(0);     opacity: 1; }
-  100% { transform: translateY(-88px); opacity: 0; }
+  100% { transform: translateY(-72px); opacity: 0; }
 }
 
-/* ── Speech bubble ─────────────────────────────────────────────────────────── */
+/* ── Speech bubble ──────────────────────────────────────────────────────────── */
+/*
+  UFO is at top: 72% when bubble is active (desktop).
+  Bubble sits above the UFO — its bottom edge is placed at bottom: 36%,
+  which in a 200px widget = 72px from bottom = 128px from top.
+  UFO center is at 72% = 144px → UFO top edge ≈ 135px → gap ≈ 7px.
+*/
 
 .tama-bubble {
   position: absolute;
-  bottom: 9%;
+  bottom: 36%;
   left: 50%;
-  transform: translateX(-50%);
-  background: rgba(5, 14, 28, 0.93);
-  border: 1px solid rgba(56, 189, 248, 0.32);
-  border-radius: 12px;
-  padding: 0.5rem 2rem 0.5rem 0.8rem;
-  max-width: 72%;
-  min-width: 140px;
+  background: #0c0c0c;
+  border: 1.5px solid rgba(255, 215, 0, 0.4);
+  border-radius: 10px;
+  padding: 0.42rem 2rem 0.42rem 0.7rem;
+  max-width: 74%;
+  min-width: 120px;
   z-index: 20;
-  backdrop-filter: blur(10px);
   pointer-events: all;
 }
 
-.tama-bubble::before {
+/* downward-pointing arrow towards the UFO */
+.tama-bubble::after {
   content: '';
   position: absolute;
-  top: -7px;
+  bottom: -7px;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 7px solid rgba(56, 189, 248, 0.32);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid rgba(255, 215, 0, 0.4);
+}
+
+/* Tour variant: wider, no close button offset */
+.tama-bubble--tour {
+  max-width: 84%;
+  min-width: 180px;
+  padding: 0.5rem 0.7rem 0.55rem;
+}
+
+.tama-bubble-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ffd700;
+  margin: 0 0 0.2rem;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tama-bubble-text {
-  font-size: 0.71rem;
-  line-height: 1.45;
-  color: rgba(224, 242, 254, 0.88);
+  font-size: 0.63rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
   margin: 0;
   font-family: inherit;
 }
 
 .tama-bubble-close {
   position: absolute;
-  top: 5px;
-  right: 7px;
+  top: 4px;
+  right: 6px;
   background: transparent;
   border: none;
-  color: rgba(56, 189, 248, 0.55);
+  color: rgba(255, 215, 0, 0.5);
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   line-height: 1;
   padding: 0;
   transition: color 0.15s;
 }
 
-.tama-bubble-close:hover { color: #38bdf8; }
+.tama-bubble-close:hover { color: #ffd700; }
 
-/* ── Responsive ────────────────────────────────────────────────────────────── */
+/* ── Tour bubble footer ──────────────────────────────────────────────────────── */
+
+.tama-tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  flex-wrap: nowrap;
+}
+
+.tama-tour-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tama-tour-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tama-tour-dot.active {
+  width: 12px;
+  border-radius: 2px;
+  background: #ffd700;
+}
+
+.tama-tour-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.tama-tour-btn-skip {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.35);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.tama-tour-btn-skip:hover { color: rgba(255, 255, 255, 0.7); }
+
+.tama-tour-btn-next {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #080808;
+  background: #ffd700;
+  border: none;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.tama-tour-btn-next:hover { opacity: 0.85; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {
   .tama-screen {
     aspect-ratio: 4 / 2;
-    min-height: 148px;
+    min-height: 180px;
     margin-top: 1rem;
   }
 
+  /*
+    Mobile: UFO is at top: 78% → center ≈ 180 × 0.78 = 140px → top edge ≈ 130px.
+    Bubble bottom: 32% → bottom edge at 180 × 0.68 = 122px from top.
+    Gap: 130 − 122 = 8px.
+  */
   .tama-bubble {
-    max-width: 80%;
-    padding: 0.4rem 1.75rem 0.4rem 0.7rem;
+    bottom: 32%;
+    max-width: 82%;
+    padding: 0.36rem 1.8rem 0.36rem 0.6rem;
   }
 
-  .tama-bubble-text { font-size: 0.66rem; }
+  .tama-bubble--tour {
+    max-width: 90%;
+    min-width: 0;
+    padding: 0.4rem 0.6rem 0.45rem;
+  }
 
-  .tama-beam { width: 52px; }
+  /* Hide title on mobile to keep bubble height ≤ 65px */
+  .tama-bubble--tour .tama-bubble-title { display: none; }
+
+  .tama-bubble-text {
+    font-size: 0.59rem;
+    /* Clamp to 2 lines so bubble never overflows its allocated space */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .tama-tour-footer {
+    margin-top: 0.3rem;
+  }
 
   .tama-corner-btn {
-    width: 23px;
-    height: 23px;
-    font-size: 0.62rem;
-    top: 7px;
+    width: 20px;
+    height: 20px;
+    font-size: 0.58rem;
+    top: 6px;
   }
-  .tama-corner-btn--tl { left: 7px; }
-  .tama-corner-btn--tr { right: 7px; }
+
+  .tama-corner-btn--tl { left: 6px; }
+  .tama-corner-btn--tr { right: 6px; }
+
+  .tama-beam { width: 40px; }
+  .tama-moon { top: 10%; right: 10%; transform: scale(0.85); transform-origin: top right; }
 }

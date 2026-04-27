@@ -3,10 +3,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2, HelpCircle } from 'lucide-react';
+import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
 import Logo from './Logo';
-import GuidedTour, { TOUR_KEY } from './GuidedTour';
-import { TourProvider } from '../context/TourContext';
 import './Layout.css';
 
 const ThemeBtn: React.FC = () => {
@@ -28,16 +26,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tourKey, setTourKey] = React.useState(0);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const handleStartTour = () => {
-    localStorage.removeItem(TOUR_KEY);
-    setTourKey(k => k + 1);
   };
 
   return (
@@ -61,10 +53,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </NavLink>
         </nav>
 
-        <button className="tour-trigger-btn" onClick={handleStartTour} title="App Tour">
-          <HelpCircle size={16} />
-        </button>
-
         <div className="user-info">
           <span className="user-info-label">{t('nav.user_label')}</span>
           <span className="user-info-name">{user?.username}</span>
@@ -78,20 +66,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* ── Mobile / tablet top header ───────────────────────────────────── */}
       <header className="mobile-header">
         <Logo />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <button className="tour-trigger-btn" onClick={handleStartTour} title="App Tour">
-            <HelpCircle size={16} />
-          </button>
-          <ThemeBtn />
-        </div>
+        <ThemeBtn />
       </header>
 
       {/* ── Page content ─────────────────────────────────────────────────── */}
-      <TourProvider startTour={handleStartTour}>
-        <main className="main-content">
-          {children}
-        </main>
-      </TourProvider>
+      <main className="main-content">
+        {children}
+      </main>
 
       {/* ── Mobile bottom navigation ─────────────────────────────────────── */}
       <nav className="bottom-nav">
@@ -117,7 +98,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </NavLink>
       </nav>
 
-      <GuidedTour key={tourKey} />
     </div>
   );
 };
