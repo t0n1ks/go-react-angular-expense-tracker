@@ -365,27 +365,58 @@ const Transactions: React.FC = () => {
               <div key={tr.id} className="tx-card-item">
                 {editingId === tr.id ? (
                   <div className="tx-card-edit">
-                    <div className="tx-card-edit-row">
-                      <input type="date" className="form-input" value={editState.date}
+                    <div className="tx-card-edit-field">
+                      <label className="tx-card-edit-label">{t('transactions.date')}</label>
+                      <input type="date" className="form-input tx-card-edit-input" value={editState.date}
                         onChange={e => setEditState({...editState, date: e.target.value})}/>
-                      <input type="number" className="form-input" value={editState.amount}
-                        onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01"/>
                     </div>
-                    <select className="form-input" value={editState.category_id}
-                      onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <input type="text" className="form-input" value={editState.description}
-                      onChange={e => setEditState({...editState, description: e.target.value})}
-                      placeholder={t('transactions.description')}/>
-                    <select className="form-input" value={editState.type}
-                      onChange={e => { const v = e.target.value; if (v === 'expense' || v === 'income') setEditState({...editState, type: v}); }}>
-                      <option value="expense">{t('transactions.type_expense')}</option>
-                      <option value="income">{t('transactions.type_income')}</option>
-                    </select>
+                    <div className="tx-card-edit-field">
+                      <label className="tx-card-edit-label">{t('transactions.amount')}</label>
+                      <input type="number" className="form-input tx-card-edit-input" value={editState.amount}
+                        onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01" min="0.01"/>
+                    </div>
+                    <div className="tx-card-edit-field">
+                      <label className="tx-card-edit-label">{t('transactions.type')}</label>
+                      <select className="form-input tx-card-edit-input" value={editState.type}
+                        onChange={e => { const v = e.target.value; if (v === 'expense' || v === 'income') setEditState({...editState, type: v}); }}>
+                        <option value="expense">{t('transactions.type_expense')}</option>
+                        <option value="income">{t('transactions.type_income')}</option>
+                      </select>
+                      {editState.type === 'income' && (
+                        <div className="edit-income-type">
+                          <button type="button"
+                            className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
+                            onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
+                            {t('transactions.income_type_full')}
+                          </button>
+                          <button type="button"
+                            className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
+                            onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
+                            {t('transactions.income_type_part')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="tx-card-edit-field">
+                      <label className="tx-card-edit-label">{t('transactions.category')}</label>
+                      <select className="form-input tx-card-edit-input" value={editState.category_id}
+                        onChange={e => setEditState({...editState, category_id: e.target.value})}>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="tx-card-edit-field">
+                      <label className="tx-card-edit-label">{t('transactions.description')}</label>
+                      <input type="text" className="form-input tx-card-edit-input" value={editState.description}
+                        onChange={e => setEditState({...editState, description: e.target.value})}
+                        placeholder={t('transactions.desc_ph')}/>
+                    </div>
                     <div className="tx-card-edit-actions">
-                      <button onClick={() => handleUpdate(tr.id)} className="action-btn save"><Check size={18}/></button>
-                      <button onClick={handleCancelEdit} className="action-btn cancel"><X size={18}/></button>
+                      <button onClick={() => handleUpdate(tr.id)} className="tx-card-edit-btn tx-card-edit-btn--save">
+                        <Check size={16}/>{t('transactions.save_btn')}
+                      </button>
+                      <button onClick={handleCancelEdit} className="tx-card-edit-btn tx-card-edit-btn--cancel">
+                        <X size={16}/>{t('transactions.cancel_btn')}
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -409,6 +440,8 @@ const Transactions: React.FC = () => {
               </div>
             ))
           )}
+
+
         </div>
       </div>
 

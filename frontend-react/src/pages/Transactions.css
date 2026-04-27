@@ -341,17 +341,61 @@
     gap: 0.5rem;
   }
 
-  .tx-card-edit-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+  .tx-card-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .tx-card-edit-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .tx-card-edit-input {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .tx-card-edit-actions {
     display: flex;
     gap: 0.5rem;
-    justify-content: flex-end;
+    margin-top: 0.25rem;
   }
+
+  .tx-card-edit-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .tx-card-edit-btn--save {
+    background: var(--color-btn-primary);
+    color: #fff;
+  }
+
+  .tx-card-edit-btn--save:hover { opacity: 0.88; }
+
+  .tx-card-edit-btn--cancel {
+    background: var(--color-bg-input);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-card);
+  }
+
+  .tx-card-edit-btn--cancel:hover { color: var(--color-text-heading); }
 
   .income-pill {
     flex: 1;
