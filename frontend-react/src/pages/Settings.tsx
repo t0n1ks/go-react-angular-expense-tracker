@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Check, Info, LogOut } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import './Settings.css';
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
@@ -19,6 +20,7 @@ const LANGUAGES = [
 
 const Settings: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { logout } = useAuth();
   const {
     currency,
     aiAdviceEnabled,
@@ -212,6 +214,14 @@ const Settings: React.FC = () => {
         {saveStatus === 'error' && (
           <span className="settings-save-error">{t('settings.save_error')}</span>
         )}
+      </div>
+
+      {/* Logout */}
+      <div className="settings-logout-section">
+        <button className="btn-logout-settings" onClick={logout}>
+          <LogOut size={16} />
+          {t('nav.logout')}
+        </button>
       </div>
     </div>
   );

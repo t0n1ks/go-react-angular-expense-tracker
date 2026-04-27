@@ -291,6 +291,34 @@
     color: var(--color-error-text);
 }
 
+/* Logout section */
+.settings-logout-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border-card);
+}
+
+.btn-logout-settings {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: transparent;
+    color: var(--color-btn-logout);
+    border: 1px solid var(--color-btn-logout);
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-logout-settings:hover {
+    background: var(--color-btn-logout);
+    color: #fff;
+}
+
 @media (max-width: 1024px) {
     .settings-wrapper {
         padding: 1.25rem 1rem;
@@ -314,5 +342,10 @@
         max-width: 100%;
         width: 100%;
         box-sizing: border-box;
+    }
+
+    .btn-logout-settings {
+        width: 100%;
+        justify-content: center;
     }
 }
