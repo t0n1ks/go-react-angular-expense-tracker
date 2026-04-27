@@ -79,7 +79,7 @@
 .category-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     padding: 1rem 1.25rem;
     background: var(--color-category-item-bg);
     border: 1px solid var(--color-border-card);
@@ -94,11 +94,21 @@
 .category-name {
     font-weight: 600;
     color: var(--color-text-body);
+    flex: 1;
+    min-width: 0;
+    margin-right: 0.5rem;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    font-size: clamp(0.82rem, 2vw, 1rem);
+    padding-top: 0.15rem;
 }
 
 .category-actions {
     display: flex;
     gap: 0.5rem;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
 }
 
 .action-btn {
