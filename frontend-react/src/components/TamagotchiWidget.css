@@ -4,7 +4,8 @@
   position: relative;
   width: 100%;
   aspect-ratio: 5 / 2;
-  min-height: 160px;
+  min-height: 100px;
+  max-height: 140px;
   background:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -330,16 +331,8 @@
     padding: 0.4rem 0.6rem 0.45rem;
   }
 
-  /* Hide title on mobile to keep bubble height ≤ 65px */
-  .tama-bubble--tour .tama-bubble-title { display: none; }
-
   .tama-bubble-text {
     font-size: 0.59rem;
-    /* Clamp to 2 lines so bubble never overflows its allocated space */
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
   }
 
   .tama-tour-footer {

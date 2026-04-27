@@ -10,8 +10,15 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const INACTIVITY_MS   = 10_000;
-const IDLE_BASE_MS    = 12_000;
-const EVENT_CHANCE    = 0.20;
+const IDLE_BASE_MS    = 15_000; // 15-20 s random window
+const AUTO_DISMISS_MS = 15_000; // auto-close fact/joke bubble after 15-20 s
+
+// Bubble sits this many px from the widget's top edge (safe from border-radius)
+const BUBBLE_TOP_PAD = 24;
+// Gap between bubble bottom and UFO top edge
+const UFO_GAP = 8;
+// Half the UFO SVG height (18 px / 2)
+const UFO_HALF_H = 9;
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
@@ -136,11 +143,16 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
   const [bubbleText, setBubbleText] = useState('');
   const [fromHook,   setFromHook]  = useState(false);
   const [tourStep,   setTourStep]  = useState(0);
+  // Mobile: measured height of the visible bubble for dynamic UFO placement
+  const [bubbleH,    setBubbleH]   = useState(0);
 
-  const modeRef      = useRef<WidgetMode>('idle');
-  const messageRef   = useRef<string | null>(null);
-  const inactRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const modeRef        = useRef<WidgetMode>('idle');
+  const messageRef     = useRef<string | null>(null);
+  const inactRef       = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const widgetRef      = useRef<HTMLDivElement>(null);
+  const bubbleRef      = useRef<HTMLDivElement>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { messageRef.current = message; }, [message]);
@@ -159,29 +171,62 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Randomised idle event scheduler ──────────────────────────────────────
+  // ── Organic idle state machine: hover / cow / coin / fact ─────────────────
+  // Each tick fires after a random 15-20 s window.
+  // Outcomes: 50% quiet hover, 17% cow, 17% coin, 16% fact bubble.
   const scheduleNext = useCallback(() => {
     clearTimeout(idleTimerRef.current);
-    const delay = IDLE_BASE_MS + Math.random() * 8000; // 12–20 s
+    const delay = IDLE_BASE_MS + Math.random() * 5_000;
     idleTimerRef.current = setTimeout(() => {
       if (modeRef.current !== 'idle') { scheduleNext(); return; }
-      if (Math.random() < EVENT_CHANCE) {
-        const ev: IdlePhase = Math.random() < 0.5 ? 'cow' : 'coin';
-        setIdlePhase(ev);
-        const dur = ev === 'cow' ? 5600 : 2800;
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, dur);
+      const r = Math.random();
+      if (r < 0.50) {
+        // stay in quiet hover
+        scheduleNext();
+      } else if (r < 0.67) {
+        // cow abduction
+        setIdlePhase('cow');
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 5600);
+      } else if (r < 0.84) {
+        // coin shower
+        setIdlePhase('coin');
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2800);
       } else {
+        // fact / joke bubble — fires into ai_bubble mode
+        const rnd = pickRandom(t as TFunc);
+        if (rnd) {
+          setBubbleText(rnd);
+          setFromHook(false);
+          setMode('ai_bubble');
+        }
         scheduleNext();
       }
     }, delay);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     scheduleNext();
     return () => clearTimeout(idleTimerRef.current);
   }, [scheduleNext]);
 
-  // ── Inactivity bubble ─────────────────────────────────────────────────────
+  // ── Auto-dismiss fact/joke bubbles after 15-20 s ──────────────────────────
+  useEffect(() => {
+    if (mode !== 'ai_bubble' || fromHook) {
+      clearTimeout(autoDismissRef.current);
+      return;
+    }
+    clearTimeout(autoDismissRef.current);
+    const delay = AUTO_DISMISS_MS + Math.random() * 5_000;
+    autoDismissRef.current = setTimeout(() => {
+      setMode('idle');
+      resetInact();
+    }, delay);
+    return () => clearTimeout(autoDismissRef.current);
+  // resetInact is defined below but stable — eslint-disable is intentional
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, fromHook]);
+
+  // ── 10-second user-inactivity bubble ──────────────────────────────────────
   const resetInact = useCallback(() => {
     clearTimeout(inactRef.current);
     inactRef.current = setTimeout(() => {
@@ -210,6 +255,18 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
     };
   }, [resetInact]);
 
+  // ── Mobile: measure bubble height for dynamic UFO placement ───────────────
+  const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour';
+  useEffect(() => {
+    if (!isMob() || !showingBubble) { setBubbleH(0); return; }
+    const el = bubbleRef.current;
+    if (!el) { setBubbleH(0); return; }
+    const ro = new ResizeObserver(() => setBubbleH(el.offsetHeight));
+    ro.observe(el);
+    setBubbleH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [showingBubble, bubbleText, tourStep]);
+
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
     clearHighlights();
@@ -236,23 +293,39 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
     resetInact();
   };
 
-  // ── Dismiss AI / greeting bubble ──────────────────────────────────────────
+  // ── Dismiss bubble ────────────────────────────────────────────────────────
   const dismissBubble = () => {
+    clearTimeout(autoDismissRef.current);
     if (fromHook) onDismiss();
     setMode('idle');
     resetInact();
   };
 
-  // ── Derived position values ───────────────────────────────────────────────
+  // ── Compute UFO vertical position ─────────────────────────────────────────
   const inBubble = mode === 'greeting' || mode === 'ai_bubble';
   const inTour   = mode === 'tour';
-  // UFO moves lower when a bubble is shown so the bubble can sit above it
-  const ufoTop = (inBubble || inTour)
-    ? (isMob() ? '78%' : '72%')
-    : idlePhase === 'coin' ? '30%' : '44%';
+  const mob      = isMob();
+
+  let ufoTop: string;
+  if (inBubble || inTour) {
+    if (mob && bubbleH > 0 && widgetRef.current) {
+      // Dynamic: place UFO so it clears the measured bubble with a gap
+      const widgetH  = widgetRef.current.offsetHeight;
+      const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
+      ufoTop = `${Math.min((ufoCenter / widgetH) * 100, 90)}%`;
+    } else {
+      // Fallback (desktop CSS handles it, or bubble not yet measured)
+      ufoTop = mob ? '78%' : '72%';
+    }
+  } else {
+    ufoTop = idlePhase === 'coin' ? '30%' : '44%';
+  }
+
+  // On mobile, override CSS bottom-positioning so the bubble grows from top down
+  const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
 
   return (
-    <div className="tama-screen">
+    <div className="tama-screen" ref={widgetRef}>
 
       {/* ── Corner buttons ── */}
       <button
@@ -328,7 +401,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
           )}
         </AnimatePresence>
 
-        {/* ── UFO — springs between positions ── */}
+        {/* ── UFO — springs to computed position ── */}
         <motion.div
           className="tama-ufo"
           style={{ x: '-50%', y: '-50%' }}
@@ -348,8 +421,9 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
         <AnimatePresence>
           {inBubble && (
             <motion.div
+              ref={bubbleRef}
               className="tama-bubble"
-              style={{ x: '-50%' }}
+              style={{ x: '-50%', ...mobileBubbleStyle }}
               initial={{ opacity: 0, scale: 0.88, y: 6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.88, y: 6 }}
@@ -365,8 +439,9 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
         <AnimatePresence>
           {inTour && (
             <motion.div
+              ref={bubbleRef}
               className="tama-bubble tama-bubble--tour"
-              style={{ x: '-50%' }}
+              style={{ x: '-50%', ...mobileBubbleStyle }}
               initial={{ opacity: 0, scale: 0.88, y: 6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.88, y: 6 }}
