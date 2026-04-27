@@ -55,6 +55,9 @@ const Dashboard: React.FC = () => {
   const budgetPercent = monthlySpendingGoal > 0 ? (totalExpense / monthlySpendingGoal) * 100 : 0;
   const budgetBarColor = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
 
+  const today = new Date().toISOString().split('T')[0];
+  const hasTxToday = transactions.some(t => t.date.startsWith(today));
+
   const { message, dismiss } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
@@ -116,7 +119,7 @@ const Dashboard: React.FC = () => {
         )}
       </div>
 
-      <TamagotchiWidget message={message} onDismiss={dismiss} />
+      <TamagotchiWidget message={message} onDismiss={dismiss} hasTxToday={hasTxToday} />
     </div>
   );
 };

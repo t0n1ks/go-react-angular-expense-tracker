@@ -358,6 +358,16 @@
       "Lehre Kinder früh über Geld. Finanzgewohnheiten bilden sich vor dem 10. Lebensjahr.",
       "Überprüfe jährlich deinen Versicherungsschutz — Lebensveränderungen erfordern angepassten Schutz.",
       "Kleine Lecks versenken große Schiffe: 5€/Tag unnötig = 1.825€/Jahr = eine solide Investition."
+    ],
+    "hungry": [
+      "Ich bin hungrig nach Daten, Mensch! Hast du heute etwas ausgegeben? Meine Sensoren erkennen null Transaktionen.",
+      "Transaktionsanzahl heute: 0. Verdächtig. Selbst schwarze Löcher haben Akkretionsscheiben. Wo sind deine Daten?",
+      "Meine Aufzeichnungen zeigen heute keine Aktivität. Entweder du hast kostenlos gelebt... oder vergessen, etwas einzutragen.",
+      "Leeres Transaktionsprotokoll! Hast du heute etwas ausgegeben? Sogar Nicht-Ausgaben sind als Kontext wertvoll.",
+      "Alarm: 0 Transaktionen heute protokolliert. Alles okay? Hast du von Resten gelebt? Bewundernswert, wenn ja.",
+      "Systembericht: Heute wurden keine Finanzereignisse erfasst. Ein ruhiger Tag... oder ein vergessener?",
+      "Mein Finanzradar zeigt heute nichts. Sag mir etwas — ich verarbeite Daten, keine Stille.",
+      "Null Einträge heute. Entweder ein perfekt sparsamer Tag, oder du schuldest mir Daten. So oder so — Respekt."
     ]
   },
   "tour": {

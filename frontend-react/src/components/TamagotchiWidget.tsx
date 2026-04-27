@@ -116,7 +116,11 @@ type IdlePhase  = 'hover' | 'cow' | 'coin';
 type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour';
 type TFunc      = ReturnType<typeof useTranslation>['t'];
 
-function pickRandom(t: TFunc): string {
+function pickRandom(t: TFunc, hasTxToday = true): string {
+  if (!hasTxToday && Math.random() < 0.35) {
+    const hungry = (t('ai.hungry', { returnObjects: true }) as string[]) ?? [];
+    if (hungry.length) return hungry[Math.floor(Math.random() * hungry.length)];
+  }
   const pool: string[] = [
     ...((t('ai.humor', { returnObjects: true }) as string[]) ?? []),
     ...((t('ai.facts',  { returnObjects: true }) as string[]) ?? []),
@@ -130,13 +134,16 @@ function pickRandom(t: TFunc): string {
 interface Props {
   message: string | null;
   onDismiss: () => void;
+  hasTxToday?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
+const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = true }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const hasTxTodayRef = useRef<boolean>(hasTxToday);
+  useEffect(() => { hasTxTodayRef.current = hasTxToday; }, [hasTxToday]);
 
   const [mode,       setMode]      = useState<WidgetMode>('idle');
   const [idlePhase,  setIdlePhase] = useState<IdlePhase>('hover');
@@ -193,7 +200,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
         setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2800);
       } else {
         // fact / joke bubble — fires into ai_bubble mode
-        const rnd = pickRandom(t as TFunc);
+        const rnd = pickRandom(t as TFunc, hasTxTodayRef.current);
         if (rnd) {
           setBubbleText(rnd);
           setFromHook(false);
@@ -236,7 +243,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss }) => {
         setBubbleText(hookMsg);
         setFromHook(true);
       } else {
-        const rnd = pickRandom(t as TFunc);
+        const rnd = pickRandom(t as TFunc, hasTxTodayRef.current);
         if (!rnd) return;
         setBubbleText(rnd);
         setFromHook(false);
