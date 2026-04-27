@@ -38,4 +38,11 @@ func Connect() {
 	}
 
 	log.Println("Database migration completed")
+
+	// One-time normalization: ensure all existing usernames are lowercase.
+	if res := DB.Exec("UPDATE users SET username = LOWER(username) WHERE username != LOWER(username)"); res.Error != nil {
+		log.Printf("Warning: username normalization failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("Username normalization: %d existing username(s) converted to lowercase", res.RowsAffected)
+	}
 }

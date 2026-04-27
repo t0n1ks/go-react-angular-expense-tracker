@@ -27,7 +27,8 @@
     "hide_password": "Hide password",
     "confirm_password": "Confirm Password",
     "confirm_password_ph": "Repeat your password",
-    "passwords_mismatch": "Passwords do not match"
+    "passwords_mismatch": "Passwords do not match",
+    "username_space_warning": "Spaces are not allowed in usernames"
   },
   "dashboard": {
     "title": "Financial Overview",

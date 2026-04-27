@@ -27,7 +27,8 @@
     "hide_password": "Passwort verbergen",
     "confirm_password": "Passwort bestätigen",
     "confirm_password_ph": "Passwort wiederholen",
-    "passwords_mismatch": "Passwörter stimmen nicht überein"
+    "passwords_mismatch": "Passwörter stimmen nicht überein",
+    "username_space_warning": "Leerzeichen sind im Benutzernamen nicht erlaubt"
   },
   "dashboard": {
     "title": "Finanzübersicht",

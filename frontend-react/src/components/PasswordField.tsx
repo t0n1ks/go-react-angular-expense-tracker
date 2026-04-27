@@ -8,11 +8,12 @@ interface Props {
   className?: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
   placeholder?: string;
   required?: boolean;
 }
 
-const PasswordField: React.FC<Props> = ({ id, className = '', value, onChange, placeholder, required }) => {
+const PasswordField: React.FC<Props> = ({ id, className = '', value, onChange, onBlur, placeholder, required }) => {
   const [show, setShow] = useState(false);
   const { t } = useTranslation();
 
@@ -24,6 +25,7 @@ const PasswordField: React.FC<Props> = ({ id, className = '', value, onChange, p
         type={show ? 'text' : 'password'}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
         required={required}
       />

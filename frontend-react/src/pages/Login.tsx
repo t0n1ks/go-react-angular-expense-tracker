@@ -17,19 +17,37 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [usernameWarning, setUsernameWarning] = useState('');
   const { login, axiosInstance } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setUsername(val);
+    setUsernameWarning(val.includes(' ') ? t('auth.username_space_warning') : '');
+  };
+
+  const handleUsernameBlur = () => {
+    const trimmed = username.trim().toLowerCase();
+    setUsername(trimmed);
+    setUsernameWarning(trimmed.includes(' ') ? t('auth.username_space_warning') : '');
+  };
+
+  const handlePasswordBlur = () => setPassword(p => p.trim());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     try {
-      const response = await axiosInstance.post('/login', { username, password });
+      const response = await axiosInstance.post('/login', { username: cleanUsername, password: cleanPassword });
       const token = response.data.token;
       const tempUserId = 1;
-      login(token, username, tempUserId);
+      login(token, cleanUsername, tempUserId);
       navigate('/', { replace: true });
     } catch (err) {
       console.error("Login failed:", err);
@@ -62,9 +80,11 @@ const Login: React.FC = () => {
               type="text"
               placeholder={t('auth.username_ph')}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
+              onBlur={handleUsernameBlur}
               required
             />
+            {usernameWarning && <p className="auth-field-hint">{usernameWarning}</p>}
           </div>
 
           <div className="auth-field">
@@ -74,6 +94,7 @@ const Login: React.FC = () => {
               className="auth-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={handlePasswordBlur}
               placeholder={t('auth.password_ph')}
               required
             />

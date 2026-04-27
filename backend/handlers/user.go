@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,18 @@ func RegisterUser(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user.Username = strings.ToLower(strings.TrimSpace(user.Username))
+	user.Password = strings.TrimSpace(user.Password)
+
+	if strings.ContainsAny(user.Username, " \t") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid username: spaces are not allowed"})
+		return
+	}
+	if user.Username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username cannot be empty"})
 		return
 	}
 
@@ -58,6 +71,14 @@ func LoginUser(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&loginRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	loginRequest.Username = strings.ToLower(strings.TrimSpace(loginRequest.Username))
+	loginRequest.Password = strings.TrimSpace(loginRequest.Password)
+
+	if strings.ContainsAny(loginRequest.Username, " \t") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 

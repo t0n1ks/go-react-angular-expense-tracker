@@ -19,22 +19,41 @@ const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [usernameWarning, setUsernameWarning] = useState('');
   const { axiosInstance } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setUsername(val);
+    setUsernameWarning(val.includes(' ') ? t('auth.username_space_warning') : '');
+  };
+
+  const handleUsernameBlur = () => {
+    const trimmed = username.trim().toLowerCase();
+    setUsername(trimmed);
+    setUsernameWarning(trimmed.includes(' ') ? t('auth.username_space_warning') : '');
+  };
+
+  const handlePasswordBlur = () => setPassword(p => p.trim());
+  const handleConfirmPasswordBlur = () => setConfirmPassword(p => p.trim());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (password !== confirmPassword) {
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (cleanPassword !== confirmPassword.trim()) {
       setError(t('auth.passwords_mismatch'));
       return;
     }
 
     try {
-      const response = await axiosInstance.post('/register', { username, password });
+      const response = await axiosInstance.post('/register', { username: cleanUsername, password: cleanPassword });
       setSuccess(response.data.message || t('auth.register_success'));
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
@@ -70,9 +89,11 @@ const Register: React.FC = () => {
               type="text"
               placeholder={t('auth.username_ph')}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
+              onBlur={handleUsernameBlur}
               required
             />
+            {usernameWarning && <p className="auth-field-hint">{usernameWarning}</p>}
           </div>
 
           <div className="auth-field-reg">
@@ -82,6 +103,7 @@ const Register: React.FC = () => {
               className="auth-input-reg"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={handlePasswordBlur}
               placeholder={t('auth.password_ph')}
               required
             />
@@ -94,6 +116,7 @@ const Register: React.FC = () => {
               className="auth-input-reg"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={handleConfirmPasswordBlur}
               placeholder={t('auth.confirm_password_ph')}
               required
             />

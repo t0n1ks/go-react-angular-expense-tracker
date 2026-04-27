@@ -89,6 +89,13 @@
     border: 1px solid var(--color-error-border-auth);
 }
 
+.auth-field-hint {
+    margin: 5px 0 0 0;
+    font-size: 12px;
+    color: #f59e0b;
+    font-weight: 500;
+}
+
 .auth-footer {
     margin-top: 25px;
 }

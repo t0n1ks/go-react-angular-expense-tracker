@@ -27,7 +27,8 @@
     "hide_password": "Скрыть пароль",
     "confirm_password": "Подтвердите пароль",
     "confirm_password_ph": "Повторите пароль",
-    "passwords_mismatch": "Пароли не совпадают"
+    "passwords_mismatch": "Пароли не совпадают",
+    "username_space_warning": "Пробелы в имени пользователя недопустимы"
   },
   "dashboard": {
     "title": "Финансовый обзор",
