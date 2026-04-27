@@ -82,6 +82,7 @@ const Transactions: React.FC = () => {
         income_type: formState.type === 'income' ? formState.income_type : undefined,
       };
       await axiosInstance.post('/transactions', payload);
+      navigator.vibrate?.(10);
       setFormState(prev => ({ ...prev, amount: '', description: '' }));
       fetchData();
     } catch {
@@ -106,6 +107,7 @@ const Transactions: React.FC = () => {
     const index = transactions.findIndex(tx => tx.id === tr.id);
     setTransactions(prev => prev.filter(tx => tx.id !== tr.id));
     setPendingDelete({ item: tr, index });
+    navigator.vibrate?.(10);
     deleteTimerRef.current = setTimeout(async () => {
       await commitDelete(tr.id);
       setPendingDelete(null);

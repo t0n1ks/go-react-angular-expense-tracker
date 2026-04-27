@@ -79,6 +79,7 @@ const Categories: React.FC = () => {
     const index = categories.findIndex(c => c.id === category.id);
     setCategories(prev => prev.filter(c => c.id !== category.id));
     setPendingDelete({ item: category, index });
+    navigator.vibrate?.(10);
     deleteTimerRef.current = setTimeout(async () => {
       await commitDelete(category.id);
       setPendingDelete(null);
