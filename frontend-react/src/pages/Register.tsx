@@ -57,7 +57,6 @@ const Register: React.FC = () => {
       setSuccess(response.data.message || t('auth.register_success'));
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
-      console.error("Registration failed:", err);
       let errorMessage = t('auth.register_error_generic');
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const axiosError = err as AxiosErrorResponse;

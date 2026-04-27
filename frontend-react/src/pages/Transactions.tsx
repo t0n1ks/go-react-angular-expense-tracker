@@ -59,7 +59,7 @@ const Transactions: React.FC = () => {
         setFormState(prev => ({ ...prev, category_id: cats[0].id.toString() }));
       }
     } catch {
-      console.error(t('transactions.error_load'));
+      // silent — error_load shown via formError state if needed
     } finally {
       setLoading(false);
     }

@@ -36,8 +36,8 @@ const Statistics: React.FC = () => {
       const response = await axiosInstance.get("/transactions");
       const data = response.data.transactions || response.data;
       setTransactions(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error loading statistics:", err);
+    } catch {
+      // silent — loading state is already reset in finally
     } finally {
       setLoading(false);
     }

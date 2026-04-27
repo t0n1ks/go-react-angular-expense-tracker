@@ -28,8 +28,8 @@ const Dashboard: React.FC = () => {
       const response = await axiosInstance.get('/transactions');
       const data = response.data.transactions || response.data;
       setTransactions(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error loading transactions:', err);
+    } catch {
+      // silent — loading state reset in finally
     } finally {
       setLoading(false);
     }

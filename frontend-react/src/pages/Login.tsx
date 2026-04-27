@@ -50,7 +50,6 @@ const Login: React.FC = () => {
       login(token, cleanUsername, tempUserId);
       navigate('/', { replace: true });
     } catch (err) {
-      console.error("Login failed:", err);
       let errorMessage = t('auth.login_error');
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const axiosError = err as AxiosErrorResponse;
