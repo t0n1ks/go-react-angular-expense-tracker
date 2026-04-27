@@ -55,6 +55,7 @@ func main() {
 
 		protected.GET("/profile", handlers.GetProfile)
 		protected.PUT("/profile", handlers.UpdateProfile)
+		protected.DELETE("/user", handlers.DeleteAccount)
 
 		protected.GET("/summary/daily", handlers.GetDailySummary)
 		protected.GET("/summary/period", handlers.GetPeriodSummary)

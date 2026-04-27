@@ -123,7 +123,15 @@
     "language_title": "Sprache",
     "save": "Einstellungen speichern",
     "saved": "Gespeichert!",
-    "save_error": "Speichern fehlgeschlagen"
+    "save_error": "Speichern fehlgeschlagen",
+    "delete_account": "Konto löschen",
+    "delete_modal_title": "Konto löschen",
+    "delete_modal_body": "Diese Aktion ist dauerhaft und kann nicht rückgängig gemacht werden. Alle Transaktionen, Kategorien und Einstellungen werden für immer gelöscht.",
+    "delete_type_hint": "Tippe DELETE zur Bestätigung",
+    "delete_cancel": "Abbrechen",
+    "delete_confirm": "Löschen bestätigen",
+    "delete_error": "Konto konnte nicht gelöscht werden. Bitte versuche es erneut.",
+    "delete_success": "Konto erfolgreich gelöscht"
   },
   "common": {
     "loading": "Wird geladen...",

@@ -319,6 +319,178 @@
     color: #fff;
 }
 
+/* Delete Account section */
+.settings-delete-section {
+    margin-top: 0.75rem;
+}
+
+.btn-delete-account {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: transparent;
+    color: var(--color-btn-logout);
+    border: 1px solid var(--color-btn-logout);
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+    opacity: 0.85;
+}
+
+.btn-delete-account:hover {
+    background: var(--color-btn-logout);
+    color: #fff;
+    opacity: 1;
+}
+
+/* Delete confirmation modal */
+.delete-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.delete-modal {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 1.25rem;
+    padding: 2rem 1.75rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    box-sizing: border-box;
+}
+
+.delete-modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-btn-logout);
+    margin: 0 0 0.75rem 0;
+}
+
+.delete-modal-body {
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1.25rem 0;
+    line-height: 1.5;
+}
+
+.delete-modal-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    margin-bottom: 0.5rem;
+}
+
+.delete-modal-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.625rem;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
+    font-size: 0.9rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+.delete-modal-input:focus {
+    outline: none;
+    border-color: var(--color-btn-logout);
+}
+
+.delete-modal-error {
+    font-size: 0.8rem;
+    color: var(--color-error-text);
+    margin: 0.5rem 0 0 0;
+}
+
+.delete-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-cancel-delete {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+    min-width: 100px;
+}
+
+.btn-cancel-delete:hover:not(:disabled) {
+    border-color: var(--color-text-muted);
+    color: var(--color-text-heading);
+}
+
+.btn-confirm-delete {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border: none;
+    border-radius: 0.75rem;
+    background: var(--color-btn-logout);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    min-width: 100px;
+}
+
+.btn-confirm-delete:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-confirm-delete:not(:disabled):hover {
+    opacity: 0.85;
+}
+
+/* Success toast */
+.delete-success-toast {
+    position: fixed;
+    bottom: calc(var(--bottom-nav-height, 0px) + 1.25rem);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #10b981;
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    z-index: 10000;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    animation: toast-in 0.3s ease;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 @media (max-width: 1024px) {
     .settings-wrapper {
         padding: 1.25rem 1rem;
@@ -347,5 +519,18 @@
     .btn-logout-settings {
         width: 100%;
         justify-content: center;
+    }
+
+    .btn-delete-account {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .delete-modal {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .delete-modal-actions {
+        flex-direction: column;
     }
 }

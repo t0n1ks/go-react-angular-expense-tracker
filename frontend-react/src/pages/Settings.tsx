@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check, Info, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, Check, Info, LogOut, Trash2 } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import './Settings.css';
@@ -20,7 +21,8 @@ const LANGUAGES = [
 
 const Settings: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const { logout } = useAuth();
+  const { logout, axiosInstance } = useAuth();
+  const navigate = useNavigate();
   const {
     currency,
     aiAdviceEnabled,
@@ -40,6 +42,11 @@ const Settings: React.FC = () => {
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [ruleApplied, setRuleApplied] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // Sync when context loads from backend
   useEffect(() => {
@@ -62,6 +69,28 @@ const Settings: React.FC = () => {
     const goal = Math.round(local.expectedSalary * 0.8);
     setLocal(prev => ({ ...prev, monthlySpendingGoal: goal }));
     setRuleApplied(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setDeleteOpen(false);
+    setDeleteInput('');
+    setDeleteError('');
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      await axiosInstance.delete('/user');
+      setDeleteOpen(false);
+      setShowSuccessToast(true);
+      logout();
+      setTimeout(() => navigate('/register'), 1800);
+    } catch {
+      setDeleteError(t('settings.delete_error'));
+      setIsDeleting(false);
+    }
   };
 
   const currentLang = i18n.language?.split('-')[0] ?? 'en';
@@ -223,6 +252,54 @@ const Settings: React.FC = () => {
           {t('nav.logout')}
         </button>
       </div>
+
+      {/* Delete Account */}
+      <div className="settings-delete-section">
+        <button className="btn-delete-account" onClick={() => setDeleteOpen(true)}>
+          <Trash2 size={16} />
+          {t('settings.delete_account')}
+        </button>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteOpen && (
+        <div className="delete-modal-overlay" onClick={closeDeleteModal}>
+          <div className="delete-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="delete-modal-title">{t('settings.delete_modal_title')}</h3>
+            <p className="delete-modal-body">{t('settings.delete_modal_body')}</p>
+            <label className="delete-modal-label">{t('settings.delete_type_hint')}</label>
+            <input
+              className="delete-modal-input"
+              type="text"
+              value={deleteInput}
+              onChange={e => setDeleteInput(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              autoFocus
+            />
+            {deleteError && <p className="delete-modal-error">{deleteError}</p>}
+            <div className="delete-modal-actions">
+              <button className="btn-cancel-delete" onClick={closeDeleteModal} disabled={isDeleting}>
+                {t('settings.delete_cancel')}
+              </button>
+              <button
+                className="btn-confirm-delete"
+                onClick={handleDeleteAccount}
+                disabled={deleteInput !== 'DELETE' || isDeleting}
+              >
+                {isDeleting ? t('common.loading') : t('settings.delete_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success toast */}
+      {showSuccessToast && (
+        <div className="delete-success-toast">
+          {t('settings.delete_success')}
+        </div>
+      )}
     </div>
   );
 };
