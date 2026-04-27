@@ -30,7 +30,9 @@
     "passwords_mismatch": "Passwörter stimmen nicht überein",
     "username_space_warning": "Leerzeichen sind im Benutzernamen nicht erlaubt",
     "error_username_taken": "Dieser Benutzername ist bereits vergeben. Bitte wählen Sie einen anderen.",
-    "register_error_generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut."
+    "register_error_generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut.",
+    "help_rule_explain_title": "Was ist die 50/30/20-Regel?",
+    "help_rule_explain_text": "Eine einfache Budgetformel: 50% des Einkommens für Bedürfnisse (Wohnen, Essen), 30% für Wünsche (Hobbys, Unterhaltung), 20% für Ersparnisse. Die Schaltfläche oben setzt automatisch Ihr Sparziel basierend auf Ihrem Gehalt."
   },
   "dashboard": {
     "title": "Finanzübersicht",

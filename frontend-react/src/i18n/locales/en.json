@@ -30,7 +30,9 @@
     "passwords_mismatch": "Passwords do not match",
     "username_space_warning": "Spaces are not allowed in usernames",
     "error_username_taken": "This username is already taken. Please choose another one.",
-    "register_error_generic": "Something went wrong. Please try again later."
+    "register_error_generic": "Something went wrong. Please try again later.",
+    "help_rule_explain_title": "What is the 50/30/20 rule?",
+    "help_rule_explain_text": "A simple budget formula: 50% of income for Needs (housing, food), 30% for Wants (hobbies, entertainment), 20% for Savings. The button above automatically sets your savings goal based on your salary."
   },
   "dashboard": {
     "title": "Financial Overview",

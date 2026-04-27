@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Settings as SettingsIcon, Check, Info, LogOut, Trash2 } from 'lucide-react';
@@ -47,11 +47,24 @@ const Settings: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showRuleExplain, setShowRuleExplain] = useState(false);
+  const ruleExplainRef = useRef<HTMLDivElement>(null);
 
   // Sync when context loads from backend
   useEffect(() => {
     setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary });
   }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary]);
+
+  useEffect(() => {
+    if (!showRuleExplain) return;
+    const handler = (e: MouseEvent) => {
+      if (ruleExplainRef.current && !ruleExplainRef.current.contains(e.target as Node)) {
+        setShowRuleExplain(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showRuleExplain]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -196,13 +209,27 @@ const Settings: React.FC = () => {
             <button className="btn-rule" onClick={applyRule}>
               {t('settings.apply_rule')}
             </button>
-            <span
+            <button
               className="rule-info-icon"
-              title={t('settings.rule_tooltip')}
+              onClick={() => setShowRuleExplain(v => !v)}
               aria-label={t('settings.rule_tooltip')}
+              type="button"
             >
               <Info size={15} />
-            </span>
+            </button>
+            {showRuleExplain && (
+              <div className="rule-explain-popup" ref={ruleExplainRef}>
+                <p className="rule-explain-title">{t('auth.help_rule_explain_title')}</p>
+                <p className="rule-explain-text">{t('auth.help_rule_explain_text')}</p>
+                <button
+                  className="rule-explain-close"
+                  onClick={() => setShowRuleExplain(false)}
+                  type="button"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             {ruleApplied && (
               <span className="rule-applied-msg">
                 {t('settings.rule_applied', { goal: ruleGoalFormatted })}

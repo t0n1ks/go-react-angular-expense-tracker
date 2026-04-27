@@ -215,6 +215,7 @@
 
 /* 50/30/20 Rule row */
 .rule-row {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -243,9 +244,58 @@
     color: var(--color-text-muted);
     display: flex;
     align-items: center;
-    cursor: help;
+    cursor: pointer;
     flex-shrink: 0;
+    background: none;
+    border: none;
+    padding: 0;
+    transition: color 0.18s;
 }
+
+.rule-info-icon:hover { color: var(--color-text-heading); }
+
+.rule-explain-popup {
+    position: absolute;
+    z-index: 50;
+    bottom: calc(100% + 8px);
+    left: 0;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.875rem;
+    padding: 0.875rem 2.5rem 0.875rem 1rem;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.rule-explain-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    margin: 0 0 0.4rem;
+}
+
+.rule-explain-text {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.rule-explain-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.rule-explain-close:hover { color: var(--color-text-heading); }
 
 .rule-applied-msg {
     font-size: 0.8rem;
