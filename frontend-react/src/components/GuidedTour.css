@@ -15,7 +15,7 @@
 /* ── Mobile dock: UFO + bubble side-by-side above bottom nav ────────────── */
 .tour-mobile-dock {
   position: fixed;
-  bottom: 74px;
+  bottom: calc(var(--bottom-nav-height) + 18px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -68,7 +68,7 @@
 /* Mobile: compact side-by-side bubble */
 .tour-bubble--compact {
   width: 190px;
-  max-width: calc(100vw - 32px);
+  max-width: min(190px, calc(100vw - 80px));
   padding: 0.75rem;
   pointer-events: auto;
 }
