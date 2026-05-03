@@ -26,11 +26,6 @@ const UserProfileChip: React.FC<Props> = ({ variant }) => {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const handleSettingsClick = () => {
-    setOpen(false);
-    navigate('/settings');
-  };
-
   const handleLogout = () => {
     setOpen(false);
     logout();
@@ -48,16 +43,21 @@ const UserProfileChip: React.FC<Props> = ({ variant }) => {
         aria-expanded={open}
         type="button"
       >
-        <span className="upc-avatar">{initial}</span>
-        <span className="upc-username">{user?.username}</span>
+        <span className="upc-avatar" translate="no">{initial}</span>
+        <span className="upc-username" translate="no">{user?.username}</span>
       </button>
 
       {open && (
         <div className={`upc-dropdown upc-dropdown--${variant}`} role="menu">
-          <button className="upc-menu-item" onClick={handleSettingsClick} role="menuitem" type="button">
-            {t('nav.settings')}
-          </button>
-          <button className="upc-menu-item upc-menu-item--logout" onClick={handleLogout} role="menuitem" type="button">
+          <div className="upc-dropdown-header">
+            <span className="upc-dropdown-username" translate="no">{user?.username}</span>
+          </div>
+          <button
+            className="upc-menu-item upc-menu-item--logout"
+            onClick={handleLogout}
+            role="menuitem"
+            type="button"
+          >
             {t('nav.logout')}
           </button>
         </div>

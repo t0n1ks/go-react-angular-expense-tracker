@@ -49,7 +49,7 @@
   line-height: 1;
 }
 
-/* Username */
+/* Username in chip — visible by default (sidebar uses this on desktop) */
 .upc-username {
   color: var(--color-nav-user-text);
   font-size: 0.875rem;
@@ -67,6 +67,13 @@
   max-width: 90px;
 }
 
+/* On mobile/tablet the sidebar is hidden, header chip shows only avatar */
+@media (max-width: 1024px) {
+  .upc-wrapper--header .upc-username {
+    display: none;
+  }
+}
+
 /* Dropdown */
 .upc-dropdown {
   position: absolute;
@@ -78,7 +85,7 @@
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  min-width: 150px;
+  min-width: 160px;
 }
 
 /* Sidebar: opens upward */
@@ -95,6 +102,23 @@
   bottom: auto;
   right: 0;
   left: auto;
+}
+
+/* Dropdown username header */
+.upc-dropdown-header {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--color-sidebar-divider);
+}
+
+.upc-dropdown-username {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-nav-user-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 /* Dropdown items */
@@ -120,7 +144,6 @@
 
 .upc-menu-item--logout {
   color: var(--color-btn-logout);
-  border-top: 1px solid var(--color-sidebar-divider);
 }
 
 .upc-menu-item--logout:hover {

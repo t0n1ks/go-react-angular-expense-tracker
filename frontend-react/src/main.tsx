@@ -17,6 +17,7 @@ import Transactions from './pages/Transactions.tsx';
 import Statistics from './pages/Statistics.tsx';
 import Settings from './pages/Settings.tsx';
 import PrivateRoute from './components/PrivateRoute.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
 
 const router = createBrowserRouter([
   {
@@ -49,7 +50,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <AuthProvider>
         <SettingsProvider>
-          <RouterProvider router={router} />
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
         </SettingsProvider>
       </AuthProvider>
     </ThemeProvider>
