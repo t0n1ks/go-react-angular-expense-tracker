@@ -29,6 +29,9 @@ const Settings: React.FC = () => {
     aiHumorEnabled,
     monthlySpendingGoal,
     expectedSalary,
+    paydayMode,
+    fixedPayday,
+    manualNextPayday,
     currencySymbol,
     saveSettings,
   } = useSettings();
@@ -39,6 +42,9 @@ const Settings: React.FC = () => {
     aiHumorEnabled,
     monthlySpendingGoal,
     expectedSalary,
+    paydayMode,
+    fixedPayday,
+    manualNextPayday,
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [ruleApplied, setRuleApplied] = useState(false);
@@ -52,8 +58,9 @@ const Settings: React.FC = () => {
 
   // Sync when context loads from backend
   useEffect(() => {
-    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary });
-  }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary]);
+    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday, manualNextPayday });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday]);
 
   useEffect(() => {
     if (!showRuleExplain) return;
@@ -250,6 +257,43 @@ const Settings: React.FC = () => {
             step="1"
           />
         </div>
+      </div>
+
+      {/* Payday Settings */}
+      <div className="settings-card">
+        <h2 className="settings-card-title">{t('settings.payday_title')}</h2>
+        <div className="payday-mode-selector">
+          <button
+            className={`payday-mode-btn${local.paydayMode !== 'fixed' ? ' payday-mode-btn--active' : ''}`}
+            onClick={() => setLocal(prev => ({ ...prev, paydayMode: 'smart' }))}
+          >
+            {t('settings.payday_mode_smart')}
+          </button>
+          <button
+            className={`payday-mode-btn${local.paydayMode === 'fixed' ? ' payday-mode-btn--active' : ''}`}
+            onClick={() => setLocal(prev => ({ ...prev, paydayMode: 'fixed' }))}
+          >
+            {t('settings.payday_mode_fixed')}
+          </button>
+        </div>
+        {local.paydayMode === 'fixed' && (
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label className="settings-label">{t('settings.payday_fixed_day')}</label>
+            <input
+              type="number"
+              className="settings-input"
+              value={local.fixedPayday || ''}
+              onChange={e => setLocal(prev => ({
+                ...prev,
+                fixedPayday: Math.max(1, Math.min(31, Number(e.target.value) || 0)),
+              }))}
+              placeholder="1–31"
+              min="1"
+              max="31"
+              step="1"
+            />
+          </div>
+        )}
       </div>
 
       {/* Save */}

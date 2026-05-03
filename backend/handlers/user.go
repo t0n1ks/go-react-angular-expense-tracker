@@ -180,6 +180,9 @@ func GetProfile(c *gin.Context) {
 		"ai_humor_enabled":     user.AIHumorEnabled,
 		"monthly_spending_goal": user.MonthlySpendingGoal,
 		"expected_salary":      user.ExpectedSalary,
+		"payday_mode":          user.PaydayMode,
+		"fixed_payday":         user.FixedPayday,
+		"manual_next_payday":   user.ManualNextPayday,
 	})
 }
 
@@ -196,6 +199,9 @@ func UpdateProfile(c *gin.Context) {
 		AIHumorEnabled      bool    `json:"ai_humor_enabled"`
 		MonthlySpendingGoal float64 `json:"monthly_spending_goal"`
 		ExpectedSalary      float64 `json:"expected_salary"`
+		PaydayMode          string  `json:"payday_mode"`
+		FixedPayday         int     `json:"fixed_payday"`
+		ManualNextPayday    string  `json:"manual_next_payday"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -210,12 +216,22 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	if req.PaydayMode != "fixed" {
+		req.PaydayMode = "smart"
+	}
+	if req.FixedPayday < 0 || req.FixedPayday > 31 {
+		req.FixedPayday = 0
+	}
+
 	updates := map[string]interface{}{
 		"currency":              req.Currency,
 		"ai_advice_enabled":    req.AIAdviceEnabled,
 		"ai_humor_enabled":     req.AIHumorEnabled,
 		"monthly_spending_goal": req.MonthlySpendingGoal,
 		"expected_salary":      req.ExpectedSalary,
+		"payday_mode":          req.PaydayMode,
+		"fixed_payday":         req.FixedPayday,
+		"manual_next_payday":   req.ManualNextPayday,
 	}
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})

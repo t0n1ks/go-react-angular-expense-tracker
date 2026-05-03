@@ -58,7 +58,16 @@
     "weekly_can_spend": "Можно потратить",
     "weekly_spent": "Потрачено",
     "weekly_no_budget": "Установите месячный бюджет для отслеживания по неделям",
-    "weekly_carryover": "Перенос: {{amount}}"
+    "weekly_carryover": "Перенос: {{amount}}",
+    "weekly_received_salary": "Получена зарплата",
+    "weekly_next_payday_label": "Следующая выплата",
+    "weekly_days_left": "{{days}} дн.",
+    "weekly_no_cycle": "Установите день выплаты для недельного отслеживания",
+    "weekly_save": "Сохранить",
+    "weekly_cancel": "Отмена",
+    "weekly_payday_today": "День зарплаты! Установите следующий.",
+    "weekly_budget_limit": "Месячный лимит",
+    "weekly_spent_since": "Потрачено с дня выплаты"
   },
   "transactions": {
     "title": "Транзакции",
@@ -142,7 +151,11 @@
     "delete_cancel": "Отмена",
     "delete_confirm": "Подтвердить удаление",
     "delete_error": "Не удалось удалить аккаунт. Попробуйте ещё раз.",
-    "delete_success": "Аккаунт успешно удалён"
+    "delete_success": "Аккаунт успешно удалён",
+    "payday_title": "Настройки дня выплаты",
+    "payday_mode_smart": "Смарт (авто)",
+    "payday_mode_fixed": "Фиксированный день",
+    "payday_fixed_day": "День месяца (1–31)"
   },
   "common": {
     "loading": "Загрузка...",

@@ -58,7 +58,16 @@
     "weekly_can_spend": "Можна витратити",
     "weekly_spent": "Витрачено",
     "weekly_no_budget": "Встановіть місячний бюджет для відстеження по тижнях",
-    "weekly_carryover": "Перенесено: {{amount}}"
+    "weekly_carryover": "Перенесено: {{amount}}",
+    "weekly_received_salary": "Отримано зарплату",
+    "weekly_next_payday_label": "Наступна виплата",
+    "weekly_days_left": "{{days}} дн.",
+    "weekly_no_cycle": "Встановіть день виплати для тижневого відстеження",
+    "weekly_save": "Зберегти",
+    "weekly_cancel": "Скасувати",
+    "weekly_payday_today": "День виплати! Встановіть наступний.",
+    "weekly_budget_limit": "Місячний ліміт",
+    "weekly_spent_since": "Витрачено з дня виплати"
   },
   "transactions": {
     "title": "Транзакції",
@@ -142,7 +151,11 @@
     "delete_cancel": "Скасувати",
     "delete_confirm": "Підтвердити видалення",
     "delete_error": "Не вдалося видалити акаунт. Спробуйте ще раз.",
-    "delete_success": "Акаунт успішно видалено"
+    "delete_success": "Акаунт успішно видалено",
+    "payday_title": "Налаштування виплати",
+    "payday_mode_smart": "Смарт (авто)",
+    "payday_mode_fixed": "Фіксований день",
+    "payday_fixed_day": "День місяця (1–31)"
   },
   "common": {
     "loading": "Завантаження...",

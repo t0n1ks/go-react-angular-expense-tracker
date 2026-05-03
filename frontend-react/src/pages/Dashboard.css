@@ -195,6 +195,127 @@
     margin: 0.35rem 0 0 0;
 }
 
+/* Received Salary button in header */
+.weekly-budget-salary-btn {
+    margin-left: auto;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--color-border-card);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+.weekly-budget-salary-btn:hover {
+    background: var(--color-bg-sidebar-hover);
+    color: var(--color-text-heading);
+}
+
+/* Payday today notice */
+.weekly-budget-payday-today {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #10b981;
+    margin: 0 0 0.75rem 0;
+}
+
+/* No cycle state */
+.weekly-budget-no-cycle {
+    padding: 0.5rem 0 0.75rem;
+}
+.weekly-budget-no-cycle-text {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+/* Footer with next payday info */
+.weekly-budget-footer {
+    margin-top: 0.6rem;
+}
+
+.weekly-budget-payday-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.weekly-budget-payday-label {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+
+.weekly-budget-payday-btn {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #38bdf8;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+.weekly-budget-payday-btn:hover {
+    color: #0ea5e9;
+}
+
+.weekly-budget-payday-date {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-heading);
+}
+
+.weekly-budget-days-left {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+
+/* Inline date picker form */
+.weekly-budget-payday-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.weekly-budget-date-input {
+    padding: 4px 8px;
+    font-size: 0.82rem;
+    border: 1px solid var(--color-border-card);
+    border-radius: 8px;
+    background: var(--color-bg-card);
+    color: var(--color-text-heading);
+    outline: none;
+}
+.weekly-budget-date-input:focus {
+    border-color: #38bdf8;
+}
+
+.weekly-budget-action-btn {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.weekly-budget-action-btn:hover { opacity: 0.85; }
+
+.weekly-budget-action-btn--save {
+    background: #38bdf8;
+    color: #fff;
+}
+.weekly-budget-action-btn--cancel {
+    background: var(--color-border-card);
+    color: var(--color-text-muted);
+}
+
 /* ── Mobile / Tablet responsive ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .dashboard-wrapper {

@@ -9,9 +9,13 @@ export interface UserSettings {
   aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
   expectedSalary: number;
+  paydayMode: 'smart' | 'fixed';
+  fixedPayday: number;
+  manualNextPayday: string;
 }
 
 interface SettingsContextType extends UserSettings {
+  settings: UserSettings;
   isLoading: boolean;
   saveSettings: (s: UserSettings) => Promise<void>;
   formatAmount: (amount: number) => string;
@@ -32,6 +36,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   aiHumorEnabled: false,
   monthlySpendingGoal: 0,
   expectedSalary: 0,
+  paydayMode: 'smart',
+  fixedPayday: 0,
+  manualNextPayday: '',
 };
 
 const loadFromStorage = (): UserSettings => {
@@ -57,7 +64,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<UserSettings>(loadFromStorage);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch fresh settings from the backend whenever the user logs in
   useEffect(() => {
     if (!isAuthenticated) {
       setSettings(DEFAULT_SETTINGS);
@@ -76,6 +82,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           aiHumorEnabled: d.ai_humor_enabled ?? false,
           monthlySpendingGoal: d.monthly_spending_goal ?? 0,
           expectedSalary: d.expected_salary ?? 0,
+          paydayMode: (d.payday_mode === 'fixed' ? 'fixed' : 'smart'),
+          fixedPayday: d.fixed_payday ?? 0,
+          manualNextPayday: d.manual_next_payday ?? '',
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
@@ -96,6 +105,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       ai_humor_enabled: next.aiHumorEnabled,
       monthly_spending_goal: next.monthlySpendingGoal,
       expected_salary: next.expectedSalary,
+      payday_mode: next.paydayMode,
+      fixed_payday: next.fixedPayday,
+      manual_next_payday: next.manualNextPayday,
     });
   };
 
@@ -104,8 +116,17 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const formatAmount = (amount: number): string =>
     `${currencySymbol}${Math.abs(amount).toLocaleString()}`;
 
+  const value: SettingsContextType = {
+    ...settings,
+    settings,
+    isLoading,
+    saveSettings,
+    formatAmount,
+    currencySymbol,
+  };
+
   return (
-    <SettingsContext.Provider value={{ ...settings, isLoading, saveSettings, formatAmount, currencySymbol }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

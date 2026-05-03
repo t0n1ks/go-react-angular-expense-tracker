@@ -58,7 +58,16 @@
     "weekly_can_spend": "Verfügbar",
     "weekly_spent": "Ausgegeben",
     "weekly_no_budget": "Monatliches Budget setzen, um Wochenausgaben zu verfolgen",
-    "weekly_carryover": "Übertrag: {{amount}}"
+    "weekly_carryover": "Übertrag: {{amount}}",
+    "weekly_received_salary": "Gehalt erhalten",
+    "weekly_next_payday_label": "Nächster Zahltag",
+    "weekly_days_left": "{{days}} Tage",
+    "weekly_no_cycle": "Zahltag setzen, um wöchentliches Tracking zu aktivieren",
+    "weekly_save": "Speichern",
+    "weekly_cancel": "Abbrechen",
+    "weekly_payday_today": "Zahltag! Lege deinen nächsten Zahltag fest.",
+    "weekly_budget_limit": "Monatslimit",
+    "weekly_spent_since": "Ausgegeben seit Zahltag"
   },
   "transactions": {
     "title": "Transaktionen",
@@ -142,7 +151,11 @@
     "delete_cancel": "Abbrechen",
     "delete_confirm": "Löschen bestätigen",
     "delete_error": "Konto konnte nicht gelöscht werden. Bitte versuche es erneut.",
-    "delete_success": "Konto erfolgreich gelöscht"
+    "delete_success": "Konto erfolgreich gelöscht",
+    "payday_title": "Zahltag-Einstellungen",
+    "payday_mode_smart": "Smart (auto)",
+    "payday_mode_fixed": "Fester Tag",
+    "payday_fixed_day": "Tag des Monats (1–31)"
   },
   "common": {
     "loading": "Wird geladen...",
