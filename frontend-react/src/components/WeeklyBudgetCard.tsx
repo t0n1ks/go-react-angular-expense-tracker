@@ -17,6 +17,13 @@ interface Props {
   formatAmount: (n: number) => string;
 }
 
+function safeParseDate(value: string | null | undefined): Date | null {
+  if (!value || value === 'null' || value === 'undefined') return null;
+  const raw = value.includes('T') ? value : value + 'T12:00:00';
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function getWeekStart(d: Date): Date {
   const result = new Date(d);
   const day = result.getDay();
@@ -61,11 +68,12 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     lastPayday = last;
     nextPayday = next;
   } else {
-    // Smart mode: find most recent one-time income transaction
+    // Smart mode: find most recent valid one-time income transaction
     const lastIncome = transactions
       .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
-      .map(tx => new Date(tx.date + 'T12:00:00'))
-      .sort((a, b) => b.getTime() - a.getTime())[0];
+      .map(tx => safeParseDate(tx.date))
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
     if (lastIncome) {
       lastPayday = new Date(lastIncome);
@@ -75,8 +83,9 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
       lastPayday = new Date(today.getFullYear(), today.getMonth(), 1);
     }
 
-    if (manualNextPayday) {
-      nextPayday = new Date(manualNextPayday + 'T12:00:00');
+    const parsedNext = safeParseDate(manualNextPayday);
+    if (parsedNext) {
+      nextPayday = parsedNext;
       nextPayday.setHours(0, 0, 0, 0);
     }
   }
@@ -87,7 +96,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const lastPaydayStr = lastPayday ? lastPayday.toISOString().slice(0, 10) : todayStr;
   const spentSincePayday = transactions
     .filter(tx => {
-      if (tx.type !== 'expense') return false;
+      if (tx.type !== 'expense' || !tx.date) return false;
       const d = tx.date.slice(0, 10);
       return d >= lastPaydayStr && d <= todayStr;
     })
@@ -109,8 +118,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const weekSpent = transactions
     .filter(tx => {
       if (tx.type !== 'expense') return false;
-      const d = new Date(tx.date + 'T12:00:00');
-      return d >= weekStart && d <= weekEnd;
+      const d = safeParseDate(tx.date);
+      return d !== null && d >= weekStart && d <= weekEnd;
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
