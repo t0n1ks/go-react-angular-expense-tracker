@@ -49,7 +49,7 @@
   line-height: 1;
 }
 
-/* Username in chip — visible by default (sidebar uses this on desktop) */
+/* Username in chip */
 .upc-username {
   color: var(--color-nav-user-text);
   font-size: 0.875rem;
@@ -67,7 +67,7 @@
   max-width: 90px;
 }
 
-/* On mobile/tablet the sidebar is hidden, header chip shows only avatar */
+/* On mobile/tablet the sidebar is hidden; header chip shows only avatar */
 @media (max-width: 1024px) {
   .upc-wrapper--header .upc-username {
     display: none;
@@ -106,8 +106,7 @@
 
 /* Dropdown username header */
 .upc-dropdown-header {
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--color-sidebar-divider);
+  padding: 12px 14px;
 }
 
 .upc-dropdown-username {
@@ -119,34 +118,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 160px;
-}
-
-/* Dropdown items */
-.upc-menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-nav-text);
-  font-family: inherit;
-  transition: background 0.15s, color 0.15s;
-}
-
-.upc-menu-item:hover {
-  background: var(--color-bg-sidebar-hover);
-  color: var(--color-nav-hover-text);
-}
-
-.upc-menu-item--logout {
-  color: var(--color-btn-logout);
-}
-
-.upc-menu-item--logout:hover {
-  background: var(--color-expense-bg);
-  color: var(--color-btn-logout);
 }

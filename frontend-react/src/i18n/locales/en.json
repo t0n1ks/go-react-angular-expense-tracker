@@ -53,7 +53,12 @@
     "ufo_tx_desc": "Here you can add and sort your transactions",
     "ufo_stats_desc": "Here you can see your statistics for any period",
     "ufo_skip": "Skip",
-    "ufo_replay": "Replay intro"
+    "ufo_replay": "Replay intro",
+    "weekly_budget": "Weekly Budget",
+    "weekly_can_spend": "Can spend",
+    "weekly_spent": "Spent",
+    "weekly_no_budget": "Set a monthly budget to track weekly spending",
+    "weekly_carryover": "Carry-over: {{amount}}"
   },
   "transactions": {
     "title": "Transactions",

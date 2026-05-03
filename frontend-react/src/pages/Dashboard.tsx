@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp, Target } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
+import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import './Dashboard.css';
 
@@ -118,6 +119,14 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {monthlySpendingGoal > 0 && (
+        <WeeklyBudgetCard
+          transactions={transactions}
+          monthlyBudget={monthlySpendingGoal}
+          formatAmount={formatAmount}
+        />
+      )}
 
       <TamagotchiWidget message={message} onDismiss={dismiss} hasTxToday={hasTxToday} />
     </div>

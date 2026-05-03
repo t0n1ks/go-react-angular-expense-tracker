@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTranslation } from 'react-i18next';
 import './UserProfileChip.css';
 
 interface Props {
@@ -9,9 +7,7 @@ interface Props {
 }
 
 const UserProfileChip: React.FC<Props> = ({ variant }) => {
-  const { user, logout } = useAuth();
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -25,12 +21,6 @@ const UserProfileChip: React.FC<Props> = ({ variant }) => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
-
-  const handleLogout = () => {
-    setOpen(false);
-    logout();
-    navigate('/login');
-  };
 
   const initial = (user?.username?.[0] ?? '?').toUpperCase();
 
@@ -48,18 +38,10 @@ const UserProfileChip: React.FC<Props> = ({ variant }) => {
       </button>
 
       {open && (
-        <div className={`upc-dropdown upc-dropdown--${variant}`} role="menu">
+        <div className={`upc-dropdown upc-dropdown--${variant}`}>
           <div className="upc-dropdown-header">
             <span className="upc-dropdown-username" translate="no">{user?.username}</span>
           </div>
-          <button
-            className="upc-menu-item upc-menu-item--logout"
-            onClick={handleLogout}
-            role="menuitem"
-            type="button"
-          >
-            {t('nav.logout')}
-          </button>
         </div>
       )}
     </div>

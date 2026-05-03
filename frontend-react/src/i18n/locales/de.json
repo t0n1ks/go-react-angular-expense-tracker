@@ -53,7 +53,12 @@
     "ufo_tx_desc": "Hier kannst du Transaktionen hinzufügen und sortieren",
     "ufo_stats_desc": "Hier kannst du Statistiken für jeden Zeitraum sehen",
     "ufo_skip": "Überspringen",
-    "ufo_replay": "Intro wiederholen"
+    "ufo_replay": "Intro wiederholen",
+    "weekly_budget": "Wochenbudget",
+    "weekly_can_spend": "Verfügbar",
+    "weekly_spent": "Ausgegeben",
+    "weekly_no_budget": "Monatliches Budget setzen, um Wochenausgaben zu verfolgen",
+    "weekly_carryover": "Übertrag: {{amount}}"
   },
   "transactions": {
     "title": "Transaktionen",
