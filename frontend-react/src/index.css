@@ -35,6 +35,7 @@ body {
   --color-bg-app: #f1f5f9;
   --color-bg-main: #f8fafc;
   --color-bg-card: #ffffff;
+  --color-bg-card-rgb: 255, 255, 255;
   --color-border-card: #e8edf2;
 
   /* Sidebar — light mode: clean white panel */
@@ -139,6 +140,7 @@ body {
   --color-bg-app: #0d1117;
   --color-bg-main: #111827;
   --color-bg-card: #1e2a3a;
+  --color-bg-card-rgb: 30, 42, 58;
   --color-border-card: #2d3a4a;
 
   /* Sidebar — dark mode: deep navy */

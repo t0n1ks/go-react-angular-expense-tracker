@@ -21,7 +21,7 @@ const Register: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [usernameWarning, setUsernameWarning] = useState('');
   const { axiosInstance } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,7 +53,11 @@ const Register: React.FC = () => {
     }
 
     try {
-      const response = await axiosInstance.post('/register', { username: cleanUsername, password: cleanPassword });
+      const response = await axiosInstance.post('/register', {
+        username: cleanUsername,
+        password: cleanPassword,
+        language: i18n.language?.split('-')[0] ?? 'en',
+      });
       setSuccess(response.data.message || t('auth.register_success'));
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {

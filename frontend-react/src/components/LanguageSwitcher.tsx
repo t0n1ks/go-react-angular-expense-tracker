@@ -14,7 +14,7 @@ const LanguageSwitcher: React.FC = () => {
       <option value="en">EN</option>
       <option value="de">DE</option>
       <option value="ru">RU</option>
-      <option value="uk">UK</option>
+      <option value="uk">UA</option>
     </select>
   );
 };

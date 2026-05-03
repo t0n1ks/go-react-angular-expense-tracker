@@ -28,32 +28,40 @@ var jwtSecret = func() []byte {
 }()
 
 func RegisterUser(c *gin.Context) {
-	var user models.User
-	if err := c.ShouldBindJSON(&user); err != nil {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Language string `json:"language"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user.Username = strings.ToLower(strings.TrimSpace(user.Username))
-	user.Password = strings.TrimSpace(user.Password)
+	req.Username = strings.ToLower(strings.TrimSpace(req.Username))
+	req.Password = strings.TrimSpace(req.Password)
 
-	if strings.ContainsAny(user.Username, " \t") {
+	if strings.ContainsAny(req.Username, " \t") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid username: spaces are not allowed"})
 		return
 	}
-	if user.Username == "" {
+	if req.Username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username cannot be empty"})
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
-	user.Password = string(hashedPassword)
-	user.Currency = "USD"
-	user.AIAdviceEnabled = true
+
+	user := models.User{
+		Username:        req.Username,
+		Password:        string(hashedPassword),
+		Currency:        "USD",
+		AIAdviceEnabled: true,
+	}
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
@@ -67,8 +75,31 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
+	lang := strings.ToLower(strings.SplitN(req.Language, "-", 2)[0])
+	createDefaultCategories(user.ID, lang)
+
 	log.Printf("user registered: id=%d username=%s", user.ID, user.Username)
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID, "username": user.Username})
+}
+
+func createDefaultCategories(userID uint, language string) {
+	names := map[string][]string{
+		"en": {"Food", "Clothing", "Entertainment", "Beauty", "Income"},
+		"de": {"Essen", "Kleidung", "Unterhaltung", "Beauty", "Einkommen"},
+		"ru": {"Еда", "Одежда", "Развлечения", "Красота", "Доход"},
+		"uk": {"Їжа", "Одяг", "Розваги", "Краса", "Дохід"},
+	}
+	cats, ok := names[language]
+	if !ok {
+		cats = names["en"]
+	}
+	now := time.Now()
+	for _, name := range cats {
+		cat := models.Category{UserID: userID, Name: name, CreatedAt: now, UpdatedAt: now}
+		if err := database.DB.Create(&cat).Error; err != nil {
+			log.Printf("warning: default category %q failed for user %d: %v", name, userID, err)
+		}
+	}
 }
 
 func LoginUser(c *gin.Context) {

@@ -1,10 +1,10 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
 import Logo from './Logo';
+import UserProfileChip from './UserProfileChip';
 import './Layout.css';
 
 const ThemeBtn: React.FC = () => {
@@ -23,14 +23,7 @@ const ThemeBtn: React.FC = () => {
 };
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { logout, user } = useAuth();
   const { t } = useTranslation();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   return (
     <div className="app-container">
@@ -53,20 +46,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </NavLink>
         </nav>
 
-        <div className="user-info">
-          <span className="user-info-label">{t('nav.user_label')}</span>
-          <span className="user-info-name">{user?.username}</span>
-        </div>
-
-        <button onClick={handleLogout} className="logout-button">
-          {t('nav.logout')}
-        </button>
+        <UserProfileChip variant="sidebar" />
       </aside>
 
       {/* ── Mobile / tablet top header ───────────────────────────────────── */}
       <header className="mobile-header">
         <Logo />
-        <ThemeBtn />
+        <div className="mobile-header-right">
+          <ThemeBtn />
+          <UserProfileChip variant="header" />
+        </div>
       </header>
 
       {/* ── Page content ─────────────────────────────────────────────────── */}

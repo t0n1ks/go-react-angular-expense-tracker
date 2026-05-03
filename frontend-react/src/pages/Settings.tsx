@@ -16,7 +16,7 @@ const LANGUAGES = [
   { code: 'en', label: 'EN' },
   { code: 'de', label: 'DE' },
   { code: 'ru', label: 'RU' },
-  { code: 'uk', label: 'UK' },
+  { code: 'uk', label: 'UA' },
 ];
 
 const Settings: React.FC = () => {
