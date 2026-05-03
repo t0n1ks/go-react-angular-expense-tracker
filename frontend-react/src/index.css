@@ -8,6 +8,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain;
+  touch-action: pan-x pan-y;
 }
 
 .card {
@@ -30,6 +31,8 @@ body {
 
   /* Bottom nav height (mobile) */
   --bottom-nav-height: 60px;
+  --header-height: 54px;
+  --header-total-height: calc(var(--header-height) + env(safe-area-inset-top));
 
   /* App layout */
   --color-bg-app: #f1f5f9;
