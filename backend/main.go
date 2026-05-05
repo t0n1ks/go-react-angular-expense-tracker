@@ -60,6 +60,8 @@ func main() {
 		protected.GET("/summary/daily", handlers.GetDailySummary)
 		protected.GET("/summary/period", handlers.GetPeriodSummary)
 		protected.GET("/stats", handlers.GetPeriodSummary)
+
+		protected.POST("/ai/analyze", handlers.AnalyzeBehavior)
 	}
 
 	port := os.Getenv("PORT")
