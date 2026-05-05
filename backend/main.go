@@ -8,12 +8,16 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/handlers"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/middleware"
 )
 
 func main() {
+	// Load .env from repo root (../env) or backend/ — silently ignored if neither exists.
+	_ = godotenv.Load("../.env", ".env")
+
 	database.Connect()
 
 	router := gin.Default()
