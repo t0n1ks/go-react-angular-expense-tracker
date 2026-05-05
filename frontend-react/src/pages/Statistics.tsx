@@ -111,7 +111,7 @@ const Statistics: React.FC = () => {
             <TrendingUp size={22} color="#10b981" /> {t('statistics.balance_timeline')}
           </h2>
           {timelineData.length > 0 ? (
-            <div style={{ width: "100%", height: 300 }}>
+            <div style={{ width: "100%", height: 300, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timelineData}>
                   <defs>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:8080/api';
@@ -42,6 +42,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
+  // Stable ref so the interceptor always calls the latest logout without being recreated
+  const logoutRef = useRef<() => void>(() => {});
+
   const axiosInstance = useMemo(() => {
     const instance = axios.create({
       baseURL: API_BASE_URL,
@@ -56,6 +59,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return config;
       },
       (error) => Promise.reject(error)
+    );
+
+    // Auto-logout on 401 — only when a token exists (avoids triggering on bad login attempts)
+    instance.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 && localStorage.getItem('token')) {
+          logoutRef.current();
+        }
+        return Promise.reject(error);
+      }
     );
 
     return instance;
@@ -95,6 +109,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
   };
+
+  // Keep the interceptor ref pointing at the latest logout without recreating axiosInstance
+  logoutRef.current = logout;
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, token, isLoading, login, logout, axiosInstance }}>

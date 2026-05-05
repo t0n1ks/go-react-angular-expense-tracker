@@ -23,6 +23,7 @@ const Dashboard: React.FC = () => {
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiData, setAIData] = useState<{ tamagotchi_mood: string; smart_nudge: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -37,6 +38,12 @@ const Dashboard: React.FC = () => {
   }, [axiosInstance]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    axiosInstance.post('/ai/analyze')
+      .then(res => setAIData(res.data))
+      .catch(() => {});
+  }, [axiosInstance]);
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -128,7 +135,13 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      <TamagotchiWidget message={message} onDismiss={dismiss} hasTxToday={hasTxToday} />
+      <TamagotchiWidget
+        message={message}
+        onDismiss={dismiss}
+        hasTxToday={hasTxToday}
+        mood={aiData?.tamagotchi_mood}
+        smartNudge={aiData?.smart_nudge}
+      />
     </div>
   );
 };

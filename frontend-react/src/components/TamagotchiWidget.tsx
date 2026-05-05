@@ -47,15 +47,26 @@ function clearHighlights(): void {
 
 // ── SVG sprites ───────────────────────────────────────────────────────────────
 
-const UfoSvg: React.FC = () => (
-  <svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="15" cy="12" rx="14" ry="4.5" fill="#d8d8d8" stroke="#ffffff" strokeWidth="0.8"/>
-    <ellipse cx="15" cy="9.5" rx="6.5" ry="5" fill="#ffffff" stroke="#c8c8c8" strokeWidth="0.5"/>
-    <circle cx="6"  cy="13" r="1.6" fill="#ffd700"/>
-    <circle cx="15" cy="15" r="1.6" fill="#ffd700"/>
-    <circle cx="24" cy="13" r="1.6" fill="#ffd700"/>
-  </svg>
-);
+const MOOD_UFO_COLOR: Record<string, string> = {
+  thriving:  '#10b981',
+  content:   '#a78bfa',
+  worried:   '#fbbf24',
+  stressed:  '#fb923c',
+  exhausted: '#f87171',
+};
+
+const UfoSvg: React.FC<{ mood?: string }> = ({ mood }) => {
+  const bodyColor = (mood && MOOD_UFO_COLOR[mood]) ?? '#d8d8d8';
+  return (
+    <svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="15" cy="12" rx="14" ry="4.5" fill={bodyColor} stroke="#ffffff" strokeWidth="0.8"/>
+      <ellipse cx="15" cy="9.5" rx="6.5" ry="5" fill="#ffffff" stroke="#c8c8c8" strokeWidth="0.5"/>
+      <circle cx="6"  cy="13" r="1.6" fill="#ffd700"/>
+      <circle cx="15" cy="15" r="1.6" fill="#ffd700"/>
+      <circle cx="24" cy="13" r="1.6" fill="#ffd700"/>
+    </svg>
+  );
+};
 
 const PixelMoon: React.FC = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -135,11 +146,13 @@ interface Props {
   message: string | null;
   onDismiss: () => void;
   hasTxToday?: boolean;
+  mood?: string;
+  smartNudge?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = true }) => {
+const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = true, mood, smartNudge }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const hasTxTodayRef = useRef<boolean>(hasTxToday);
@@ -332,6 +345,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
   const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
 
   return (
+    <>
     <div className="tama-screen" ref={widgetRef}>
 
       {/* ── Corner buttons ── */}
@@ -420,7 +434,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
             animate={{ y: [0, -4, 0] }}
             transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
           >
-            <UfoSvg />
+            <UfoSvg mood={mood} />
           </motion.div>
         </motion.div>
 
@@ -475,6 +489,10 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
 
       </div>
     </div>
+    {smartNudge && (
+      <p className="tama-smart-nudge">{smartNudge}</p>
+    )}
+    </>
   );
 };
 
