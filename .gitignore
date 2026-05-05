@@ -64,3 +64,6 @@ backend/tmp/
 
 # Claude Code local session files
 .claude/settings.local.json
+
+# AI-generated project context (local reference only)
+PROJECT_CONTEXT.md
