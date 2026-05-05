@@ -18,14 +18,17 @@ import (
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
-var jwtSecret = func() []byte {
+var jwtSecret []byte
+
+// InitJWTSecret must be called from main() after env vars are loaded.
+func InitJWTSecret() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		secret = "supersecretkey_change_me_in_production"
 		log.Println("WARNING: JWT_SECRET not set, using default insecure secret")
 	}
-	return []byte(secret)
-}()
+	jwtSecret = []byte(secret)
+}
 
 func RegisterUser(c *gin.Context) {
 	var req struct {

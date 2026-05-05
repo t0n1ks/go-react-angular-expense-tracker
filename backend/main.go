@@ -15,9 +15,10 @@ import (
 )
 
 func main() {
-	// Load .env from repo root (../env) or backend/ — silently ignored if neither exists.
+	// Load .env from repo root or backend/ — silently ignored if neither exists.
 	_ = godotenv.Load("../.env", ".env")
 
+	handlers.InitJWTSecret()
 	database.Connect()
 
 	router := gin.Default()
