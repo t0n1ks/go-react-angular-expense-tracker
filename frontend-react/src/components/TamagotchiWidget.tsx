@@ -390,16 +390,16 @@ const TamagotchiWidget: React.FC<Props> = ({
       if (prev !== 'choice') return prev;
       return 'fact_scatter';
     });
-    // If no facts yet, fall back to info bubble
+    // If no facts yet, show a localized info bubble
     setFactBubbles(prev => {
       if (prev.length === 0) {
-        setBubbleText('No facts yet today — come back after the UFO visits!');
+        setBubbleText(t('dashboard.tama_no_facts'));
         setFromHook(false);
         setMode('ai_bubble');
       }
       return prev;
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     return () => clearTimeout(flyTimerRef.current);
@@ -673,14 +673,20 @@ const TamagotchiWidget: React.FC<Props> = ({
                 exit={{ opacity: 0, scale: 0.85 }}
                 transition={{ duration: 0.25 }}
               >
-                <svg viewBox="0 0 120 56" width="140" xmlns="http://www.w3.org/2000/svg" overflow="visible">
-                  <circle cx="57" cy="54" r="3" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
-                  <circle cx="59" cy="48" r="4.5" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
-                  <rect x="4" y="4" width="112" height="38" rx="10"
-                    fill="#0c0c0c" stroke="rgba(255,215,0,0.45)" strokeWidth="1.5"/>
-                  <text x="60" y="20" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">Wanna see</text>
-                  <text x="60" y="32" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">today&apos;s facts?</text>
-                </svg>
+                {(() => {
+                  const factsQ = t('dashboard.tama_wanna_facts');
+                  const [qLine1, qLine2 = ''] = factsQ.split('\n');
+                  return (
+                    <svg viewBox="0 0 120 56" width="140" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+                      <circle cx="57" cy="54" r="3" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
+                      <circle cx="59" cy="48" r="4.5" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
+                      <rect x="4" y="4" width="112" height="38" rx="10"
+                        fill="#0c0c0c" stroke="rgba(255,215,0,0.45)" strokeWidth="1.5"/>
+                      <text x="60" y="20" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">{qLine1}</text>
+                      <text x="60" y="32" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">{qLine2}</text>
+                    </svg>
+                  );
+                })()}
               </motion.div>
 
               <motion.div

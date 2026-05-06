@@ -64,7 +64,8 @@ func GetNextAction(c *gin.Context) {
 	}
 
 	// Prefer explicit ?language= query param; fall back to Accept-Language header.
-	lang := c.Query("language")
+	// Normalize to bare language tag: "ru-RU" → "ru".
+	lang := strings.SplitN(strings.ToLower(strings.TrimSpace(c.Query("language"))), "-", 2)[0]
 	if lang == "" {
 		lang = "en"
 		if al := c.GetHeader("Accept-Language"); al != "" {

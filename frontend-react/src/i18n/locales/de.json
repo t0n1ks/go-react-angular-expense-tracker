@@ -48,6 +48,8 @@
     "greeting": "Willkommen zurück, {{name}}!",
     "tama_greeting": "Hallo, {{name}}!",
     "tama_farewell": "Ok, bis später!",
+    "tama_wanna_facts": "Heute Fakten\nansehen?",
+    "tama_no_facts": "Heute noch keine Fakten — später wiederkommen!",
     "tour_relaunch": "Geführte Tour neu starten",
     "ufo_intro": "Willkommen zurück! In diesen Bereichen findest du nützliche Funktionen",
     "ufo_cat_desc": "Hier kannst du deine Ausgabenkategorien erstellen",
