@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next';
 // ─── Idle humor shuffle pool ──────────────────────────────────────────────────
 
 const SHOWN_KEY = 'ai_shown_items';
+const FACT_HISTORY_MAX = 8;
 
 interface PoolItem { id: string; text: string; }
+interface QueueItem { text: string; hint?: string | null; }
 
 function buildPool(humor: string[], facts: string[], tips: string[]): PoolItem[] {
   return [
@@ -35,6 +37,17 @@ function pickRandom(pool: PoolItem[]): PoolItem {
     localStorage.setItem(SHOWN_KEY, JSON.stringify([...newShown]));
   }
   return picked;
+}
+
+function storeFact(text: string): void {
+  try {
+    const key = `tama_fact_history_${new Date().toISOString().split('T')[0]}`;
+    const raw = localStorage.getItem(key);
+    const existing: string[] = raw ? (JSON.parse(raw) as string[]) : [];
+    if (existing.includes(text)) return;
+    const updated = [...existing, text].slice(-FACT_HISTORY_MAX);
+    localStorage.setItem(key, JSON.stringify(updated));
+  } catch { /* ignore */ }
 }
 
 // ─── Weekly tier fingerprint ──────────────────────────────────────────────────
@@ -79,6 +92,8 @@ interface Options {
   aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
   currencySymbol: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  axiosInstance: { get: (url: string) => Promise<{ data: any }> };
 }
 
 export function useAIAssistant({
@@ -86,14 +101,16 @@ export function useAIAssistant({
   aiAdviceEnabled,
   aiHumorEnabled,
   monthlySpendingGoal,
+  axiosInstance,
 }: Options) {
   const { t } = useTranslation();
-  const [queue, setQueue] = useState<string[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
+  const [currentHint, setCurrentHint] = useState<string | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const enqueue = useCallback((msg: string) => {
-    setQueue(q => (q.length < 2 ? [...q, msg] : q));
+  const enqueue = useCallback((item: QueueItem) => {
+    setQueue(q => (q.length < 2 ? [...q, item] : q));
   }, []);
 
   // Pick a random item from a locale array key, with optional {{percent}} interpolation
@@ -112,14 +129,12 @@ export function useAIAssistant({
     const monday = getMonday(now);
     const weekKey = getWeekKey(now);
 
-    // This week's expense transactions
     const thisWeekExp = transactions.filter(tx => {
       const d = new Date(tx.date);
       return tx.type === 'expense' && d >= monday;
     });
     const weekSpending = thisWeekExp.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
 
-    // Did a full-salary income arrive in the last 3 days?
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const salaryJustIn = transactions.some(tx =>
       tx.type === 'income' &&
@@ -127,7 +142,6 @@ export function useAIAssistant({
       new Date(tx.date) >= threeDaysAgo,
     );
 
-    // Category balance: 2+ categories, no single one > 45% of week spending
     const catMap: Record<string, number> = {};
     thisWeekExp.forEach(tx => {
       const cat = tx.category?.name ?? 'other';
@@ -139,13 +153,11 @@ export function useAIAssistant({
       : 0;
     const isBalanced = catCount >= 2 && maxShare < 0.45;
 
-    // Weekly pacing
     const weeklyLimit = monthlySpendingGoal > 0 ? monthlySpendingGoal / 4.3 : 0;
     const pace = weeklyLimit > 0 ? weekSpending / weeklyLimit : 0;
-    const dayOfWeek = now.getDay(); // 0=Sun
+    const dayOfWeek = now.getDay();
     const isPastWednesday = dayOfWeek === 0 || dayOfWeek >= 3;
 
-    // Determine tier (priority order)
     type Tier = 'salary_just_in' | 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
     let tier: Tier | null = null;
 
@@ -165,12 +177,10 @@ export function useAIAssistant({
 
     if (!tier) return;
 
-    // Only fire if the tier changed this session/week
     const fp = `${weekKey}:${tier}:s${salaryJustIn ? 1 : 0}`;
     if (getStoredFp() === fp) return;
     storeFp(fp);
 
-    // Pick message
     let msg: string | null = null;
     if (tier === 'pacing_over') {
       const percentOver = Math.round((pace - 1) * 100);
@@ -179,43 +189,62 @@ export function useAIAssistant({
       msg = pickFromKey(tier);
     }
 
-    if (msg) enqueue(msg);
+    if (msg) enqueue({ text: msg });
   }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
 
-  // ── Idle humor timer ──────────────────────────────────────────────────────
+  // ── Idle humor timer — calls /api/ai/next-action, falls back to i18n ───────
   useEffect(() => {
     if (!aiHumorEnabled) return;
 
-    const fire = () => {
-      const humor = t('ai.humor', { returnObjects: true }) as string[];
-      const facts = t('ai.facts', { returnObjects: true }) as string[];
-      const tips = t('ai.tips', { returnObjects: true }) as string[];
-      enqueue(pickRandom(buildPool(humor, facts, tips)).text);
+    let cancelled = false;
+
+    const fire = async () => {
+      try {
+        const res = await axiosInstance.get('/ai/next-action');
+        if (cancelled) return;
+        const data = res.data as { type: string; content: string; animation_hint?: string };
+        enqueue({ text: data.content, hint: data.animation_hint ?? null });
+        if (data.type === 'FACT') {
+          storeFact(data.content);
+        }
+      } catch {
+        if (cancelled) return;
+        // Python service unavailable — fall back to local i18n pool
+        const humor = t('ai.humor', { returnObjects: true }) as string[];
+        const facts = t('ai.facts', { returnObjects: true }) as string[];
+        const tips = t('ai.tips', { returnObjects: true }) as string[];
+        enqueue({ text: pickRandom(buildPool(humor, facts, tips)).text });
+      }
     };
 
     const resetTimer = () => {
       clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(fire, 45_000);
+      idleTimer.current = setTimeout(() => { void fire(); }, 45_000);
     };
 
     resetTimer();
     const events = ['mousemove', 'click', 'keydown'] as const;
     events.forEach(e => window.addEventListener(e, resetTimer));
     return () => {
+      cancelled = true;
       clearTimeout(idleTimer.current);
       events.forEach(e => window.removeEventListener(e, resetTimer));
     };
-  }, [aiHumorEnabled, t, enqueue]);
+  }, [aiHumorEnabled, t, enqueue, axiosInstance]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (currentMessage === null && queue.length > 0) {
-      setCurrentMessage(queue[0]);
+      setCurrentMessage(queue[0].text);
+      setCurrentHint(queue[0].hint ?? null);
       setQueue(q => q.slice(1));
     }
   }, [currentMessage, queue]);
 
-  const dismiss = useCallback(() => setCurrentMessage(null), []);
+  const dismiss = useCallback(() => {
+    setCurrentMessage(null);
+    setCurrentHint(null);
+  }, []);
 
-  return { message: currentMessage, hasMessage: currentMessage !== null, dismiss };
+  return { message: currentMessage, hasMessage: currentMessage !== null, animationHint: currentHint, dismiss };
 }

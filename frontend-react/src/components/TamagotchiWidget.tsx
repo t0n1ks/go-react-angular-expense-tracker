@@ -10,14 +10,11 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const INACTIVITY_MS   = 10_000;
-const IDLE_BASE_MS    = 15_000; // 15-20 s random window
-const AUTO_DISMISS_MS = 15_000; // auto-close fact/joke bubble after 15-20 s
+const IDLE_BASE_MS    = 15_000;
+const AUTO_DISMISS_MS = 15_000;
 
-// Bubble sits this many px from the widget's top edge (safe from border-radius)
 const BUBBLE_TOP_PAD = 24;
-// Gap between bubble bottom and UFO top edge
 const UFO_GAP = 8;
-// Half the UFO SVG height (18 px / 2)
 const UFO_HALF_H = 9;
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
@@ -116,15 +113,27 @@ const STARS = [
 ];
 
 const COINS = [
-  { left: '34%', delay: '0s'    },
-  { left: '52%', delay: '0.55s' },
-  { left: '70%', delay: '1.1s'  },
+  { left: '34%' },
+  { left: '52%' },
+  { left: '70%' },
+];
+
+// 8-slot positions (% of widget) arranged in a circle around UFO center (50%, 44%)
+const FACT_POSITIONS = [
+  { x: 50, y: 10 },
+  { x: 77, y: 18 },
+  { x: 88, y: 44 },
+  { x: 77, y: 70 },
+  { x: 50, y: 78 },
+  { x: 23, y: 70 },
+  { x: 12, y: 44 },
+  { x: 23, y: 18 },
 ];
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
 
 type IdlePhase  = 'hover' | 'cow' | 'coin';
-type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour';
+type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fact_scatter' | 'fly_to_moon';
 type TFunc      = ReturnType<typeof useTranslation>['t'];
 
 function pickRandom(t: TFunc, hasTxToday = true): string {
@@ -148,29 +157,43 @@ interface Props {
   hasTxToday?: boolean;
   mood?: string;
   smartNudge?: string;
+  animationHint?: string | null;
+  heartsCount?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = true, mood, smartNudge }) => {
+const TamagotchiWidget: React.FC<Props> = ({
+  message,
+  onDismiss,
+  hasTxToday = true,
+  mood,
+  smartNudge,
+  animationHint,
+  heartsCount = 3,
+}) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const hasTxTodayRef = useRef<boolean>(hasTxToday);
   useEffect(() => { hasTxTodayRef.current = hasTxToday; }, [hasTxToday]);
 
-  const [mode,       setMode]      = useState<WidgetMode>('idle');
-  const [idlePhase,  setIdlePhase] = useState<IdlePhase>('hover');
-  const [bubbleText, setBubbleText] = useState('');
-  const [fromHook,   setFromHook]  = useState(false);
-  const [tourStep,   setTourStep]  = useState(0);
-  // Mobile: measured height of the visible bubble for dynamic UFO placement
-  const [bubbleH,    setBubbleH]   = useState(0);
+  const [mode,         setMode]        = useState<WidgetMode>('idle');
+  const [idlePhase,    setIdlePhase]   = useState<IdlePhase>('hover');
+  const [bubbleText,   setBubbleText]  = useState('');
+  const [fromHook,     setFromHook]    = useState(false);
+  const [tourStep,     setTourStep]    = useState(0);
+  const [bubbleH,      setBubbleH]     = useState(0);
+  const [factBubbles,  setFactBubbles] = useState<string[]>([]);
+  const [ufoGlowing,   setUfoGlowing]  = useState(false);
+  const [cowGlowing,   setCowGlowing]  = useState(false);
+  const [cowAbducting, setCowAbducting] = useState(false);
 
   const modeRef        = useRef<WidgetMode>('idle');
   const messageRef     = useRef<string | null>(null);
   const inactRef       = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const widgetRef      = useRef<HTMLDivElement>(null);
   const bubbleRef      = useRef<HTMLDivElement>(null);
 
@@ -191,9 +214,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Organic idle state machine: hover / cow / coin / fact ─────────────────
-  // Each tick fires after a random 15-20 s window.
-  // Outcomes: 50% quiet hover, 17% cow, 17% coin, 16% fact bubble.
+  // ── Organic idle state machine ────────────────────────────────────────────
   const scheduleNext = useCallback(() => {
     clearTimeout(idleTimerRef.current);
     const delay = IDLE_BASE_MS + Math.random() * 5_000;
@@ -201,18 +222,24 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
       if (modeRef.current !== 'idle') { scheduleNext(); return; }
       const r = Math.random();
       if (r < 0.50) {
-        // stay in quiet hover
         scheduleNext();
       } else if (r < 0.67) {
-        // cow abduction
+        // Cow abduction: UFO glow → cow glow → cow abducts
         setIdlePhase('cow');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 5600);
+        setUfoGlowing(true);
+        setTimeout(() => setUfoGlowing(false), 600);
+        setTimeout(() => setCowGlowing(true), 600);
+        setTimeout(() => setCowGlowing(false), 1000);
+        setTimeout(() => setCowAbducting(true), 1000);
+        setTimeout(() => {
+          setCowAbducting(false);
+          setIdlePhase('hover');
+          scheduleNext();
+        }, 1800);
       } else if (r < 0.84) {
-        // coin shower
         setIdlePhase('coin');
         setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2800);
       } else {
-        // fact / joke bubble — fires into ai_bubble mode
         const rnd = pickRandom(t as TFunc, hasTxTodayRef.current);
         if (rnd) {
           setBubbleText(rnd);
@@ -229,7 +256,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
     return () => clearTimeout(idleTimerRef.current);
   }, [scheduleNext]);
 
-  // ── Auto-dismiss fact/joke bubbles after 15-20 s ──────────────────────────
+  // ── Auto-dismiss fact/joke bubbles ────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'ai_bubble' || fromHook) {
       clearTimeout(autoDismissRef.current);
@@ -242,7 +269,6 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
       resetInact();
     }, delay);
     return () => clearTimeout(autoDismissRef.current);
-  // resetInact is defined below but stable — eslint-disable is intentional
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, fromHook]);
 
@@ -275,8 +301,32 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
     };
   }, [resetInact]);
 
-  // ── Mobile: measure bubble height for dynamic UFO placement ───────────────
-  const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour';
+  // ── animationHint integration: trigger cow sequence with hint ─────────────
+  useEffect(() => {
+    if (!message || !animationHint || modeRef.current !== 'idle' || idlePhase !== 'hover') return;
+    if (animationHint === 'COW_ABDUCTION') {
+      setIdlePhase('cow');
+      setUfoGlowing(true);
+      const t1 = setTimeout(() => setUfoGlowing(false), 600);
+      const t2 = setTimeout(() => setCowGlowing(true), 600);
+      const t3 = setTimeout(() => setCowGlowing(false), 1000);
+      const t4 = setTimeout(() => setCowAbducting(true), 1000);
+      const t5 = setTimeout(() => {
+        setCowAbducting(false);
+        setIdlePhase('hover');
+      }, 1800);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+    }
+    if (animationHint === 'COIN_COLLECT') {
+      setIdlePhase('coin');
+      const t1 = setTimeout(() => setIdlePhase('hover'), 2800);
+      return () => clearTimeout(t1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message, animationHint]);
+
+  // ── Mobile: measure bubble height ─────────────────────────────────────────
+  const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour' || mode === 'choice';
   useEffect(() => {
     if (!isMob() || !showingBubble) { setBubbleH(0); return; }
     const el = bubbleRef.current;
@@ -321,27 +371,80 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
     resetInact();
   };
 
+  // ── UFO click: open choice or collapse scatter ────────────────────────────
+  const handleUfoClick = useCallback(() => {
+    const cur = modeRef.current;
+    if (cur === 'fly_to_moon' || cur === 'tour') return;
+    if (cur === 'fact_scatter') {
+      setMode('idle');
+      return;
+    }
+    if (cur === 'idle' || cur === 'ai_bubble' || cur === 'greeting') {
+      const key = `tama_fact_history_${new Date().toISOString().split('T')[0]}`;
+      try {
+        const raw = localStorage.getItem(key);
+        setFactBubbles(raw ? (JSON.parse(raw) as string[]) : []);
+      } catch {
+        setFactBubbles([]);
+      }
+      setMode('choice');
+    }
+  }, []);
+
+  // ── Choice: No → fly to moon ──────────────────────────────────────────────
+  const handleChoiceNo = useCallback(() => {
+    clearTimeout(flyTimerRef.current);
+    setMode('fly_to_moon');
+    flyTimerRef.current = setTimeout(() => {
+      setMode('idle');
+      setIdlePhase('hover');
+      scheduleNext();
+    }, 2000);
+  }, [scheduleNext]);
+
+  // ── Choice: Yes → show scattered facts or info bubble ────────────────────
+  const handleChoiceYes = useCallback(() => {
+    setMode(prev => {
+      if (prev !== 'choice') return prev;
+      return 'fact_scatter';
+    });
+    // If no facts yet, fall back to info bubble
+    setFactBubbles(prev => {
+      if (prev.length === 0) {
+        setBubbleText('No facts yet today — come back after the UFO visits!');
+        setFromHook(false);
+        setMode('ai_bubble');
+      }
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(flyTimerRef.current);
+  }, []);
+
   // ── Compute UFO vertical position ─────────────────────────────────────────
   const inBubble = mode === 'greeting' || mode === 'ai_bubble';
   const inTour   = mode === 'tour';
   const mob      = isMob();
 
   let ufoTop: string;
-  if (inBubble || inTour) {
+  if (mode === 'fly_to_moon') {
+    ufoTop = '-20%'; // overridden by Framer Motion animate
+  } else if (inBubble || inTour || mode === 'choice') {
     if (mob && bubbleH > 0 && widgetRef.current) {
-      // Dynamic: place UFO so it clears the measured bubble with a gap
       const widgetH  = widgetRef.current.offsetHeight;
       const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
       ufoTop = `${Math.min((ufoCenter / widgetH) * 100, 90)}%`;
     } else {
-      // Fallback (desktop CSS handles it, or bubble not yet measured)
       ufoTop = mob ? '78%' : '72%';
     }
+  } else if (mode === 'fact_scatter') {
+    ufoTop = '44%';
   } else {
     ufoTop = idlePhase === 'coin' ? '30%' : '44%';
   }
 
-  // On mobile, override CSS bottom-positioning so the bubble grows from top down
   const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
 
   return (
@@ -385,7 +488,7 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
           )}
         </AnimatePresence>
 
-        {/* ── Cow abduction event ── */}
+        {/* ── Cow abduction event (no tractor beam — glow sequence) ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'cow' && (
             <motion.div
@@ -396,13 +499,43 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="tama-beam" />
-              <div className="tama-cow"><PixelCow /></div>
+              {/* UFO glow ring */}
+              <AnimatePresence>
+                {ufoGlowing && (
+                  <motion.div
+                    key="ufo-glow"
+                    className="tama-ufo-glow-ring"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                  />
+                )}
+              </AnimatePresence>
+              {/* Cow: walks in, glows, then abducts to UFO */}
+              <motion.div
+                className="tama-cow"
+                initial={{ left: '-8%', y: 0, opacity: 1, scale: 1 }}
+                animate={
+                  cowAbducting
+                    ? { left: '34%', y: -80, opacity: 0, scale: 0.7 }
+                    : cowGlowing
+                      ? { left: '34%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.8)' }
+                      : { left: '34%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
+                }
+                transition={
+                  cowAbducting
+                    ? { duration: 0.8, ease: 'easeInOut' }
+                    : { duration: cowGlowing ? 0.4 : 1.2, ease: 'easeInOut' }
+                }
+              >
+                <PixelCow />
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Coin event ── */}
+        {/* ── Coin event (one-by-one, staggered) ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'coin' && (
             <motion.div
@@ -414,21 +547,37 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
               transition={{ duration: 0.3 }}
             >
               {COINS.map((c, i) => (
-                <div key={i} className="tama-coin" style={{ left: c.left, animationDelay: c.delay }}>
+                <motion.div
+                  key={i}
+                  className="tama-coin"
+                  style={{ left: c.left }}
+                  initial={{ y: 60, opacity: 0 }}
+                  animate={{ y: -40, opacity: [0, 1, 1, 0] }}
+                  transition={{ delay: i * 0.3, duration: 0.9, ease: 'easeOut' }}
+                >
                   <PixelCoin />
-                </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── UFO — springs to computed position ── */}
+        {/* ── UFO — springs to computed position, flies to moon on choice No ── */}
         <motion.div
           className="tama-ufo"
-          style={{ x: '-50%', y: '-50%' }}
+          style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
           initial={{ left: '50%', top: '44%' }}
-          animate={{ left: '50%', top: ufoTop }}
-          transition={{ type: 'spring', stiffness: 80, damping: 18 }}
+          animate={
+            mode === 'fly_to_moon'
+              ? { left: '80%', top: '-20%', scale: 0.35 }
+              : { left: '50%', top: ufoTop, scale: 1 }
+          }
+          transition={
+            mode === 'fly_to_moon'
+              ? { duration: 1.2, ease: 'easeInOut' }
+              : { type: 'spring', stiffness: 80, damping: 18 }
+          }
+          onClick={handleUfoClick}
         >
           <motion.div
             animate={{ y: [0, -4, 0] }}
@@ -437,6 +586,20 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
             <UfoSvg mood={mood} />
           </motion.div>
         </motion.div>
+
+        {/* ── Hearts health bar ── */}
+        <div className="tama-hearts">
+          {Array.from({ length: 5 }, (_, i) => (
+            <svg key={i} width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path
+                d="M5 8.5C5 8.5 1 5.8 1 3.2C1 1.8 2.2 0.8 3.5 1.6C4.1 1.9 5 2.9 5 2.9C5 2.9 5.9 1.9 6.5 1.6C7.8 0.8 9 1.8 9 3.2C9 5.8 5 8.5 5 8.5Z"
+                fill={i < heartsCount ? '#f87171' : 'rgba(255,255,255,0.12)'}
+                stroke={i < heartsCount ? '#ef4444' : 'rgba(255,255,255,0.08)'}
+                strokeWidth="0.4"
+              />
+            </svg>
+          ))}
+        </div>
 
         {/* ── AI / greeting bubble ── */}
         <AnimatePresence>
@@ -485,6 +648,68 @@ const TamagotchiWidget: React.FC<Props> = ({ message, onDismiss, hasTxToday = tr
               </div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* ── SVG thought bubble + choice zones ── */}
+        <AnimatePresence>
+          {mode === 'choice' && (
+            <>
+              <motion.div
+                key="thought-bubble"
+                className="tama-thought-bubble"
+                style={{ x: '-50%', ...mobileBubbleStyle }}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.85 }}
+                transition={{ duration: 0.25 }}
+              >
+                <svg viewBox="0 0 120 56" width="140" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+                  <circle cx="57" cy="54" r="3" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
+                  <circle cx="59" cy="48" r="4.5" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
+                  <rect x="4" y="4" width="112" height="38" rx="10"
+                    fill="#0c0c0c" stroke="rgba(255,215,0,0.45)" strokeWidth="1.5"/>
+                  <text x="60" y="20" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">Wanna see</text>
+                  <text x="60" y="32" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">today&apos;s facts?</text>
+                </svg>
+              </motion.div>
+
+              <motion.div
+                key="choice-zones"
+                style={{ position: 'absolute', inset: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="tama-zone tama-zone--red" onClick={handleChoiceNo}>
+                  <span>✗ No</span>
+                </div>
+                <div className="tama-zone tama-zone--green" onClick={handleChoiceYes}>
+                  <span>✓ Yes</span>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* ── Fact scatter bubbles ── */}
+        <AnimatePresence>
+          {mode === 'fact_scatter' && factBubbles.map((fact, i) => {
+            const pos = FACT_POSITIONS[i % FACT_POSITIONS.length];
+            return (
+              <motion.div
+                key={i}
+                className="tama-fact-mini-bubble"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%`, x: '-50%', y: '-50%' }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ delay: i * 0.1, duration: 0.3 }}
+              >
+                <p className="tama-fact-mini-text">{fact}</p>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
       </div>

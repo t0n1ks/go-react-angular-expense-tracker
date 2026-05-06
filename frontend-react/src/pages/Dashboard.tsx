@@ -41,7 +41,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     axiosInstance.post('/ai/analyze')
-      .then(res => setAIData(res.data))
+      .then((res: { data: { tamagotchi_mood: string; smart_nudge: string } }) => setAIData(res.data))
       .catch(() => {});
   }, [axiosInstance]);
 
@@ -66,12 +66,15 @@ const Dashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
   const hasTxToday = transactions.some(t => t.date.startsWith(today));
 
-  const { message, dismiss } = useAIAssistant({
+  const { heartsCount } = useSettings();
+
+  const { message, dismiss, animationHint } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
     aiHumorEnabled,
     monthlySpendingGoal,
     currencySymbol,
+    axiosInstance,
   });
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
@@ -141,6 +144,8 @@ const Dashboard: React.FC = () => {
         hasTxToday={hasTxToday}
         mood={aiData?.tamagotchi_mood}
         smartNudge={aiData?.smart_nudge}
+        animationHint={animationHint}
+        heartsCount={heartsCount}
       />
     </div>
   );

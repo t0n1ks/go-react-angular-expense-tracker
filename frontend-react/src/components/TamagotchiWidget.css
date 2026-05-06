@@ -115,59 +115,37 @@
   position: absolute;
   z-index: 5;
   filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.45));
-  pointer-events: none;
 }
 
-/* ── Cow abduction ──────────────────────────────────────────────────────────── */
-
-.tama-beam {
-  position: absolute;
-  left: 50%;
-  top: 28%;
-  transform: translateX(-50%);
-  width: 48px;
-  height: 50%;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.28) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  clip-path: polygon(28% 0%, 72% 0%, 100% 100%, 0% 100%);
-  animation: tama-beam-pulse 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes tama-beam-pulse {
-  0%, 100% { opacity: 0.45; }
-  50%       { opacity: 1; }
-}
+/* ── Cow abduction (Framer Motion owns all transforms — no CSS animation) ───── */
 
 .tama-cow {
   position: absolute;
   bottom: 12%;
-  animation: tama-cow-abduct 5.4s ease-in-out forwards;
   pointer-events: none;
 }
 
-@keyframes tama-cow-abduct {
-  0%   { left: -8%;  transform: translateY(0);     opacity: 1;   }
-  52%  { left:  34%; transform: translateY(0);     opacity: 1;   }
-  80%  { left:  34%; transform: translateY(-42px); opacity: 0.5; }
-  100% { left:  34%; transform: translateY(-80px); opacity: 0;   }
+/* UFO glow ring: appears around the UFO during cow abduction phase 1 */
+.tama-ufo-glow-ring {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 18px 10px rgba(255, 215, 0, 0.55);
+  pointer-events: none;
+  z-index: 4;
 }
 
-/* ── Coins ──────────────────────────────────────────────────────────────────── */
+/* ── Coins (Framer Motion drives each coin individually) ────────────────────── */
 
 .tama-coin {
   position: absolute;
   bottom: 18%;
-  animation: tama-coin-rise 2.4s ease-in infinite;
   pointer-events: none;
-}
-
-@keyframes tama-coin-rise {
-  0%   { transform: translateY(0);     opacity: 1; }
-  100% { transform: translateY(-72px); opacity: 0; }
 }
 
 /* ── Speech bubble ──────────────────────────────────────────────────────────── */
@@ -317,6 +295,92 @@
 
 .tama-tour-btn-next:hover { opacity: 0.85; }
 
+/* ── SVG thought bubble (choice mode) ───────────────────────────────────────── */
+
+.tama-thought-bubble {
+  position: absolute;
+  bottom: 36%;
+  left: 50%;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* ── Choice zones (left = No, right = Yes) ──────────────────────────────────── */
+
+.tama-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  cursor: pointer;
+  z-index: 15;
+  font-size: 0.62rem;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  transition: background 0.18s;
+}
+
+.tama-zone--red {
+  left: 0;
+  background: rgba(239, 68, 68, 0.10);
+  color: #f87171;
+  border-radius: 1.25rem 0 0 1.25rem;
+}
+
+.tama-zone--red:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.tama-zone--green {
+  right: 0;
+  background: rgba(16, 185, 129, 0.10);
+  color: #34d399;
+  border-radius: 0 1.25rem 1.25rem 0;
+}
+
+.tama-zone--green:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+/* ── Mini fact bubbles (scattered around UFO) ────────────────────────────────── */
+
+.tama-fact-mini-bubble {
+  position: absolute;
+  background: #0c0c0c;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  max-width: 68px;
+  z-index: 18;
+  pointer-events: none;
+}
+
+.tama-fact-mini-text {
+  font-size: 0.44rem;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  font-family: inherit;
+  overflow-wrap: break-word;
+}
+
+/* ── Hearts health bar ───────────────────────────────────────────────────────── */
+
+.tama-hearts {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 10;
+  pointer-events: none;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {
@@ -361,6 +425,9 @@
   .tama-corner-btn--tl { left: 6px; }
   .tama-corner-btn--tr { right: 6px; }
 
-  .tama-beam { width: 40px; }
   .tama-moon { top: 10%; right: 10%; transform: scale(0.85); transform-origin: top right; }
+
+  .tama-thought-bubble { bottom: 32%; }
+
+  .tama-zone { font-size: 0.58rem; }
 }

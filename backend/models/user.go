@@ -14,4 +14,6 @@ type User struct {
 	PaydayMode          string  `gorm:"default:'smart'" json:"payday_mode"`
 	FixedPayday         int     `gorm:"default:0" json:"fixed_payday"`
 	ManualNextPayday    string  `gorm:"default:''" json:"manual_next_payday"`
+	HeartsCount         int     `gorm:"default:3" json:"hearts_count"`
+	ReputationScore     int     `gorm:"default:0" json:"reputation_score"`
 }

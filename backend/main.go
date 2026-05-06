@@ -67,6 +67,7 @@ func main() {
 		protected.GET("/stats", handlers.GetPeriodSummary)
 
 		protected.POST("/ai/analyze", handlers.AnalyzeBehavior)
+		protected.GET("/ai/next-action", handlers.GetNextAction)
 	}
 
 	port := os.Getenv("PORT")

@@ -32,6 +32,8 @@ const Settings: React.FC = () => {
     paydayMode,
     fixedPayday,
     manualNextPayday,
+    heartsCount,
+    reputationScore,
     currencySymbol,
     saveSettings,
   } = useSettings();
@@ -45,6 +47,8 @@ const Settings: React.FC = () => {
     paydayMode,
     fixedPayday,
     manualNextPayday,
+    heartsCount,
+    reputationScore,
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [ruleApplied, setRuleApplied] = useState(false);
@@ -58,7 +62,7 @@ const Settings: React.FC = () => {
 
   // Sync when context loads from backend
   useEffect(() => {
-    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday, manualNextPayday });
+    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday, manualNextPayday, heartsCount, reputationScore });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday]);
 
