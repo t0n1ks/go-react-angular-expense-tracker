@@ -171,6 +171,7 @@ export function useAIAssistant({
         const res = await axiosInstance.get(`/ai/next-action?language=${i18n.language}`);
         if (cancelled) return;
         const data = res.data as { type: string; content: string; animation_hint?: string };
+        if (!data.content?.trim()) return;
         enqueue({ text: data.content, hint: data.animation_hint ?? null });
         if (data.type === 'FACT') {
           storeFact(data.content);

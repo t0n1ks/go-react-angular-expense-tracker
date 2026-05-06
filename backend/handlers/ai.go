@@ -106,6 +106,13 @@ func GetNextAction(c *gin.Context) {
 		return
 	}
 
+	// Return 200 with empty payload for any non-2xx Python response so the
+	// browser doesn't log a console network error for unsupported languages.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
+		return
+	}
+
 	c.Data(resp.StatusCode, "application/json", respBody)
 }
 
@@ -139,6 +146,7 @@ type analyzeBehaviorRequest struct {
 	UserProfile  aiUserProfile   `json:"user_profile"`
 	Transactions []aiTransaction `json:"transactions"`
 	AnalysisDate string          `json:"analysis_date"`
+	Language     string          `json:"language"`
 }
 
 func AnalyzeBehavior(c *gin.Context) {
@@ -194,10 +202,16 @@ func AnalyzeBehavior(c *gin.Context) {
 		})
 	}
 
+	analyzeLang := strings.SplitN(strings.ToLower(strings.TrimSpace(c.Query("language"))), "-", 2)[0]
+	if analyzeLang == "" {
+		analyzeLang = "en"
+	}
+
 	payload := analyzeBehaviorRequest{
 		UserProfile:  profile,
 		Transactions: aiTxs,
 		AnalysisDate: time.Now().Format("2006-01-02"),
+		Language:     analyzeLang,
 	}
 
 	body, err := json.Marshal(payload)

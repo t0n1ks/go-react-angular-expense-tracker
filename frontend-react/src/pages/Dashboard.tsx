@@ -20,7 +20,7 @@ interface Transaction {
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { formatAmount, currencySymbol, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary } = useSettings();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiData, setAIData] = useState<{ tamagotchi_mood: string; smart_nudge: string } | null>(null);
@@ -40,10 +40,10 @@ const Dashboard: React.FC = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    axiosInstance.post('/ai/analyze')
+    axiosInstance.post(`/ai/analyze?language=${i18n.language}`)
       .then((res: { data: { tamagotchi_mood: string; smart_nudge: string } }) => setAIData(res.data))
       .catch(() => {});
-  }, [axiosInstance]);
+  }, [axiosInstance, i18n.language]);
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);

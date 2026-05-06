@@ -165,9 +165,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,     setTourStep]    = useState(0);
   const [bubbleH,      setBubbleH]     = useState(0);
   const [factBubbles,  setFactBubbles] = useState<string[]>([]);
-  const [ufoGlowing,   setUfoGlowing]  = useState(false);
-  const [cowGlowing,   setCowGlowing]  = useState(false);
-  const [cowAbducting, setCowAbducting] = useState(false);
+  // null = cow not visible; 'entry' = walking in; 'beam' = glow beam on; 'lift' = floating to UFO
+  const [cowPhase, setCowPhase] = useState<'entry' | 'beam' | 'lift' | null>(null);
 
   const modeRef        = useRef<WidgetMode>('idle');
   const idlePhaseRef   = useRef<IdlePhase>('hover');
@@ -207,29 +206,28 @@ const TamagotchiWidget: React.FC<Props> = ({
       if (r < 0.45) {
         scheduleNext();
       } else if (r < 0.62) {
-        // Cow abduction: UFO glow → cow glow → cow abducts
+        // Cow abduction (4.5 s total): walk-in → beam → lift → done
         setIdlePhase('cow');
-        setUfoGlowing(true);
-        setTimeout(() => setUfoGlowing(false), 600);
-        setTimeout(() => setCowGlowing(true), 600);
-        setTimeout(() => setCowGlowing(false), 1000);
-        setTimeout(() => setCowAbducting(true), 1000);
+        setCowPhase('entry');
+        setTimeout(() => setCowPhase('beam'),  1500);
+        setTimeout(() => setCowPhase('lift'),  2000);
         setTimeout(() => {
-          setCowAbducting(false);
+          setCowPhase(null);
           setIdlePhase('hover');
           scheduleNext();
-        }, 1800);
+        }, 4500);
       } else if (r < 0.75) {
+        // Coin collection (3.5 s): coins float slowly up to UFO center
         setIdlePhase('coin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2800);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 3500);
       } else if (r < 0.87) {
-        // Radar scan: expanding rings emanate from UFO
+        // Radar scan (6 s): 3 slow expanding pulses
         setIdlePhase('radar');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2500);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 6000);
       } else {
-        // Hover spin: UFO tilts and bobs faster
+        // Hover spin (2.5 s): UFO tilts and bobs with character
         setIdlePhase('spin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2000);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2500);
       }
     }, delay);
   }, []);
@@ -278,25 +276,20 @@ const TamagotchiWidget: React.FC<Props> = ({
     };
   }, [resetInact]);
 
-  // ── animationHint integration: trigger cow sequence with hint ─────────────
+  // ── animationHint integration ─────────────────────────────────────────────
   useEffect(() => {
     if (!message || !animationHint || modeRef.current !== 'idle' || idlePhase !== 'hover') return;
     if (animationHint === 'COW_ABDUCTION') {
       setIdlePhase('cow');
-      setUfoGlowing(true);
-      const t1 = setTimeout(() => setUfoGlowing(false), 600);
-      const t2 = setTimeout(() => setCowGlowing(true), 600);
-      const t3 = setTimeout(() => setCowGlowing(false), 1000);
-      const t4 = setTimeout(() => setCowAbducting(true), 1000);
-      const t5 = setTimeout(() => {
-        setCowAbducting(false);
-        setIdlePhase('hover');
-      }, 1800);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+      setCowPhase('entry');
+      const t1 = setTimeout(() => setCowPhase('beam'), 1500);
+      const t2 = setTimeout(() => setCowPhase('lift'), 2000);
+      const t3 = setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); }, 4500);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
     if (animationHint === 'COIN_COLLECT') {
       setIdlePhase('coin');
-      const t1 = setTimeout(() => setIdlePhase('hover'), 2800);
+      const t1 = setTimeout(() => setIdlePhase('hover'), 3500);
       return () => clearTimeout(t1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -424,7 +417,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   } else if (mode === 'fact_scatter') {
     ufoTop = '44%';
   } else {
-    ufoTop = idlePhase === 'coin' ? '30%' : '44%';
+    ufoTop = idlePhase === 'coin' ? '30%' : idlePhase === 'cow' ? '46%' : '44%';
   }
 
   const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
@@ -470,7 +463,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Cow abduction event (no tractor beam — glow sequence) ── */}
+        {/* ── Cow abduction (phase-driven, 4.5 s total) ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'cow' && (
             <motion.div
@@ -479,36 +472,52 @@ const TamagotchiWidget: React.FC<Props> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.4 }}
             >
-              {/* UFO glow ring */}
+              {/* Tractor beam: visible during beam + lift phases */}
               <AnimatePresence>
-                {ufoGlowing && (
+                {(cowPhase === 'beam' || cowPhase === 'lift') && (
+                  <motion.div
+                    key="tractor-beam"
+                    className="tama-tractor-beam"
+                    initial={{ opacity: 0, scaleY: 0 }}
+                    animate={{ opacity: 1, scaleY: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                )}
+              </AnimatePresence>
+              {/* UFO glow ring: pulses during beam phase */}
+              <AnimatePresence>
+                {(cowPhase === 'beam' || cowPhase === 'lift') && (
                   <motion.div
                     key="ufo-glow"
                     className="tama-ufo-glow-ring"
                     initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+                    animate={{ scale: [1, 1.25, 1, 1.25, 1], opacity: [0.6, 1, 0.7, 1, 0.6] }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6 }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
                   />
                 )}
               </AnimatePresence>
-              {/* Cow: walks in, glows, then abducts to UFO */}
+              {/* Cow: entry walk → beam glow → lift to UFO center */}
               <motion.div
                 className="tama-cow"
+                style={{ transformOrigin: 'center center' }}
                 initial={{ left: '-8%', y: 0, opacity: 1, scale: 1 }}
                 animate={
-                  cowAbducting
-                    ? { left: '34%', y: -80, opacity: 0, scale: 0.7 }
-                    : cowGlowing
-                      ? { left: '34%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.8)' }
-                      : { left: '34%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
+                  cowPhase === 'lift'
+                    ? { left: '46%', y: -85, opacity: 0, scale: 0 }
+                    : cowPhase === 'beam'
+                      ? { left: '46%', y: 0, opacity: 1, scale: 1.08, filter: 'brightness(2)' }
+                      : { left: '46%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
                 }
                 transition={
-                  cowAbducting
-                    ? { duration: 0.8, ease: 'easeInOut' }
-                    : { duration: cowGlowing ? 0.4 : 1.2, ease: 'easeInOut' }
+                  cowPhase === 'lift'
+                    ? { duration: 2.0, ease: [0.25, 0.1, 0.25, 1] }
+                    : cowPhase === 'beam'
+                      ? { duration: 0.5, ease: 'easeOut' }
+                      : { duration: 1.5, ease: 'easeInOut' }
                 }
               >
                 <PixelCow />
@@ -517,7 +526,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Coin event (one-by-one, staggered) ── */}
+        {/* ── Coin collection: coins float slowly up to UFO center ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'coin' && (
             <motion.div
@@ -532,10 +541,15 @@ const TamagotchiWidget: React.FC<Props> = ({
                 <motion.div
                   key={i}
                   className="tama-coin"
-                  style={{ left: c.left }}
-                  initial={{ y: 60, opacity: 0 }}
-                  animate={{ y: -40, opacity: [0, 1, 1, 0] }}
-                  transition={{ delay: i * 0.3, duration: 0.9, ease: 'easeOut' }}
+                  style={{ left: c.left, transformOrigin: 'center center' }}
+                  initial={{ y: 0, opacity: 0, scale: 1 }}
+                  animate={{ y: -80, opacity: [0, 1, 1, 0], scale: [1, 1, 0.5, 0.05] }}
+                  transition={{
+                    delay: i * 0.45,
+                    duration: 2.5,
+                    times: [0, 0.12, 0.72, 1],
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                  }}
                 >
                   <PixelCoin />
                 </motion.div>
@@ -544,7 +558,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Radar scan event (3 staggered rings expanding from UFO) ── */}
+        {/* ── Radar scan: 3 slow deep-scan pulses (6 s total) ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'radar' && (
             <motion.div
@@ -553,15 +567,16 @@ const TamagotchiWidget: React.FC<Props> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.4 }}
             >
               {[0, 1, 2].map(i => (
                 <motion.div
                   key={i}
                   className="tama-radar-ring"
-                  initial={{ scale: 0.5, opacity: 0.7 }}
-                  animate={{ scale: 2.5, opacity: 0 }}
-                  transition={{ delay: i * 0.5, duration: 1.5, ease: 'easeOut' }}
+                  style={{ transformOrigin: 'center center' }}
+                  initial={{ scale: 0.3, opacity: 0.85 }}
+                  animate={{ scale: 5, opacity: 0 }}
+                  transition={{ delay: i * 1.2, duration: 3.5, ease: 'easeOut' }}
                 />
               ))}
             </motion.div>
@@ -586,11 +601,12 @@ const TamagotchiWidget: React.FC<Props> = ({
           onClick={handleUfoClick}
         >
           <motion.div
+            style={{ transformOrigin: 'center center' }}
             animate={idlePhase === 'spin'
-              ? { y: [0, -7, 0, -7, 0], rotate: [-10, 10, -10, 0] }
+              ? { y: [0, -6, 2, -6, 0], rotate: [-9, 9, -9, 9, 0] }
               : { y: [0, -4, 0] }}
             transition={idlePhase === 'spin'
-              ? { duration: 1.8, ease: 'easeInOut' }
+              ? { duration: 2.4, ease: 'easeInOut' }
               : { repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
           >
             <UfoSvg mood={mood} />

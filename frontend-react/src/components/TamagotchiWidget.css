@@ -116,6 +116,7 @@
   position: absolute;
   z-index: 5;
   filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.45));
+  transform-origin: center center;
 }
 
 /* ── Radar scan rings (Framer Motion drives scale + opacity) ────────────────── */
@@ -125,12 +126,13 @@
   left: 50%;
   top: 44%;
   transform: translate(-50%, -50%);
-  width: 40px;
-  height: 20px;
+  width: 34px;
+  height: 17px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 215, 0, 0.6);
+  border: 1px solid rgba(255, 215, 0, 0.7);
   pointer-events: none;
   z-index: 4;
+  transform-origin: center center;
 }
 
 /* ── Cow abduction (Framer Motion owns all transforms — no CSS animation) ───── */
@@ -139,19 +141,35 @@
   position: absolute;
   bottom: 12%;
   pointer-events: none;
+  transform-origin: center center;
 }
 
-/* UFO glow ring: appears around the UFO during cow abduction phase 1 */
+/* Tractor beam: descends from UFO bottom toward cow during beam/lift phases */
+.tama-tractor-beam {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translateX(-50%);
+  transform-origin: top center;
+  width: 18px;
+  height: 42%;
+  background: linear-gradient(to bottom, rgba(255, 215, 0, 0.35), transparent);
+  pointer-events: none;
+  z-index: 3;
+  border-radius: 0 0 50% 50%;
+}
+
+/* UFO glow ring: positioned at UFO bottom edge to anchor the beam */
 .tama-ufo-glow-ring {
   position: absolute;
   left: 50%;
-  top: 44%;
+  top: 48%;
   transform: translate(-50%, -50%);
-  width: 48px;
-  height: 30px;
+  width: 44px;
+  height: 22px;
   border-radius: 50%;
   background: transparent;
-  box-shadow: 0 0 18px 10px rgba(255, 215, 0, 0.55);
+  box-shadow: 0 0 22px 12px rgba(255, 215, 0, 0.6);
   pointer-events: none;
   z-index: 4;
 }
@@ -162,6 +180,7 @@
   position: absolute;
   bottom: 18%;
   pointer-events: none;
+  transform-origin: center center;
 }
 
 /* ── Speech bubble ──────────────────────────────────────────────────────────── */
