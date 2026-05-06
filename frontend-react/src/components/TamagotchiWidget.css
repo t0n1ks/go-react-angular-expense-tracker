@@ -107,6 +107,7 @@
   top: 12%;
   right: 13%;
   pointer-events: none;
+  z-index: 6;
 }
 
 /* ── UFO ────────────────────────────────────────────────────────────────────── */
@@ -115,6 +116,21 @@
   position: absolute;
   z-index: 5;
   filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.45));
+}
+
+/* ── Radar scan rings (Framer Motion drives scale + opacity) ────────────────── */
+
+.tama-radar-ring {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 215, 0, 0.6);
+  pointer-events: none;
+  z-index: 4;
 }
 
 /* ── Cow abduction (Framer Motion owns all transforms — no CSS animation) ───── */

@@ -1,43 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-// ─── Idle humor shuffle pool ──────────────────────────────────────────────────
+// ─── Fact history ─────────────────────────────────────────────────────────────
 
-const SHOWN_KEY = 'ai_shown_items';
 const FACT_HISTORY_MAX = 8;
 
-interface PoolItem { id: string; text: string; }
 interface QueueItem { text: string; hint?: string | null; }
-
-function buildPool(humor: string[], facts: string[], tips: string[]): PoolItem[] {
-  return [
-    ...humor.map((text, i) => ({ id: `humor_${i}`, text })),
-    ...facts.map((text, i) => ({ id: `facts_${i}`, text })),
-    ...tips.map((text, i) => ({ id: `tips_${i}`, text })),
-  ];
-}
-
-function getShown(): Set<string> {
-  try {
-    const raw = localStorage.getItem(SHOWN_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch { return new Set(); }
-}
-
-function pickRandom(pool: PoolItem[]): PoolItem {
-  const shown = getShown();
-  const available = pool.filter(item => !shown.has(item.id));
-  const source = available.length > 0 ? available : pool;
-  const picked = source[Math.floor(Math.random() * source.length)];
-  const newShown = new Set(shown);
-  newShown.add(picked.id);
-  if (newShown.size >= pool.length * 0.8) {
-    localStorage.removeItem(SHOWN_KEY);
-  } else {
-    localStorage.setItem(SHOWN_KEY, JSON.stringify([...newShown]));
-  }
-  return picked;
-}
 
 function storeFact(text: string): void {
   try {
@@ -103,7 +71,7 @@ export function useAIAssistant({
   monthlySpendingGoal,
   axiosInstance,
 }: Options) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
@@ -192,7 +160,7 @@ export function useAIAssistant({
     if (msg) enqueue({ text: msg });
   }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
 
-  // ── Idle humor timer — calls /api/ai/next-action, falls back to i18n ───────
+  // ── Idle humor timer — calls /api/ai/next-action (silent on error) ──────────
   useEffect(() => {
     if (!aiHumorEnabled) return;
 
@@ -200,7 +168,7 @@ export function useAIAssistant({
 
     const fire = async () => {
       try {
-        const res = await axiosInstance.get('/ai/next-action');
+        const res = await axiosInstance.get(`/ai/next-action?language=${i18n.language}`);
         if (cancelled) return;
         const data = res.data as { type: string; content: string; animation_hint?: string };
         enqueue({ text: data.content, hint: data.animation_hint ?? null });
@@ -208,12 +176,7 @@ export function useAIAssistant({
           storeFact(data.content);
         }
       } catch {
-        if (cancelled) return;
-        // Python service unavailable — fall back to local i18n pool
-        const humor = t('ai.humor', { returnObjects: true }) as string[];
-        const facts = t('ai.facts', { returnObjects: true }) as string[];
-        const tips = t('ai.tips', { returnObjects: true }) as string[];
-        enqueue({ text: pickRandom(buildPool(humor, facts, tips)).text });
+        // Python service unavailable — remain silent, no fallback text
       }
     };
 
@@ -230,7 +193,7 @@ export function useAIAssistant({
       clearTimeout(idleTimer.current);
       events.forEach(e => window.removeEventListener(e, resetTimer));
     };
-  }, [aiHumorEnabled, t, enqueue, axiosInstance]);
+  }, [aiHumorEnabled, i18n.language, enqueue, axiosInstance]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {

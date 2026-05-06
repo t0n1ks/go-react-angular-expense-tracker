@@ -63,14 +63,17 @@ func GetNextAction(c *gin.Context) {
 		return
 	}
 
-	// Parse primary language tag from Accept-Language header (e.g. "en-US,en;q=0.9" → "en").
-	lang := "en"
-	if al := c.GetHeader("Accept-Language"); al != "" {
-		primary := strings.SplitN(al, ",", 2)[0]
-		primary = strings.SplitN(primary, "-", 2)[0]
-		primary = strings.ToLower(strings.TrimSpace(primary))
-		if primary != "" {
-			lang = primary
+	// Prefer explicit ?language= query param; fall back to Accept-Language header.
+	lang := c.Query("language")
+	if lang == "" {
+		lang = "en"
+		if al := c.GetHeader("Accept-Language"); al != "" {
+			primary := strings.SplitN(al, ",", 2)[0]
+			primary = strings.SplitN(primary, "-", 2)[0]
+			primary = strings.ToLower(strings.TrimSpace(primary))
+			if primary != "" {
+				lang = primary
+			}
 		}
 	}
 
