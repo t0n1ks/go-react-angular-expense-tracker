@@ -9,28 +9,14 @@ import './TamagotchiWidget.css';
 const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
-const INACTIVITY_MS   = 10_000;
-const IDLE_QUIET_MS   = 30_000; // mandatory hover gap between sequences
+const IDLE_QUIET_MS   = 30_000; // mandatory idle gap before fly-by
 const IDLE_JITTER_MS  = 10_000; // random extra: total quiet = 30–40 s
 const AUTO_DISMISS_MS = 15_000;
-
-// ── Animation deck ────────────────────────────────────────────────────────────
-
-type AnimType = 'cow' | 'coin' | 'radar' | 'spin' | 'fly_by';
-const ANIM_DECK: AnimType[] = ['cow', 'coin', 'radar', 'spin', 'fly_by'];
-
-function shuffleDeck(arr: AnimType[]): AnimType[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+const MSG_SHOW_DELAY  = 3_000;  // grace period before showing an arrived message
 
 const BUBBLE_TOP_PAD = 24;
-const UFO_GAP = 8;
-const UFO_HALF_H = 9;
+const UFO_GAP        = 8;
+const UFO_HALF_H     = 9;
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
@@ -89,31 +75,6 @@ const PixelMoon: React.FC = () => (
   </svg>
 );
 
-const PixelCow: React.FC = () => (
-  <svg width="30" height="18" viewBox="0 0 30 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3"  y="5"  width="16" height="8"  rx="2" fill="#efefef"/>
-    <rect x="5"  y="6"  width="4"  height="3"  rx="1" fill="#555"/>
-    <rect x="13" y="6"  width="3"  height="3"  rx="1" fill="#555"/>
-    <rect x="17" y="2"  width="10" height="8"  rx="2" fill="#efefef"/>
-    <rect x="23" y="5"  width="4"  height="2.5" rx="1" fill="#fca5a5"/>
-    <rect x="18" y="4"  width="2"  height="1.5" fill="#222"/>
-    <rect x="18" y="1"  width="1.5" height="2.5" rx="0.75" fill="#ffd700"/>
-    <rect x="21" y="1"  width="1.5" height="2.5" rx="0.75" fill="#ffd700"/>
-    <rect x="0"  y="6"  width="3.5" height="1.5" rx="0.75" fill="#efefef"/>
-    <rect x="5"  y="12" width="2.5" height="5"  rx="0.75" fill="#d0d0d0"/>
-    <rect x="9"  y="12" width="2.5" height="5"  rx="0.75" fill="#d0d0d0"/>
-    <rect x="13" y="12" width="2.5" height="5"  rx="0.75" fill="#d0d0d0"/>
-    <rect x="17" y="12" width="2.5" height="5"  rx="0.75" fill="#d0d0d0"/>
-  </svg>
-);
-
-const PixelCoin: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="7" cy="7" r="6" fill="#ffd700" stroke="#c9a800" strokeWidth="0.8"/>
-    <text x="7" y="10.5" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#6b4000" fontFamily="monospace">$</text>
-  </svg>
-);
-
 // ── Static layout data ────────────────────────────────────────────────────────
 
 const STARS = [
@@ -125,22 +86,6 @@ const STARS = [
   { x: 73, y: 15, d: 0.45 },
   { x: 46, y: 78, d: 1.4  },
   { x: 61, y: 10, d: 0.7  },
-];
-
-// 12 coins at varied horizontal positions; delay staggers arrivals across ~13 s
-const COINS = [
-  { left: '14%', delay: 0    },
-  { left: '26%', delay: 1.1  },
-  { left: '38%', delay: 2.2  },
-  { left: '50%', delay: 3.3  },
-  { left: '62%', delay: 4.4  },
-  { left: '74%', delay: 5.5  },
-  { left: '82%', delay: 6.6  },
-  { left: '20%', delay: 7.7  },
-  { left: '44%', delay: 8.8  },
-  { left: '68%', delay: 9.9  },
-  { left: '32%', delay: 11.0 },
-  { left: '56%', delay: 12.1 },
 ];
 
 // 8-slot positions (% of widget) arranged in a circle around UFO center (50%, 44%)
@@ -155,9 +100,8 @@ const FACT_POSITIONS = [
   { x: 23, y: 18 },
 ];
 
-// ── Types & helpers ───────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-type IdlePhase  = 'hover' | 'cow' | 'coin' | 'radar' | 'spin';
 type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fact_scatter' | 'fly_to_moon';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -167,7 +111,7 @@ interface Props {
   onDismiss: () => void;
   mood?: string;
   smartNudge?: string;
-  animationHint?: string | null;
+  animationHint?: string | null; // kept for API compat — no longer drives idle animations
   heartsCount?: number;
 }
 
@@ -178,39 +122,31 @@ const TamagotchiWidget: React.FC<Props> = ({
   onDismiss,
   mood,
   smartNudge,
-  animationHint,
   heartsCount = 3,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [mode,         setMode]        = useState<WidgetMode>('idle');
-  const [idlePhase,    setIdlePhase]   = useState<IdlePhase>('hover');
-  const [bubbleText,   setBubbleText]  = useState('');
-  const [fromHook,     setFromHook]    = useState(false);
-  const [tourStep,     setTourStep]    = useState(0);
-  const [bubbleH,      setBubbleH]     = useState(0);
-  const [factBubbles,  setFactBubbles] = useState<string[]>([]);
-  // null = cow not visible; 5-phase cinematic abduction sequence (~15 s)
-  const [cowPhase, setCowPhase] = useState<'entry' | 'glow' | 'beam' | 'lift' | 'done' | null>(null);
-  // null = not flying; 3-phase moon orbit (~15 s)
-  const [flyPhase, setFlyPhase] = useState<'approach' | 'orbit' | 'return' | null>(null);
+  const [mode,        setMode]        = useState<WidgetMode>('idle');
+  const [bubbleText,  setBubbleText]  = useState('');
+  const [fromHook,    setFromHook]    = useState(false);
+  const [tourStep,    setTourStep]    = useState(0);
+  const [bubbleH,     setBubbleH]     = useState(0);
+  const [factBubbles, setFactBubbles] = useState<string[]>([]);
+  const [flyPhase,    setFlyPhase]    = useState<'approach' | 'orbit' | 'return' | null>(null);
 
-  const modeRef          = useRef<WidgetMode>('idle');
-  const idlePhaseRef     = useRef<IdlePhase>('hover');
-  const messageRef       = useRef<string | null>(null);
-  const inactRef         = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const idleTimerRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const autoDismissRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const flyTimerRef      = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const fly1Ref          = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const fly2Ref          = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const deckRef          = useRef<AnimType[]>([]);
-  const pendingHookMsg   = useRef(false); // message arrived during animation — show on hover resume
-  const widgetRef        = useRef<HTMLDivElement>(null);
-  const bubbleRef        = useRef<HTMLDivElement>(null);
+  const modeRef        = useRef<WidgetMode>('idle');
+  const messageRef     = useRef<string | null>(null);
+  const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly1Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly2Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const msgShowRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pendingHookMsg = useRef(false);
+  const widgetRef      = useRef<HTMLDivElement>(null);
+  const bubbleRef      = useRef<HTMLDivElement>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { idlePhaseRef.current = idlePhase; }, [idlePhase]);
   useEffect(() => { messageRef.current = message; }, [message]);
 
   // ── First-login greeting ──────────────────────────────────────────────────
@@ -227,49 +163,21 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Deck-based idle animation sequencer ──────────────────────────────────
-  // Draws from a shuffled deck of 5 animations so every variety plays before
-  // any repeats. A mandatory 20–30 s hover gap sits between each sequence.
+  // ── Fly-by sequencer: quiet 30–40 s → 15 s moon orbit → repeat ──────────
   const scheduleNext = useCallback(() => {
     clearTimeout(idleTimerRef.current);
     const quietMs = IDLE_QUIET_MS + Math.random() * IDLE_JITTER_MS;
     idleTimerRef.current = setTimeout(() => {
       if (modeRef.current !== 'idle') { scheduleNext(); return; }
-      if (deckRef.current.length === 0) {
-        deckRef.current = shuffleDeck([...ANIM_DECK]);
-      }
-      const anim = deckRef.current.pop()!;
-
-      if (anim === 'cow') {
-        setIdlePhase('cow');
-        setCowPhase('entry');
-        setTimeout(() => setCowPhase('glow'),  2000);
-        setTimeout(() => setCowPhase('beam'),  5000);
-        setTimeout(() => setCowPhase('lift'),  8000);
-        setTimeout(() => setCowPhase('done'),  12000);
-        setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); scheduleNext(); }, 15000);
-      } else if (anim === 'coin') {
-        setIdlePhase('coin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 16500);
-      } else if (anim === 'radar') {
-        setIdlePhase('radar');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 9000);
-      } else if (anim === 'spin') {
-        setIdlePhase('spin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 12000);
-      } else {
-        // fly_by: autonomous moon orbit, no farewell bubble
-        setFlyPhase('approach');
-        setMode('fly_to_moon');
-        fly1Ref.current = setTimeout(() => setFlyPhase('orbit'), 5000);
-        fly2Ref.current = setTimeout(() => setFlyPhase('return'), 10000);
-        flyTimerRef.current = setTimeout(() => {
-          setFlyPhase(null);
-          setMode('idle');
-          setIdlePhase('hover');
-          scheduleNext();
-        }, 15000);
-      }
+      setFlyPhase('approach');
+      setMode('fly_to_moon');
+      fly1Ref.current = setTimeout(() => setFlyPhase('orbit'),  5000);
+      fly2Ref.current = setTimeout(() => setFlyPhase('return'), 10000);
+      flyTimerRef.current = setTimeout(() => {
+        setFlyPhase(null);
+        setMode('idle');
+        scheduleNext();
+      }, 15000);
     }, quietMs);
   }, []);
 
@@ -278,7 +186,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(idleTimerRef.current);
   }, [scheduleNext]);
 
-  // ── Auto-dismiss fact/joke bubbles ────────────────────────────────────────
+  // ── Auto-dismiss non-hook bubbles ─────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'ai_bubble' || fromHook) {
       clearTimeout(autoDismissRef.current);
@@ -286,83 +194,46 @@ const TamagotchiWidget: React.FC<Props> = ({
     }
     clearTimeout(autoDismissRef.current);
     const delay = AUTO_DISMISS_MS + Math.random() * 5_000;
-    autoDismissRef.current = setTimeout(() => {
-      setMode('idle');
-      resetInact();
-    }, delay);
+    autoDismissRef.current = setTimeout(() => setMode('idle'), delay);
     return () => clearTimeout(autoDismissRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, fromHook]);
 
-  // ── 10-second user-inactivity bubble ──────────────────────────────────────
-  const resetInact = useCallback(() => {
-    clearTimeout(inactRef.current);
-    inactRef.current = setTimeout(() => {
-      if (modeRef.current !== 'idle' || idlePhaseRef.current !== 'hover') return;
-      const hookMsg = messageRef.current;
-      if (!hookMsg) return;
-      setBubbleText(hookMsg);
+  // ── Immediate message display ─────────────────────────────────────────────
+  // When a message arrives from the hook, show it in the bubble after a brief
+  // grace period. If an animation is running, defer to idle resume.
+  useEffect(() => {
+    clearTimeout(msgShowRef.current);
+    if (!message) return;
+    if (modeRef.current !== 'idle') {
+      pendingHookMsg.current = true;
+      return;
+    }
+    msgShowRef.current = setTimeout(() => {
+      if (modeRef.current !== 'idle') { pendingHookMsg.current = true; return; }
+      if (!messageRef.current) return;
+      setBubbleText(messageRef.current);
       setFromHook(true);
       setMode('ai_bubble');
-    }, INACTIVITY_MS);
-  }, []);
-
-  useEffect(() => {
-    resetInact();
-    const evts = ['mousemove', 'click', 'keydown', 'touchstart'] as const;
-    evts.forEach(e => window.addEventListener(e, resetInact));
-    return () => {
-      clearTimeout(inactRef.current);
-      evts.forEach(e => window.removeEventListener(e, resetInact));
-    };
-  }, [resetInact]);
-
-  // ── animationHint integration ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!message || !animationHint || modeRef.current !== 'idle' || idlePhase !== 'hover') return;
-    if (animationHint === 'COW_ABDUCTION') {
-      setIdlePhase('cow');
-      setCowPhase('entry');
-      const t1 = setTimeout(() => setCowPhase('glow'),  2000);
-      const t2 = setTimeout(() => setCowPhase('beam'),  5000);
-      const t3 = setTimeout(() => setCowPhase('lift'),  8000);
-      const t4 = setTimeout(() => setCowPhase('done'),  12000);
-      const t5 = setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); }, 15000);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
-    }
-    if (animationHint === 'COIN_COLLECT') {
-      setIdlePhase('coin');
-      const t1 = setTimeout(() => setIdlePhase('hover'), 16500);
-      return () => clearTimeout(t1);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [message, animationHint]);
-
-  // ── Priority message handling ─────────────────────────────────────────────
-  // If a hook message arrives while an animation is running, flag it so it
-  // surfaces quickly when hover resumes instead of waiting for the inactivity timer.
-  useEffect(() => {
-    if (!message) return;
-    if (modeRef.current !== 'idle' || idlePhaseRef.current !== 'hover') {
-      pendingHookMsg.current = true;
-    }
+    }, MSG_SHOW_DELAY);
+    return () => clearTimeout(msgShowRef.current);
   }, [message]);
 
+  // ── Deferred message: show after fly-by completes ────────────────────────
   useEffect(() => {
-    if (idlePhase !== 'hover' || mode !== 'idle') return;
+    if (mode !== 'idle') return;
     if (!pendingHookMsg.current || !messageRef.current) return;
     pendingHookMsg.current = false;
     const tid = setTimeout(() => {
-      if (modeRef.current !== 'idle' || idlePhaseRef.current !== 'hover') return;
+      if (modeRef.current !== 'idle') return;
       if (!messageRef.current) return;
       setBubbleText(messageRef.current);
       setFromHook(true);
       setMode('ai_bubble');
     }, 2000);
     return () => clearTimeout(tid);
-  }, [idlePhase, mode]);
+  }, [mode]);
 
-  // ── Mobile: measure bubble height ─────────────────────────────────────────
+  // ── Mobile: measure bubble height for UFO positioning ────────────────────
   const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour' || mode === 'choice';
   useEffect(() => {
     if (!isMob() || !showingBubble) { setBubbleH(0); return; }
@@ -397,7 +268,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     clearHighlights();
     localStorage.setItem(TOUR_DONE_KEY, '1');
     setMode('idle');
-    resetInact();
   };
 
   // ── Dismiss bubble ────────────────────────────────────────────────────────
@@ -405,7 +275,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     clearTimeout(autoDismissRef.current);
     if (fromHook) onDismiss();
     setMode('idle');
-    resetInact();
   };
 
   // ── UFO click: open choice or collapse scatter ────────────────────────────
@@ -428,7 +297,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     }
   }, []);
 
-  // ── Choice: No → farewell bubble → fly to moon ───────────────────────────
+  // ── Choice: No → farewell bubble → 15 s moon orbit ───────────────────────
   const handleChoiceNo = useCallback(() => {
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
@@ -436,7 +305,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     setBubbleText(t('dashboard.tama_farewell'));
     setFromHook(false);
     setMode('ai_bubble');
-    // After farewell bubble: approach moon (5 s) → orbit (5 s) → return (5 s) = 15 s
     flyTimerRef.current = setTimeout(() => {
       setFlyPhase('approach');
       setMode('fly_to_moon');
@@ -447,7 +315,6 @@ const TamagotchiWidget: React.FC<Props> = ({
           flyTimerRef.current = setTimeout(() => {
             setFlyPhase(null);
             setMode('idle');
-            setIdlePhase('hover');
             scheduleNext();
           }, 5000);
         }, 5000);
@@ -457,11 +324,7 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   // ── Choice: Yes → show scattered facts or info bubble ────────────────────
   const handleChoiceYes = useCallback(() => {
-    setMode(prev => {
-      if (prev !== 'choice') return prev;
-      return 'fact_scatter';
-    });
-    // If no facts yet, show a localized info bubble
+    setMode(prev => (prev !== 'choice' ? prev : 'fact_scatter'));
     setFactBubbles(prev => {
       if (prev.length === 0) {
         setBubbleText(t('dashboard.tama_no_facts'));
@@ -472,40 +335,34 @@ const TamagotchiWidget: React.FC<Props> = ({
     });
   }, [t]);
 
+  // ── Cleanup all timers on unmount ─────────────────────────────────────────
   useEffect(() => {
     return () => {
       clearTimeout(flyTimerRef.current);
       clearTimeout(fly1Ref.current);
       clearTimeout(fly2Ref.current);
+      clearTimeout(msgShowRef.current);
+      clearTimeout(idleTimerRef.current);
+      clearTimeout(autoDismissRef.current);
     };
   }, []);
 
-  // ── Compute UFO vertical position & responsive animation distances ────────
+  // ── Compute UFO vertical position ─────────────────────────────────────────
   const inBubble = mode === 'greeting' || mode === 'ai_bubble';
   const inTour   = mode === 'tour';
   const mob      = isMob();
 
-  // Responsive y-travel computed from live widget height so motion scales with
-  // any screen size instead of relying on hardcoded pixel offsets.
-  const widgetH   = widgetRef.current?.offsetHeight ?? 140;
-  // Cow center (bottom:12%) → UFO center (top:46%): ≈32% of widget height
-  const cowLiftY  = -(widgetH * 0.32);
-  // Coin center (bottom:18%) → UFO center (top:30%): ≈50% of widget height
-  const coinLiftY = -(widgetH * 0.50);
-
   let ufoTop: string;
   if (inBubble || inTour || mode === 'choice') {
     if (mob && bubbleH > 0 && widgetRef.current) {
-      const widgetH  = widgetRef.current.offsetHeight;
+      const widgetH   = widgetRef.current.offsetHeight;
       const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
       ufoTop = `${Math.min((ufoCenter / widgetH) * 100, 90)}%`;
     } else {
       ufoTop = mob ? '78%' : '72%';
     }
-  } else if (mode === 'fact_scatter') {
-    ufoTop = '44%';
   } else {
-    ufoTop = idlePhase === 'coin' ? '30%' : idlePhase === 'cow' ? '46%' : '44%';
+    ufoTop = '44%';
   }
 
   const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
@@ -535,9 +392,9 @@ const TamagotchiWidget: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* ── Moon (hover phase + fly_to_moon so UFO can fly toward it) ── */}
+        {/* ── Moon — static anchor in top-right; visible during idle and fly-by ── */}
         <AnimatePresence>
-          {((mode === 'idle' && idlePhase === 'hover') || mode === 'fly_to_moon') && (
+          {(mode === 'idle' || mode === 'fly_to_moon') && (
             <motion.div
               key="moon"
               className="tama-moon"
@@ -551,147 +408,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Cow abduction (5-phase, ~15 s cinematic) ── */}
-        <AnimatePresence>
-          {mode === 'idle' && idlePhase === 'cow' && (
-            <motion.div
-              key="cow-event"
-              className="tama-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              {/* Tractor beam: grows in during beam phase, persists through lift */}
-              <AnimatePresence>
-                {(cowPhase === 'beam' || cowPhase === 'lift') && (
-                  <motion.div
-                    key="tractor-beam"
-                    className="tama-tractor-beam"
-                    initial={{ opacity: 0, scaleY: 0 }}
-                    animate={{ opacity: 1, scaleY: 1 }}
-                    exit={{ opacity: 0, scaleY: 0 }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                  />
-                )}
-              </AnimatePresence>
-              {/* UFO glow ring: soft pulse from glow phase through lift */}
-              <AnimatePresence>
-                {(cowPhase === 'glow' || cowPhase === 'beam' || cowPhase === 'lift') && (
-                  <motion.div
-                    key="ufo-glow-pulse"
-                    className="tama-ufo-glow-ring"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ scale: [1, 1.3, 1, 1.3, 1], opacity: [0.45, 0.85, 0.55, 0.85, 0.45] }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 3.0, repeat: Infinity }}
-                  />
-                )}
-              </AnimatePresence>
-              {/* Final conclusion flash: bright burst as UFO departs */}
-              <AnimatePresence>
-                {cowPhase === 'done' && (
-                  <motion.div
-                    key="ufo-glow-done"
-                    className="tama-ufo-glow-ring"
-                    initial={{ scale: 0.8, opacity: 0.9 }}
-                    animate={{ scale: 4.5, opacity: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 2.0, ease: 'easeOut' }}
-                  />
-                )}
-              </AnimatePresence>
-              {/* Cow: entry walk → soft glow → bright beam → float to UFO → gone.
-                  x:'-50%' centers the 30px sprite at left:50% (matches UFO center). */}
-              <motion.div
-                className="tama-cow"
-                style={{ x: '-50%', transformOrigin: 'center center' }}
-                initial={{ left: '-8%', y: 0, opacity: 1, scale: 1 }}
-                animate={
-                  (cowPhase === 'lift' || cowPhase === 'done')
-                    ? { left: '50%', y: cowLiftY, opacity: 0, scale: 0 }
-                    : cowPhase === 'beam'
-                      ? { left: '50%', y: 0, opacity: 1, scale: 1.1, filter: 'brightness(2.5)' }
-                      : cowPhase === 'glow'
-                        ? { left: '50%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.5)' }
-                        : { left: '50%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
-                }
-                transition={
-                  cowPhase === 'lift'
-                    ? { duration: 4.0, ease: [0.5, 0.0, 0.75, 1] }
-                    : cowPhase === 'done'
-                      ? { duration: 0 }
-                      : cowPhase === 'beam'
-                        ? { duration: 0.8, ease: 'easeOut' }
-                        : cowPhase === 'glow'
-                          ? { duration: 1.2, ease: 'easeInOut' }
-                          : { duration: 2.0, ease: 'easeInOut' }
-                }
-              >
-                <PixelCow />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Coin collection: coins float slowly up to UFO center ── */}
-        <AnimatePresence>
-          {mode === 'idle' && idlePhase === 'coin' && (
-            <motion.div
-              key="coin-event"
-              className="tama-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {COINS.map((c, i) => (
-                <motion.div
-                  key={i}
-                  className="tama-coin"
-                  style={{ left: c.left, transformOrigin: 'center center' }}
-                  initial={{ y: 0, opacity: 0, scale: 1.1 }}
-                  animate={{ y: coinLiftY, opacity: [0, 1, 1, 0], scale: [1.1, 1.1, 0.7, 0.05] }}
-                  transition={{
-                    delay: c.delay,
-                    duration: 4.0,
-                    times: [0, 0.08, 0.75, 1],
-                    ease: [0.25, 0.46, 0.45, 0.94],
-                  }}
-                >
-                  <PixelCoin />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Radar scan: 3 slow deep-scan pulses (6 s total) ── */}
-        <AnimatePresence>
-          {mode === 'idle' && idlePhase === 'radar' && (
-            <motion.div
-              key="radar-event"
-              className="tama-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              {[0, 1, 2].map(i => (
-                <motion.div
-                  key={i}
-                  className="tama-radar-ring"
-                  style={{ transformOrigin: 'center center' }}
-                  initial={{ scale: 0.3, opacity: 0.85 }}
-                  animate={{ scale: 5, opacity: 0 }}
-                  transition={{ delay: i * 2, duration: 4.0, ease: 'easeOut' }}
-                />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── UFO — springs to computed position, flies to moon on choice No ── */}
+        {/* ── UFO — Framer Motion handles position; CSS handles zero-G bob ── */}
         <motion.div
           className="tama-ufo"
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
@@ -716,17 +433,10 @@ const TamagotchiWidget: React.FC<Props> = ({
           }
           onClick={handleUfoClick}
         >
-          <motion.div
-            style={{ transformOrigin: 'center center' }}
-            animate={idlePhase === 'spin'
-              ? { y: [0, -8, 2, -8, 2, -5, 0], rotate: [-5, 5, -5, 5, -3, 3, 0] }
-              : { y: [0, -3, 0], rotate: [-1.2, 1.2, -1.2] }}
-            transition={idlePhase === 'spin'
-              ? { duration: 10, ease: 'easeInOut' }
-              : { repeat: Infinity, duration: 5.0, ease: 'easeInOut' }}
-          >
+          {/* CSS infinite bob — pure compositor animation, zero JS overhead */}
+          <div className="tama-ufo-bob">
             <UfoSvg mood={mood} />
-          </motion.div>
+          </div>
         </motion.div>
 
         {/* ── Hearts health bar (only renders earned hearts) ── */}

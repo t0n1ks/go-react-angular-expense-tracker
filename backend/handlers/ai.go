@@ -95,19 +95,20 @@ func GetNextAction(c *gin.Context) {
 
 	resp, err := brainClient.Do(req)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service unavailable"})
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
 		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Failed to read AI service response"})
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
 		return
 	}
 
 	// Return 200 with empty payload for any non-2xx Python response so the
-	// browser doesn't log a console network error for unsupported languages.
+	// browser never logs a console network error for unsupported languages or
+	// when the AI service is offline.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
 		return

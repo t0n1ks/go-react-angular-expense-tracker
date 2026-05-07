@@ -121,77 +121,18 @@
   will-change: transform, opacity;
 }
 
-/* ── Radar scan rings (Framer Motion drives scale + opacity) ────────────────── */
+/* ── Zero-G idle bob (pure CSS compositor — zero JS overhead) ───────────────── */
 
-.tama-radar-ring {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  transform: translate(-50%, -50%);
-  width: 34px;
-  height: 17px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 215, 0, 0.7);
-  pointer-events: none;
-  z-index: 4;
+@keyframes tama-bob {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30%       { transform: translateY(-3px) rotate(1deg); }
+  70%       { transform: translateY(3px) rotate(-1deg); }
+}
+
+.tama-ufo-bob {
+  animation: tama-bob 7s ease-in-out infinite;
+  will-change: transform;
   transform-origin: center center;
-  will-change: transform, opacity;
-}
-
-/* ── Cow abduction (Framer Motion owns all transforms — no CSS animation) ───── */
-
-.tama-cow {
-  position: absolute;
-  bottom: 12%;
-  pointer-events: none;
-  transform-origin: center center;
-  will-change: transform, opacity;
-}
-
-/* Tractor beam: descends from UFO bottom toward cow during beam/lift phases */
-.tama-tractor-beam {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  transform: translateX(-50%);
-  transform-origin: top center;
-  width: 18px;
-  height: 42%;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 215, 0, 0.60) 0%,
-    rgba(255, 215, 0, 0.40) 25%,
-    rgba(255, 215, 0, 0.18) 65%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 3;
-  border-radius: 0 0 50% 50%;
-}
-
-/* UFO glow ring: positioned at UFO bottom edge to anchor the beam */
-.tama-ufo-glow-ring {
-  position: absolute;
-  left: 50%;
-  top: 48%;
-  transform: translate(-50%, -50%);
-  width: 44px;
-  height: 22px;
-  border-radius: 50%;
-  background: transparent;
-  box-shadow: 0 0 22px 12px rgba(255, 215, 0, 0.6);
-  pointer-events: none;
-  z-index: 4;
-}
-
-/* ── Coins (Framer Motion drives each coin individually) ────────────────────── */
-
-.tama-coin {
-  position: absolute;
-  bottom: 18%;
-  pointer-events: none;
-  transform-origin: center center;
-  will-change: transform, opacity;
 }
 
 /* ── Speech bubble ──────────────────────────────────────────────────────────── */
@@ -477,6 +418,4 @@
 
   .tama-zone { font-size: 0.58rem; }
 
-  /* Narrower beam on mobile so it doesn't crowd a small viewport */
-  .tama-tractor-beam { width: 12px; }
 }
