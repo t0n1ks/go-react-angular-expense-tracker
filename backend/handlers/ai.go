@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -79,6 +80,7 @@ func GetNextAction(c *gin.Context) {
 	// Language is set exclusively by the frontend query param — never inferred from
 	// browser headers, so the UI locale is always the single source of truth.
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
+	log.Printf("[ai] next-action uid=%v frontend_lang=%q → python_lang=%q", userID, c.Query("language"), lang)
 
 	brainURL := os.Getenv("AI_SERVICE_URL")
 	if brainURL == "" {
@@ -206,6 +208,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	}
 
 	analyzeLang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
+	log.Printf("[ai] analyze uid=%v frontend_lang=%q → python_lang=%q", uid, c.Query("language"), analyzeLang)
 
 	payload := analyzeBehaviorRequest{
 		UserProfile:  profile,

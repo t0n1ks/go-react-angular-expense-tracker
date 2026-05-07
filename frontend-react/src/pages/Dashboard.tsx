@@ -39,7 +39,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const analyzeLang = i18n.language.split('-')[0] || 'en';
+  const analyzeLang = i18n.resolvedLanguage ?? 'en';
   useEffect(() => {
     axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
       .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
@@ -66,15 +66,12 @@ const Dashboard: React.FC = () => {
 
   const { heartsCount } = useSettings();
 
-  const uiLang = i18n.language.split('-')[0] || 'en';
-
   const { message, dismiss, animationHint } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
     aiHumorEnabled,
     monthlySpendingGoal,
     currencySymbol,
-    language: uiLang,
     axiosInstance,
   });
 

@@ -60,7 +60,6 @@ interface Options {
   aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
   currencySymbol: string;
-  language: string; // bare 2-letter code: 'en' | 'de' | 'ru' | 'uk'
   axiosInstance: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get: (url: string) => Promise<{ data: any }>;
@@ -74,10 +73,12 @@ export function useAIAssistant({
   aiAdviceEnabled,
   aiHumorEnabled,
   monthlySpendingGoal,
-  language,
   axiosInstance,
 }: Options) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Derive language from i18n directly so it stays reactive on every language switch.
+  // resolvedLanguage is always a bare code like 'uk'; language may be 'uk-UA'.
+  const effectiveLang = i18n.resolvedLanguage ?? i18n.language?.split('-')[0] ?? 'en';
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
@@ -174,7 +175,7 @@ export function useAIAssistant({
 
     const fire = async () => {
       try {
-        const res = await axiosInstance.get(`/ai/next-action?language=${language}`);
+        const res = await axiosInstance.get(`/ai/next-action?language=${effectiveLang}`);
         if (cancelled) return;
         const data = res.data as { type: string; content: string; animation_hint?: string };
         if (!data.content?.trim()) return;
@@ -200,7 +201,7 @@ export function useAIAssistant({
       clearTimeout(idleTimer.current);
       events.forEach(e => window.removeEventListener(e, resetTimer));
     };
-  }, [aiHumorEnabled, language, enqueue, axiosInstance]);
+  }, [aiHumorEnabled, effectiveLang, enqueue, axiosInstance]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
