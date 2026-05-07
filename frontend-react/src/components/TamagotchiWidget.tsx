@@ -244,21 +244,12 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Dismiss bubble ────────────────────────────────────────────────────────
+  // ── Dismiss bubble (✕ button) — silent close, no exit phrase ────────────
   const dismissBubble = () => {
     clearTimeout(autoDismissRef.current);
     clearTimeout(exitTimerRef.current);
-    if (fromHook) {
-      onDismiss();
-      const phrases = t('ai.exit_phrases', { returnObjects: true }) as string[];
-      const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-      setBubbleText(phrase);
-      setFromHook(false);
-      setMode('ai_bubble');
-      exitTimerRef.current = setTimeout(() => setMode('idle'), 1500);
-    } else {
-      setMode('idle');
-    }
+    if (fromHook) onDismiss();
+    setMode('idle');
   };
 
   // ── UFO click: open choice or collapse scatter ────────────────────────────

@@ -67,6 +67,30 @@
     outline: none;
 }
 
+.balance-tooltip {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    padding: 0.55rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 110px;
+}
+
+.balance-tooltip-date {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-secondary, #94a3b8);
+    letter-spacing: 0.02em;
+}
+
+.balance-tooltip-amount {
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
 @media (max-width: 600px) {
     .charts-layout {
         grid-template-columns: 1fr;

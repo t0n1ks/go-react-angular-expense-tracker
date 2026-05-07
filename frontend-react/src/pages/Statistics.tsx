@@ -12,6 +12,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Brush,
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
 import "./Statistics.css";
@@ -110,8 +111,12 @@ const Statistics: React.FC = () => {
           <h2>
             <TrendingUp size={22} color="#10b981" /> {t('statistics.balance_timeline')}
           </h2>
-          {timelineData.length > 0 ? (
-            <div style={{ width: "100%", height: 300, minWidth: 0 }}>
+          {timelineData.length > 0 ? (() => {
+            const WINDOW = 14;
+            const needsBrush = timelineData.length > WINDOW;
+            const brushStart = Math.max(0, timelineData.length - WINDOW);
+            return (
+            <div style={{ width: "100%", height: needsBrush ? 340 : 300, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timelineData}>
                   <defs>
@@ -135,7 +140,7 @@ const Statistics: React.FC = () => {
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: isDark ? '#94a3b8' : '#94a3b8', fontSize: 12 }}
+                    tick={{ fill: '#94a3b8', fontSize: 12 }}
                     dy={10}
                     interval={0}
                     padding={{ left: 20, right: 20 }}
@@ -143,13 +148,21 @@ const Statistics: React.FC = () => {
                   />
                   <YAxis hide={true} />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 10px 15px rgba(0,0,0,0.1)",
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const val = typeof payload[0].value === 'number' ? payload[0].value : 0;
+                      return (
+                        <div className="balance-tooltip">
+                          <span className="balance-tooltip-date">{String(label)}</span>
+                          <span
+                            className="balance-tooltip-amount"
+                            style={{ color: val >= 0 ? '#10b981' : '#f87171' }}
+                          >
+                            {formatAmount(val)}
+                          </span>
+                        </div>
+                      );
                     }}
-                    itemStyle={{ color: "#10b981", fontWeight: "bold" }}
-                    formatter={(value) => [formatAmount(typeof value === 'number' ? value : 0), '']}
                   />
                   <Area
                     type="monotone"
@@ -159,9 +172,23 @@ const Statistics: React.FC = () => {
                     fillOpacity={1}
                     fill="url(#colorBalance)"
                   />
+                  {needsBrush && (
+                    <Brush
+                      key={`brush-${timelineData.length}`}
+                      dataKey="date"
+                      height={28}
+                      stroke={isDark ? '#334155' : '#e2e8f0'}
+                      fill={isDark ? '#1e293b' : '#f8fafc'}
+                      travellerWidth={6}
+                      startIndex={brushStart}
+                      endIndex={timelineData.length - 1}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            );
+          })()
           ) : (
             <div className="no-data-msg">
               <p>{t('statistics.no_data')}</p>
