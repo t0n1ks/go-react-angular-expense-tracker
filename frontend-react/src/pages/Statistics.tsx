@@ -26,7 +26,7 @@ interface Transaction {
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { formatAmount } = useSettings();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +72,7 @@ const Statistics: React.FC = () => {
     let runningBalance = 0;
 
     sortedTransactions.forEach((t) => {
-      const dateKey = new Date(t.date).toLocaleDateString("ru-RU", {
+      const dateKey = new Date(t.date).toLocaleDateString(i18n.language, {
         day: "2-digit",
         month: "short",
       });
