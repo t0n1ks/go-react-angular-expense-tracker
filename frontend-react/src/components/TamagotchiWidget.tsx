@@ -131,7 +131,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [factBubbles, setFactBubbles] = useState<string[]>([]);
   const [flyPhase,    setFlyPhase]    = useState<'approach' | 'orbit' | 'return' | null>(null);
 
-  const modeRef        = useRef<WidgetMode>('idle');
+  const modeRef         = useRef<WidgetMode>('idle');
+  const exitTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const messageRef     = useRef<string | null>(null);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -246,8 +247,18 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Dismiss bubble ────────────────────────────────────────────────────────
   const dismissBubble = () => {
     clearTimeout(autoDismissRef.current);
-    if (fromHook) onDismiss();
-    setMode('idle');
+    clearTimeout(exitTimerRef.current);
+    if (fromHook) {
+      onDismiss();
+      const phrases = t('ai.exit_phrases', { returnObjects: true }) as string[];
+      const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+      setBubbleText(phrase);
+      setFromHook(false);
+      setMode('ai_bubble');
+      exitTimerRef.current = setTimeout(() => setMode('idle'), 1500);
+    } else {
+      setMode('idle');
+    }
   };
 
   // ── UFO click: open choice or collapse scatter ────────────────────────────
@@ -270,12 +281,13 @@ const TamagotchiWidget: React.FC<Props> = ({
     }
   }, []);
 
-  // ── Choice: No → farewell bubble → 15 s moon orbit ───────────────────────
+  // ── Choice: No → random exit phrase → moon orbit ────────────────────────
   const handleChoiceNo = useCallback(() => {
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
-    setBubbleText(t('dashboard.tama_farewell'));
+    const phrases = t('ai.exit_phrases', { returnObjects: true }) as string[];
+    setBubbleText(phrases[Math.floor(Math.random() * phrases.length)]);
     setFromHook(false);
     setMode('ai_bubble');
     flyTimerRef.current = setTimeout(() => {
@@ -315,6 +327,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(fly2Ref.current);
       clearTimeout(msgShowRef.current);
       clearTimeout(autoDismissRef.current);
+      clearTimeout(exitTimerRef.current);
     };
   }, []);
 
@@ -424,55 +437,6 @@ const TamagotchiWidget: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* ── AI / greeting bubble ── */}
-        <AnimatePresence>
-          {inBubble && (
-            <motion.div
-              ref={bubbleRef}
-              className="tama-bubble"
-              style={{ x: '-50%', ...mobileBubbleStyle }}
-              initial={{ opacity: 0, scale: 0.88, y: 6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.88, y: 6 }}
-              transition={{ duration: 0.2 }}
-            >
-              <p className="tama-bubble-text">{bubbleText}</p>
-              <button className="tama-bubble-close" onClick={dismissBubble} aria-label="Close">✕</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Tour bubble ── */}
-        <AnimatePresence>
-          {inTour && (
-            <motion.div
-              ref={bubbleRef}
-              className="tama-bubble tama-bubble--tour"
-              style={{ x: '-50%', ...mobileBubbleStyle }}
-              initial={{ opacity: 0, scale: 0.88, y: 6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.88, y: 6 }}
-              transition={{ duration: 0.2 }}
-            >
-              <p className="tama-bubble-title">{t(STEPS[tourStep].title)}</p>
-              <p className="tama-bubble-text">{t(STEPS[tourStep].text)}</p>
-              <div className="tama-tour-footer">
-                <span className="tama-tour-dots">
-                  {STEPS.map((_, i) => (
-                    <span key={i} className={`tama-tour-dot${i === tourStep ? ' active' : ''}`} />
-                  ))}
-                </span>
-                <div className="tama-tour-actions">
-                  <button className="tama-tour-btn-skip" onClick={endTour}>{t('tour.skip')}</button>
-                  <button className="tama-tour-btn-next" onClick={tourNext}>
-                    {tourStep === STEPS.length - 1 ? t('tour.done') : t('tour.next')}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* ── SVG thought bubble + choice zones ── */}
         <AnimatePresence>
           {mode === 'choice' && (
@@ -542,6 +506,56 @@ const TamagotchiWidget: React.FC<Props> = ({
         </AnimatePresence>
 
       </div>
+
+      {/* ── AI / greeting bubble — outside tama-scene so overflow: hidden doesn't clip ── */}
+      <AnimatePresence>
+        {inBubble && (
+          <motion.div
+            ref={bubbleRef}
+            className="tama-bubble"
+            style={{ x: '-50%', ...mobileBubbleStyle }}
+            initial={{ opacity: 0, scale: 0.88, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.88, y: 6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p className="tama-bubble-text">{bubbleText}</p>
+            <button className="tama-bubble-close" onClick={dismissBubble} aria-label="Close">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Tour bubble — outside tama-scene so it can grow beyond scene bounds ── */}
+      <AnimatePresence>
+        {inTour && (
+          <motion.div
+            ref={bubbleRef}
+            className="tama-bubble tama-bubble--tour"
+            style={{ x: '-50%', ...mobileBubbleStyle }}
+            initial={{ opacity: 0, scale: 0.88, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.88, y: 6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p className="tama-bubble-title">{t(STEPS[tourStep].title)}</p>
+            <p className="tama-bubble-text">{t(STEPS[tourStep].text)}</p>
+            <div className="tama-tour-footer">
+              <span className="tama-tour-dots">
+                {STEPS.map((_, i) => (
+                  <span key={i} className={`tama-tour-dot${i === tourStep ? ' active' : ''}`} />
+                ))}
+              </span>
+              <div className="tama-tour-actions">
+                <button className="tama-tour-btn-skip" onClick={endTour}>{t('tour.skip')}</button>
+                <button className="tama-tour-btn-next" onClick={tourNext}>
+                  {tourStep === STEPS.length - 1 ? t('tour.done') : t('tour.next')}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
     </>
   );

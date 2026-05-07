@@ -83,6 +83,8 @@ export function useAIAssistant({
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const firstFired = useRef(false);
+  const fireRef = useRef<(() => void) | null>(null);
 
   const enqueue = useCallback((item: QueueItem) => {
     setQueue(q => (q.length < 2 ? [...q, item] : q));
@@ -167,13 +169,14 @@ export function useAIAssistant({
     if (msg) enqueue({ text: msg });
   }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
 
-  // ── Idle humor timer — calls /api/ai/next-action (silent on error) ──────────
+  // ── Idle humor timer — first fire at 25 s, then 60 s idle after dismiss ──
   useEffect(() => {
     if (!aiHumorEnabled) return;
 
     let cancelled = false;
+    firstFired.current = false;
 
-    const fire = async () => {
+    const doFire = async () => {
       try {
         const res = await axiosInstance.get(`/ai/next-action?language=${effectiveLang}`);
         if (cancelled) return;
@@ -188,18 +191,28 @@ export function useAIAssistant({
       }
     };
 
-    const resetTimer = () => {
+    fireRef.current = () => void doFire();
+
+    // First fire: guaranteed after 25 s regardless of activity
+    idleTimer.current = setTimeout(() => {
+      firstFired.current = true;
+      void doFire();
+    }, 25_000);
+
+    // After first fire, activity resets the 60 s idle timer
+    const resetIdle = () => {
+      if (!firstFired.current) return;
       clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(() => { void fire(); }, 45_000);
+      idleTimer.current = setTimeout(() => void doFire(), 60_000);
     };
 
-    resetTimer();
     const events = ['mousemove', 'click', 'keydown'] as const;
-    events.forEach(e => window.addEventListener(e, resetTimer));
+    events.forEach(e => window.addEventListener(e, resetIdle));
+
     return () => {
       cancelled = true;
       clearTimeout(idleTimer.current);
-      events.forEach(e => window.removeEventListener(e, resetTimer));
+      events.forEach(e => window.removeEventListener(e, resetIdle));
     };
   }, [aiHumorEnabled, effectiveLang, enqueue, axiosInstance]);
 
@@ -213,14 +226,14 @@ export function useAIAssistant({
   }, [currentMessage, queue]);
 
   const dismiss = useCallback(() => {
-    // Python-sourced messages have an animation_hint; send rejection so Python can
-    // track apology mode. Local advice messages (no hint) don't need feedback.
-    if (currentHint !== null) {
-      void axiosInstance.post('/ai/feedback', { accepted: false });
-    }
     setCurrentMessage(null);
     setCurrentHint(null);
-  }, [currentHint, axiosInstance]);
+    // Restart 60 s idle timer after user dismisses a message
+    if (firstFired.current && fireRef.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = setTimeout(fireRef.current, 60_000);
+    }
+  }, []);
 
   return { message: currentMessage, hasMessage: currentMessage !== null, animationHint: currentHint, dismiss };
 }

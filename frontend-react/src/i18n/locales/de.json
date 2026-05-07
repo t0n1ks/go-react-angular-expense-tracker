@@ -389,6 +389,18 @@
       "Systembericht: Heute wurden keine Finanzereignisse erfasst. Ein ruhiger Tag... oder ein vergessener?",
       "Mein Finanzradar zeigt heute nichts. Sag mir etwas — ich verarbeite Daten, keine Stille.",
       "Null Einträge heute. Entweder ein perfekt sparsamer Tag, oder du schuldest mir Daten. So oder so — Respekt."
+    ],
+    "exit_phrases": [
+      "In Ordnung, ich orbit ruhig weiter. 🛸",
+      "Verstanden. Zurück ins Weltall.",
+      "Kopiert. Abdriften... 🌌",
+      "Gut. Ich verarbeite meine Daten allein.",
+      "Verstanden. Funkkontakt unterbrochen.",
+      "Kein Problem — bis zur nächsten Umlaufbahn! 🌙",
+      "Passt mir. Schau die Sterne an. ✨",
+      "10-4. Ich bin in der Nähe.",
+      "Notiert. Ich vergesse nie. 🖥️",
+      "Tarnmodus aktiviert. Bzzzt. 🛸"
     ]
   },
   "tour": {

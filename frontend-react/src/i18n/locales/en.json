@@ -449,6 +449,18 @@
       "System report: no financial events captured today. A peaceful day... or a forgotten one?",
       "My financial radar shows nothing for today. Tell me something — I process data, not silence.",
       "Zero entries today. Either you had a perfectly frugal day, or you owe me some data. Either way — respect."
+    ],
+    "exit_phrases": [
+      "Alright, I'll orbit quietly. 🛸",
+      "Roger that. Back to deep space.",
+      "Copy. Drifting off... 🌌",
+      "Fine. I'll process my data alone.",
+      "Understood. Radio silence engaged.",
+      "No worries — catch you next orbit! 🌙",
+      "Fine by me. Watch the stars. ✨",
+      "10-4. I'll be around.",
+      "Noted. I never forget. 🖥️",
+      "Engaging stealth mode. Bzzzt. 🛸"
     ]
   },
   "tour": {
