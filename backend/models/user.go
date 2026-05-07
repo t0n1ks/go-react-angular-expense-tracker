@@ -5,7 +5,7 @@ import "gorm.io/gorm"
 type User struct {
 	gorm.Model
 	Username            string  `gorm:"uniqueIndex;not null" json:"username"`
-	Password            string  `gorm:"not null" json:"password"`
+	Password            string  `gorm:"not null" json:"-"`
 	Currency            string  `gorm:"default:'USD'" json:"currency"`
 	AIAdviceEnabled     bool    `json:"ai_advice_enabled"`
 	AIHumorEnabled      bool    `json:"ai_humor_enabled"`

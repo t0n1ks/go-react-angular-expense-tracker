@@ -39,6 +39,8 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 - Inline row editing on desktop; card-based editing on mobile
 - Monthly spending goal with colour-coded progress bar (green → amber → red)
 - Weekly pacing advisor powered by `useAIAssistant` hook: detects salary arrival, tracks spend rate vs weekly limit, fires contextual messages per session fingerprint (no duplicate nags)
+- **Hearts system** — the backend awards one heart when a user stays within their daily spending limit for 60 consecutive days; max 5 hearts per account
+- **Reputation score** — foundation for future gamification; incremented by positive financial behaviour
 
 ### Multi-language (i18n)
 Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial tips, error messages, tour steps. Language switcher in Settings persists across sessions. All arrays in locale files are typesafe via `{ returnObjects: true }`.
@@ -76,6 +78,7 @@ Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial t
 | Charts | Recharts |
 | Icons | Lucide React |
 | HTTP client | Axios (pre-configured instance with auth interceptor in `AuthContext`) |
+| AI companion service | Python · FastAPI · scikit-learn · psycopg2 ([fin-guard-ai-service](https://github.com/t0n1ks/fin-guard-ai-service)) |
 | Deployment — frontend | Vercel (Vite preset) |
 | Deployment — backend | Render (Docker) |
 | Deployment — database | Neon.tech Serverless PostgreSQL |
@@ -93,6 +96,7 @@ models/                — User, Category, Transaction structs
 handlers/user.go       — Register, Login, GetProfile, UpdateProfile, DeleteAccount; owns jwtSecret
 handlers/category.go   — Full CRUD for categories
 handlers/transaction.go — Full CRUD + daily/period summary endpoints
+handlers/ai.go         — Proxy for all /api/ai/* routes → fin-guard-ai-service; handles language normalisation
 middleware/auth.go     — JWT validation; injects userID into Gin context
 ```
 
@@ -113,6 +117,25 @@ middleware/auth.go     — JWT validation; injects userID into Gin context
 | Protected | GET | `/api/summary/daily` | daily totals |
 | Protected | GET | `/api/summary/period` | period aggregation |
 | Protected | GET | `/api/stats` | per-category breakdown |
+| Protected | POST | `/api/ai/analyze` | full behavior analysis via AI brain (scores, mood, nudge) |
+| Protected | GET | `/api/ai/next-action` | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
+| Protected | POST | `/api/ai/feedback` | accept / reject signal for AI apology-mode tracking |
+
+### AI Brain (`fin-guard-ai-service`)
+
+The Go backend proxies all `/api/ai/*` requests to a separate Python FastAPI microservice. This keeps the heavy ML work (scikit-learn forecasting, multilingual content generation) decoupled from the Go API.
+
+```
+Go backend ──POST /v1/analyze-behavior──► fin-guard-ai-service
+           ◄── financial_health_score, tamagotchi_mood, smart_nudge ──
+
+Go backend ──GET /v1/tamagotchi/next-action──► fin-guard-ai-service
+           ◄── { type: "JOKE"|"FACT"|"ADVICE"|"GREETING", content, animation_hint } ──
+```
+
+Language is passed explicitly via query param (`?language=uk`) so the UFO always speaks in the UI's selected language, independent of browser locale or server defaults. The Go layer normalises ISO 639-1 `uk` → internal code `UA` before forwarding.
+
+See the [fin-guard-ai-service README](https://github.com/t0n1ks/fin-guard-ai-service) for its own deployment guide and API contract.
 
 ### Frontend (`frontend-react/src/`)
 
@@ -196,10 +219,11 @@ VITE_API_URL=http://localhost:8080/api
 | Service | Variable | Notes |
 |---|---|---|
 | Backend | `DATABASE_URL` | Postgres connection string; omit for SQLite |
-| Backend | `JWT_SECRET` | Any random 64-char string — generate with `openssl rand -hex 32` |
+| Backend | `JWT_SECRET` | **Required.** Random 64-char string — generate with `openssl rand -hex 32` |
 | Backend | `PORT` | Default `8080`; injected automatically on Render |
 | Backend | `CORS_ORIGINS` | Comma-separated allowed origins, e.g. `https://myapp.vercel.app` |
-| Backend | `DB_PATH` | SQLite file path; default `expenses.db` |
+| Backend | `AI_SERVICE_URL` | URL of fin-guard-ai-service; default `http://localhost:8001` |
+| Backend | `AI_SERVICE_KEY` | Shared secret for Go↔Python auth; generate with `openssl rand -hex 32` |
 | Frontend | `VITE_API_URL` | Backend URL + `/api` suffix |
 
 ---
@@ -229,6 +253,22 @@ The production stack runs on three free tiers: Vercel + Render + Neon.tech.
 2. **Framework Preset:** Vite, **Root Directory:** `frontend-react`
 3. Add env var: `VITE_API_URL=https://your-app.onrender.com/api`
 4. Deploy. `vercel.json` applies SPA rewrite rules so React Router routes load on direct access.
+
+### 4 — fin-guard-ai-service (AI Brain, optional)
+
+The Go backend degrades gracefully when the AI service is unreachable — it returns empty 200 responses so the Tamagotchi simply stays silent. To enable full AI features:
+
+1. Deploy [fin-guard-ai-service](https://github.com/t0n1ks/fin-guard-ai-service) to Render (its own `render.yaml` is included)
+2. Set `AI_SERVICE_URL=https://your-brain.onrender.com` on the Go backend
+3. Set `AI_SERVICE_KEY` to the same value as `BRAIN_API_KEY` in the Python service
+
+---
+
+## Related Projects
+
+| Repo | Description |
+|---|---|
+| [fin-guard-ai-service](https://github.com/t0n1ks/fin-guard-ai-service) | Python FastAPI microservice — financial health scoring, spending forecasting, and Tamagotchi content engine |
 
 ---
 

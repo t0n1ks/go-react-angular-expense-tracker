@@ -21,11 +21,11 @@ import (
 var jwtSecret []byte
 
 // InitJWTSecret must be called from main() after env vars are loaded.
+// Exits the process immediately if JWT_SECRET is not set.
 func InitJWTSecret() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "supersecretkey_change_me_in_production"
-		log.Println("WARNING: JWT_SECRET not set, using default insecure secret")
+		log.Fatal("FATAL: JWT_SECRET env var is not set — refusing to start")
 	}
 	jwtSecret = []byte(secret)
 }

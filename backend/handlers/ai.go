@@ -130,6 +130,7 @@ type aiUserProfile struct {
 	FixedPayday         int     `json:"fixed_payday"`
 	ManualNextPayday    *string `json:"manual_next_payday"`
 	AIHumorEnabled      bool    `json:"ai_humor_enabled"`
+	Language            string  `json:"language"`
 }
 
 type aiCategoryRef struct {
@@ -151,7 +152,6 @@ type analyzeBehaviorRequest struct {
 	UserProfile  aiUserProfile   `json:"user_profile"`
 	Transactions []aiTransaction `json:"transactions"`
 	AnalysisDate string          `json:"analysis_date"`
-	Language     string          `json:"language"`
 }
 
 func AnalyzeBehavior(c *gin.Context) {
@@ -174,6 +174,9 @@ func AnalyzeBehavior(c *gin.Context) {
 		return
 	}
 
+	analyzeLang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
+	log.Printf("[ai] analyze uid=%v frontend_lang=%q → python_lang=%q", uid, c.Query("language"), analyzeLang)
+
 	var manualNextPayday *string
 	if user.ManualNextPayday != "" {
 		s := user.ManualNextPayday
@@ -189,6 +192,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		FixedPayday:         user.FixedPayday,
 		ManualNextPayday:    manualNextPayday,
 		AIHumorEnabled:      user.AIHumorEnabled,
+		Language:            analyzeLang,
 	}
 
 	aiTxs := make([]aiTransaction, 0, len(txs))
@@ -207,14 +211,10 @@ func AnalyzeBehavior(c *gin.Context) {
 		})
 	}
 
-	analyzeLang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
-	log.Printf("[ai] analyze uid=%v frontend_lang=%q → python_lang=%q", uid, c.Query("language"), analyzeLang)
-
 	payload := analyzeBehaviorRequest{
 		UserProfile:  profile,
 		Transactions: aiTxs,
 		AnalysisDate: time.Now().Format("2006-01-02"),
-		Language:     analyzeLang,
 	}
 
 	body, err := json.Marshal(payload)
