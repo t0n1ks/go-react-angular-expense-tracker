@@ -9,8 +9,6 @@ import './TamagotchiWidget.css';
 const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
-const IDLE_QUIET_MS   = 30_000; // mandatory idle gap before fly-by
-const IDLE_JITTER_MS  = 10_000; // random extra: total quiet = 30–40 s
 const AUTO_DISMISS_MS = 15_000;
 const MSG_SHOW_DELAY  = 3_000;  // grace period before showing an arrived message
 
@@ -135,7 +133,6 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   const modeRef        = useRef<WidgetMode>('idle');
   const messageRef     = useRef<string | null>(null);
-  const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fly1Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -161,29 +158,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(t0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── Fly-by sequencer: quiet 30–40 s → 15 s moon orbit → repeat ──────────
-  const scheduleNext = useCallback(() => {
-    clearTimeout(idleTimerRef.current);
-    const quietMs = IDLE_QUIET_MS + Math.random() * IDLE_JITTER_MS;
-    idleTimerRef.current = setTimeout(() => {
-      if (modeRef.current !== 'idle') { scheduleNext(); return; }
-      setFlyPhase('approach');
-      setMode('fly_to_moon');
-      fly1Ref.current = setTimeout(() => setFlyPhase('orbit'),  5000);
-      fly2Ref.current = setTimeout(() => setFlyPhase('return'), 10000);
-      flyTimerRef.current = setTimeout(() => {
-        setFlyPhase(null);
-        setMode('idle');
-        scheduleNext();
-      }, 15000);
-    }, quietMs);
-  }, []);
-
-  useEffect(() => {
-    scheduleNext();
-    return () => clearTimeout(idleTimerRef.current);
-  }, [scheduleNext]);
 
   // ── Auto-dismiss non-hook bubbles ─────────────────────────────────────────
   useEffect(() => {
@@ -314,12 +288,11 @@ const TamagotchiWidget: React.FC<Props> = ({
           flyTimerRef.current = setTimeout(() => {
             setFlyPhase(null);
             setMode('idle');
-            scheduleNext();
           }, 5000);
         }, 5000);
       }, 5000);
     }, 1500);
-  }, [scheduleNext, t]);
+  }, [t]);
 
   // ── Choice: Yes → show scattered facts or info bubble ────────────────────
   const handleChoiceYes = useCallback(() => {
@@ -341,7 +314,6 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(fly1Ref.current);
       clearTimeout(fly2Ref.current);
       clearTimeout(msgShowRef.current);
-      clearTimeout(idleTimerRef.current);
       clearTimeout(autoDismissRef.current);
     };
   }, []);
