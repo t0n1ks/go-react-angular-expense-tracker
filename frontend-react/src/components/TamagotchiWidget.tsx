@@ -112,10 +112,20 @@ const STARS = [
   { x: 61, y: 10, d: 0.7  },
 ];
 
+// 12 coins at varied horizontal positions; delay staggers arrivals across ~13 s
 const COINS = [
-  { left: '34%' },
-  { left: '52%' },
-  { left: '70%' },
+  { left: '14%', delay: 0    },
+  { left: '26%', delay: 1.1  },
+  { left: '38%', delay: 2.2  },
+  { left: '50%', delay: 3.3  },
+  { left: '62%', delay: 4.4  },
+  { left: '74%', delay: 5.5  },
+  { left: '82%', delay: 6.6  },
+  { left: '20%', delay: 7.7  },
+  { left: '44%', delay: 8.8  },
+  { left: '68%', delay: 9.9  },
+  { left: '32%', delay: 11.0 },
+  { left: '56%', delay: 12.1 },
 ];
 
 // 8-slot positions (% of widget) arranged in a circle around UFO center (50%, 44%)
@@ -165,8 +175,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,     setTourStep]    = useState(0);
   const [bubbleH,      setBubbleH]     = useState(0);
   const [factBubbles,  setFactBubbles] = useState<string[]>([]);
-  // null = cow not visible; 'entry' = walking in; 'beam' = glow beam on; 'lift' = floating to UFO
-  const [cowPhase, setCowPhase] = useState<'entry' | 'beam' | 'lift' | null>(null);
+  // null = cow not visible; 5-phase cinematic abduction sequence (~15 s)
+  const [cowPhase, setCowPhase] = useState<'entry' | 'glow' | 'beam' | 'lift' | 'done' | null>(null);
+  // null = not flying; 3-phase moon orbit (~15 s)
+  const [flyPhase, setFlyPhase] = useState<'approach' | 'orbit' | 'return' | null>(null);
 
   const modeRef        = useRef<WidgetMode>('idle');
   const idlePhaseRef   = useRef<IdlePhase>('hover');
@@ -175,6 +187,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly1Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly2Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const widgetRef      = useRef<HTMLDivElement>(null);
   const bubbleRef      = useRef<HTMLDivElement>(null);
 
@@ -206,28 +220,30 @@ const TamagotchiWidget: React.FC<Props> = ({
       if (r < 0.45) {
         scheduleNext();
       } else if (r < 0.62) {
-        // Cow abduction (4.5 s total): walk-in → beam → lift → done
+        // Cow abduction (15 s): 5-phase cinematic sequence
         setIdlePhase('cow');
         setCowPhase('entry');
-        setTimeout(() => setCowPhase('beam'),  1500);
-        setTimeout(() => setCowPhase('lift'),  2000);
+        setTimeout(() => setCowPhase('glow'),  2000);
+        setTimeout(() => setCowPhase('beam'),  5000);
+        setTimeout(() => setCowPhase('lift'),  8000);
+        setTimeout(() => setCowPhase('done'),  12000);
         setTimeout(() => {
           setCowPhase(null);
           setIdlePhase('hover');
           scheduleNext();
-        }, 4500);
+        }, 15000);
       } else if (r < 0.75) {
-        // Coin collection (3.5 s): coins float slowly up to UFO center
+        // Coin collection (16.5 s): 12 coins drift slowly to UFO center
         setIdlePhase('coin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 3500);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 16500);
       } else if (r < 0.87) {
-        // Radar scan (6 s): 3 slow expanding pulses
+        // Radar scan (9 s): 3 slow deep-scan pulses, 2 s stagger each
         setIdlePhase('radar');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 6000);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 9000);
       } else {
-        // Hover spin (2.5 s): UFO tilts and bobs with character
+        // Hover spin (12 s): slow cinematic UFO tilt dance
         setIdlePhase('spin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 2500);
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 12000);
       }
     }, delay);
   }, []);
@@ -282,14 +298,16 @@ const TamagotchiWidget: React.FC<Props> = ({
     if (animationHint === 'COW_ABDUCTION') {
       setIdlePhase('cow');
       setCowPhase('entry');
-      const t1 = setTimeout(() => setCowPhase('beam'), 1500);
-      const t2 = setTimeout(() => setCowPhase('lift'), 2000);
-      const t3 = setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); }, 4500);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+      const t1 = setTimeout(() => setCowPhase('glow'),  2000);
+      const t2 = setTimeout(() => setCowPhase('beam'),  5000);
+      const t3 = setTimeout(() => setCowPhase('lift'),  8000);
+      const t4 = setTimeout(() => setCowPhase('done'),  12000);
+      const t5 = setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); }, 15000);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
     }
     if (animationHint === 'COIN_COLLECT') {
       setIdlePhase('coin');
-      const t1 = setTimeout(() => setIdlePhase('hover'), 3500);
+      const t1 = setTimeout(() => setIdlePhase('hover'), 16500);
       return () => clearTimeout(t1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,16 +382,27 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Choice: No → farewell bubble → fly to moon ───────────────────────────
   const handleChoiceNo = useCallback(() => {
     clearTimeout(flyTimerRef.current);
+    clearTimeout(fly1Ref.current);
+    clearTimeout(fly2Ref.current);
     setBubbleText(t('dashboard.tama_farewell'));
     setFromHook(false);
     setMode('ai_bubble');
+    // After farewell bubble: approach moon (5 s) → orbit (5 s) → return (5 s) = 15 s
     flyTimerRef.current = setTimeout(() => {
+      setFlyPhase('approach');
       setMode('fly_to_moon');
-      flyTimerRef.current = setTimeout(() => {
-        setMode('idle');
-        setIdlePhase('hover');
-        scheduleNext();
-      }, 2000);
+      fly1Ref.current = setTimeout(() => {
+        setFlyPhase('orbit');
+        fly2Ref.current = setTimeout(() => {
+          setFlyPhase('return');
+          flyTimerRef.current = setTimeout(() => {
+            setFlyPhase(null);
+            setMode('idle');
+            setIdlePhase('hover');
+            scheduleNext();
+          }, 5000);
+        }, 5000);
+      }, 5000);
     }, 1500);
   }, [scheduleNext, t]);
 
@@ -395,7 +424,11 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, [t]);
 
   useEffect(() => {
-    return () => clearTimeout(flyTimerRef.current);
+    return () => {
+      clearTimeout(flyTimerRef.current);
+      clearTimeout(fly1Ref.current);
+      clearTimeout(fly2Ref.current);
+    };
   }, []);
 
   // ── Compute UFO vertical position ─────────────────────────────────────────
@@ -404,9 +437,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const mob      = isMob();
 
   let ufoTop: string;
-  if (mode === 'fly_to_moon') {
-    ufoTop = '-20%'; // overridden by Framer Motion animate
-  } else if (inBubble || inTour || mode === 'choice') {
+  if (inBubble || inTour || mode === 'choice') {
     if (mob && bubbleH > 0 && widgetRef.current) {
       const widgetH  = widgetRef.current.offsetHeight;
       const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
@@ -463,7 +494,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Cow abduction (phase-driven, 4.5 s total) ── */}
+        {/* ── Cow abduction (5-phase, ~15 s cinematic) ── */}
         <AnimatePresence>
           {mode === 'idle' && idlePhase === 'cow' && (
             <motion.div
@@ -474,7 +505,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Tractor beam: visible during beam + lift phases */}
+              {/* Tractor beam: grows in during beam phase, persists through lift */}
               <AnimatePresence>
                 {(cowPhase === 'beam' || cowPhase === 'lift') && (
                   <motion.div
@@ -482,42 +513,61 @@ const TamagotchiWidget: React.FC<Props> = ({
                     className="tama-tractor-beam"
                     initial={{ opacity: 0, scaleY: 0 }}
                     animate={{ opacity: 1, scaleY: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    exit={{ opacity: 0, scaleY: 0 }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
                   />
                 )}
               </AnimatePresence>
-              {/* UFO glow ring: pulses during beam phase */}
+              {/* UFO glow ring: soft pulse from glow phase through lift */}
               <AnimatePresence>
-                {(cowPhase === 'beam' || cowPhase === 'lift') && (
+                {(cowPhase === 'glow' || cowPhase === 'beam' || cowPhase === 'lift') && (
                   <motion.div
-                    key="ufo-glow"
+                    key="ufo-glow-pulse"
                     className="tama-ufo-glow-ring"
                     initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ scale: [1, 1.25, 1, 1.25, 1], opacity: [0.6, 1, 0.7, 1, 0.6] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
+                    animate={{ scale: [1, 1.3, 1, 1.3, 1], opacity: [0.45, 0.85, 0.55, 0.85, 0.45] }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 3.0, repeat: Infinity }}
                   />
                 )}
               </AnimatePresence>
-              {/* Cow: entry walk → beam glow → lift to UFO center */}
+              {/* Final conclusion flash: bright burst as UFO departs */}
+              <AnimatePresence>
+                {cowPhase === 'done' && (
+                  <motion.div
+                    key="ufo-glow-done"
+                    className="tama-ufo-glow-ring"
+                    initial={{ scale: 0.8, opacity: 0.9 }}
+                    animate={{ scale: 4.5, opacity: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 2.0, ease: 'easeOut' }}
+                  />
+                )}
+              </AnimatePresence>
+              {/* Cow: entry walk → soft glow → bright beam → float to UFO → gone */}
               <motion.div
                 className="tama-cow"
                 style={{ transformOrigin: 'center center' }}
                 initial={{ left: '-8%', y: 0, opacity: 1, scale: 1 }}
                 animate={
-                  cowPhase === 'lift'
-                    ? { left: '46%', y: -85, opacity: 0, scale: 0 }
+                  (cowPhase === 'lift' || cowPhase === 'done')
+                    ? { left: '46%', y: -62, opacity: 0, scale: 0 }
                     : cowPhase === 'beam'
-                      ? { left: '46%', y: 0, opacity: 1, scale: 1.08, filter: 'brightness(2)' }
-                      : { left: '46%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
+                      ? { left: '46%', y: 0, opacity: 1, scale: 1.1, filter: 'brightness(2.5)' }
+                      : cowPhase === 'glow'
+                        ? { left: '46%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.5)' }
+                        : { left: '46%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
                 }
                 transition={
                   cowPhase === 'lift'
-                    ? { duration: 2.0, ease: [0.25, 0.1, 0.25, 1] }
-                    : cowPhase === 'beam'
-                      ? { duration: 0.5, ease: 'easeOut' }
-                      : { duration: 1.5, ease: 'easeInOut' }
+                    ? { duration: 4.0, ease: [0.5, 0.0, 0.75, 1] }
+                    : cowPhase === 'done'
+                      ? { duration: 0 }
+                      : cowPhase === 'beam'
+                        ? { duration: 0.8, ease: 'easeOut' }
+                        : cowPhase === 'glow'
+                          ? { duration: 1.2, ease: 'easeInOut' }
+                          : { duration: 2.0, ease: 'easeInOut' }
                 }
               >
                 <PixelCow />
@@ -542,12 +592,12 @@ const TamagotchiWidget: React.FC<Props> = ({
                   key={i}
                   className="tama-coin"
                   style={{ left: c.left, transformOrigin: 'center center' }}
-                  initial={{ y: 0, opacity: 0, scale: 1 }}
-                  animate={{ y: -80, opacity: [0, 1, 1, 0], scale: [1, 1, 0.5, 0.05] }}
+                  initial={{ y: 0, opacity: 0, scale: 1.1 }}
+                  animate={{ y: -72, opacity: [0, 1, 1, 0], scale: [1.1, 1.1, 0.7, 0.05] }}
                   transition={{
-                    delay: i * 0.45,
-                    duration: 2.5,
-                    times: [0, 0.12, 0.72, 1],
+                    delay: c.delay,
+                    duration: 4.0,
+                    times: [0, 0.08, 0.75, 1],
                     ease: [0.25, 0.46, 0.45, 0.94],
                   }}
                 >
@@ -576,7 +626,7 @@ const TamagotchiWidget: React.FC<Props> = ({
                   style={{ transformOrigin: 'center center' }}
                   initial={{ scale: 0.3, opacity: 0.85 }}
                   animate={{ scale: 5, opacity: 0 }}
-                  transition={{ delay: i * 1.2, duration: 3.5, ease: 'easeOut' }}
+                  transition={{ delay: i * 2, duration: 4.0, ease: 'easeOut' }}
                 />
               ))}
             </motion.div>
@@ -589,25 +639,33 @@ const TamagotchiWidget: React.FC<Props> = ({
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
           initial={{ left: '50%', top: '44%' }}
           animate={
-            mode === 'fly_to_moon'
-              ? { left: '80%', top: '-20%', scale: 0.35 }
-              : { left: '50%', top: ufoTop, scale: 1 }
+            mode !== 'fly_to_moon'
+              ? { left: '50%', top: ufoTop, scale: 1 }
+              : flyPhase === 'orbit'
+                ? { left: '88%', top: '8%', scale: 0.14 }
+                : flyPhase === 'return'
+                  ? { left: '50%', top: '44%', scale: 1 }
+                  : { left: '82%', top: '13%', scale: 0.18 }
           }
           transition={
-            mode === 'fly_to_moon'
-              ? { duration: 1.2, ease: 'easeInOut' }
-              : { type: 'spring', stiffness: 80, damping: 18 }
+            mode !== 'fly_to_moon'
+              ? { type: 'spring', stiffness: 80, damping: 18 }
+              : flyPhase === 'orbit'
+                ? { duration: 5.0, ease: 'easeInOut' }
+                : flyPhase === 'return'
+                  ? { duration: 5.0, ease: [0.42, 0, 0.58, 1] }
+                  : { duration: 5.0, ease: [0.25, 0.1, 0.25, 1] }
           }
           onClick={handleUfoClick}
         >
           <motion.div
             style={{ transformOrigin: 'center center' }}
             animate={idlePhase === 'spin'
-              ? { y: [0, -6, 2, -6, 0], rotate: [-9, 9, -9, 9, 0] }
-              : { y: [0, -4, 0] }}
+              ? { y: [0, -8, 2, -8, 2, -5, 0], rotate: [-5, 5, -5, 5, -3, 3, 0] }
+              : { y: [0, -3, 0], rotate: [-1.2, 1.2, -1.2] }}
             transition={idlePhase === 'spin'
-              ? { duration: 2.4, ease: 'easeInOut' }
-              : { repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
+              ? { duration: 10, ease: 'easeInOut' }
+              : { repeat: Infinity, duration: 5.0, ease: 'easeInOut' }}
           >
             <UfoSvg mood={mood} />
           </motion.div>
