@@ -93,6 +93,7 @@
   border-radius: 50%;
   background: #fff;
   animation: tama-twinkle 2.2s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 @keyframes tama-twinkle {
@@ -117,6 +118,7 @@
   z-index: 5;
   filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.45));
   transform-origin: center center;
+  will-change: transform, opacity;
 }
 
 /* ── Radar scan rings (Framer Motion drives scale + opacity) ────────────────── */
@@ -133,6 +135,7 @@
   pointer-events: none;
   z-index: 4;
   transform-origin: center center;
+  will-change: transform, opacity;
 }
 
 /* ── Cow abduction (Framer Motion owns all transforms — no CSS animation) ───── */
@@ -142,6 +145,7 @@
   bottom: 12%;
   pointer-events: none;
   transform-origin: center center;
+  will-change: transform, opacity;
 }
 
 /* Tractor beam: descends from UFO bottom toward cow during beam/lift phases */
@@ -187,6 +191,7 @@
   bottom: 18%;
   pointer-events: none;
   transform-origin: center center;
+  will-change: transform, opacity;
 }
 
 /* ── Speech bubble ──────────────────────────────────────────────────────────── */

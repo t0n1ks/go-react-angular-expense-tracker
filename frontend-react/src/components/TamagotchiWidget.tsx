@@ -10,8 +10,23 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const INACTIVITY_MS   = 10_000;
-const IDLE_BASE_MS    = 8_000;
+const IDLE_QUIET_MS   = 20_000; // mandatory hover gap between sequences
+const IDLE_JITTER_MS  = 10_000; // random extra: total quiet = 20–30 s
 const AUTO_DISMISS_MS = 15_000;
+
+// ── Animation deck ────────────────────────────────────────────────────────────
+
+type AnimType = 'cow' | 'coin' | 'radar' | 'spin' | 'fly_by';
+const ANIM_DECK: AnimType[] = ['cow', 'coin', 'radar', 'spin', 'fly_by'];
+
+function shuffleDeck(arr: AnimType[]): AnimType[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 const BUBBLE_TOP_PAD = 24;
 const UFO_GAP = 8;
@@ -180,17 +195,19 @@ const TamagotchiWidget: React.FC<Props> = ({
   // null = not flying; 3-phase moon orbit (~15 s)
   const [flyPhase, setFlyPhase] = useState<'approach' | 'orbit' | 'return' | null>(null);
 
-  const modeRef        = useRef<WidgetMode>('idle');
-  const idlePhaseRef   = useRef<IdlePhase>('hover');
-  const messageRef     = useRef<string | null>(null);
-  const inactRef       = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const idleTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const fly1Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const fly2Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const widgetRef      = useRef<HTMLDivElement>(null);
-  const bubbleRef      = useRef<HTMLDivElement>(null);
+  const modeRef          = useRef<WidgetMode>('idle');
+  const idlePhaseRef     = useRef<IdlePhase>('hover');
+  const messageRef       = useRef<string | null>(null);
+  const inactRef         = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const idleTimerRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoDismissRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flyTimerRef      = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly1Ref          = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fly2Ref          = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const deckRef          = useRef<AnimType[]>([]);
+  const pendingHookMsg   = useRef(false); // message arrived during animation — show on hover resume
+  const widgetRef        = useRef<HTMLDivElement>(null);
+  const bubbleRef        = useRef<HTMLDivElement>(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { idlePhaseRef.current = idlePhase; }, [idlePhase]);
@@ -210,42 +227,50 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Organic idle state machine ────────────────────────────────────────────
+  // ── Deck-based idle animation sequencer ──────────────────────────────────
+  // Draws from a shuffled deck of 5 animations so every variety plays before
+  // any repeats. A mandatory 20–30 s hover gap sits between each sequence.
   const scheduleNext = useCallback(() => {
     clearTimeout(idleTimerRef.current);
-    const delay = IDLE_BASE_MS + Math.random() * 5_000;
+    const quietMs = IDLE_QUIET_MS + Math.random() * IDLE_JITTER_MS;
     idleTimerRef.current = setTimeout(() => {
       if (modeRef.current !== 'idle') { scheduleNext(); return; }
-      const r = Math.random();
-      if (r < 0.45) {
-        scheduleNext();
-      } else if (r < 0.62) {
-        // Cow abduction (15 s): 5-phase cinematic sequence
+      if (deckRef.current.length === 0) {
+        deckRef.current = shuffleDeck([...ANIM_DECK]);
+      }
+      const anim = deckRef.current.pop()!;
+
+      if (anim === 'cow') {
         setIdlePhase('cow');
         setCowPhase('entry');
         setTimeout(() => setCowPhase('glow'),  2000);
         setTimeout(() => setCowPhase('beam'),  5000);
         setTimeout(() => setCowPhase('lift'),  8000);
         setTimeout(() => setCowPhase('done'),  12000);
-        setTimeout(() => {
-          setCowPhase(null);
+        setTimeout(() => { setCowPhase(null); setIdlePhase('hover'); scheduleNext(); }, 15000);
+      } else if (anim === 'coin') {
+        setIdlePhase('coin');
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 16500);
+      } else if (anim === 'radar') {
+        setIdlePhase('radar');
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 9000);
+      } else if (anim === 'spin') {
+        setIdlePhase('spin');
+        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 12000);
+      } else {
+        // fly_by: autonomous moon orbit, no farewell bubble
+        setFlyPhase('approach');
+        setMode('fly_to_moon');
+        fly1Ref.current = setTimeout(() => setFlyPhase('orbit'), 5000);
+        fly2Ref.current = setTimeout(() => setFlyPhase('return'), 10000);
+        flyTimerRef.current = setTimeout(() => {
+          setFlyPhase(null);
+          setMode('idle');
           setIdlePhase('hover');
           scheduleNext();
         }, 15000);
-      } else if (r < 0.75) {
-        // Coin collection (16.5 s): 12 coins drift slowly to UFO center
-        setIdlePhase('coin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 16500);
-      } else if (r < 0.87) {
-        // Radar scan (9 s): 3 slow deep-scan pulses, 2 s stagger each
-        setIdlePhase('radar');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 9000);
-      } else {
-        // Hover spin (12 s): slow cinematic UFO tilt dance
-        setIdlePhase('spin');
-        setTimeout(() => { setIdlePhase('hover'); scheduleNext(); }, 12000);
       }
-    }, delay);
+    }, quietMs);
   }, []);
 
   useEffect(() => {
@@ -312,6 +337,30 @@ const TamagotchiWidget: React.FC<Props> = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message, animationHint]);
+
+  // ── Priority message handling ─────────────────────────────────────────────
+  // If a hook message arrives while an animation is running, flag it so it
+  // surfaces quickly when hover resumes instead of waiting for the inactivity timer.
+  useEffect(() => {
+    if (!message) return;
+    if (modeRef.current !== 'idle' || idlePhaseRef.current !== 'hover') {
+      pendingHookMsg.current = true;
+    }
+  }, [message]);
+
+  useEffect(() => {
+    if (idlePhase !== 'hover' || mode !== 'idle') return;
+    if (!pendingHookMsg.current || !messageRef.current) return;
+    pendingHookMsg.current = false;
+    const tid = setTimeout(() => {
+      if (modeRef.current !== 'idle' || idlePhaseRef.current !== 'hover') return;
+      if (!messageRef.current) return;
+      setBubbleText(messageRef.current);
+      setFromHook(true);
+      setMode('ai_bubble');
+    }, 2000);
+    return () => clearTimeout(tid);
+  }, [idlePhase, mode]);
 
   // ── Mobile: measure bubble height ─────────────────────────────────────────
   const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour' || mode === 'choice';
