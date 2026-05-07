@@ -110,7 +110,7 @@ interface Props {
   message: string | null;
   onDismiss: () => void;
   mood?: string;
-  smartNudge?: string;
+
   animationHint?: string | null; // kept for API compat — no longer drives idle animations
   heartsCount?: number;
 }
@@ -121,7 +121,6 @@ const TamagotchiWidget: React.FC<Props> = ({
   message,
   onDismiss,
   mood,
-  smartNudge,
   heartsCount = 3,
 }) => {
   const { t } = useTranslation();
@@ -572,9 +571,6 @@ const TamagotchiWidget: React.FC<Props> = ({
 
       </div>
     </div>
-    {smartNudge && (
-      <p className="tama-smart-nudge">{smartNudge}</p>
-    )}
     </>
   );
 };

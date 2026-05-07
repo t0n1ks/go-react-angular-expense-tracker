@@ -23,7 +23,7 @@ const Dashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aiData, setAIData] = useState<{ tamagotchi_mood: string; smart_nudge: string } | null>(null);
+  const [aiData, setAIData] = useState<{ tamagotchi_mood: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -41,7 +41,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     axiosInstance.post(`/ai/analyze?language=${i18n.language}`)
-      .then((res: { data: { tamagotchi_mood: string; smart_nudge: string } }) => setAIData(res.data))
+      .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
       .catch(() => {});
   }, [axiosInstance, i18n.language]);
 
@@ -139,7 +139,6 @@ const Dashboard: React.FC = () => {
         message={message}
         onDismiss={dismiss}
         mood={aiData?.tamagotchi_mood}
-        smartNudge={aiData?.smart_nudge}
         animationHint={animationHint}
         heartsCount={heartsCount}
       />
