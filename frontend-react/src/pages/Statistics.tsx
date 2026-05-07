@@ -82,10 +82,7 @@ const Statistics: React.FC = () => {
       dailyMap[dateKey] = runningBalance;
     });
 
-    return Object.keys(dailyMap).map((date) => ({
-      date,
-      balance: dailyMap[date],
-    }));
+    return Object.entries(dailyMap).map(([date, balance]) => ({ date, balance }));
   }, [transactions]);
 
   if (loading)
@@ -113,7 +110,7 @@ const Statistics: React.FC = () => {
           </h2>
           {timelineData.length > 0 ? (() => {
             const WINDOW = 14;
-            const needsBrush = timelineData.length > WINDOW;
+            const needsBrush = timelineData.length > 7;
             const brushStart = Math.max(0, timelineData.length - WINDOW);
             return (
             <div style={{ width: "100%", height: needsBrush ? 340 : 300, minWidth: 0 }}>
@@ -140,11 +137,10 @@ const Statistics: React.FC = () => {
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    tick={{ fill: '#94a3b8', fontSize: 11 }}
                     dy={10}
-                    interval={0}
                     padding={{ left: 20, right: 20 }}
-                    minTickGap={5}
+                    minTickGap={44}
                   />
                   <YAxis hide={true} />
                   <Tooltip
