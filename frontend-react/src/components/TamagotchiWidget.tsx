@@ -10,11 +10,12 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
-const MSG_SHOW_DELAY  = 3_000;  // grace period before showing an arrived message
+const MSG_SHOW_DELAY  = 3_000;
 
-const BUBBLE_TOP_PAD = 24;
-const UFO_GAP        = 8;
-const UFO_HALF_H     = 9;
+const BUBBLE_TOP_PAD = 24;   // px from top of screen to bubble top edge
+const UFO_GAP        = 8;    // px gap between bubble bottom and UFO center
+const UFO_HALF_H     = 9;    // half UFO sprite height in px
+const HEARTS_BOTTOM  = 28;   // space reserved for hearts row at bottom
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
@@ -86,21 +87,9 @@ const STARS = [
   { x: 61, y: 10, d: 0.7  },
 ];
 
-// 8-slot positions (% of widget) arranged in a circle around UFO center (50%, 44%)
-const FACT_POSITIONS = [
-  { x: 50, y: 10 },
-  { x: 77, y: 18 },
-  { x: 88, y: 44 },
-  { x: 77, y: 70 },
-  { x: 50, y: 78 },
-  { x: 23, y: 70 },
-  { x: 12, y: 44 },
-  { x: 23, y: 18 },
-];
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fact_scatter' | 'fly_to_moon';
+type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fact_page' | 'fly_to_moon';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -108,8 +97,7 @@ interface Props {
   message: string | null;
   onDismiss: () => void;
   mood?: string;
-
-  animationHint?: string | null; // kept for API compat — no longer drives idle animations
+  animationHint?: string | null;
   heartsCount?: number;
 }
 
@@ -123,16 +111,18 @@ const TamagotchiWidget: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [mode,        setMode]        = useState<WidgetMode>('idle');
-  const [bubbleText,  setBubbleText]  = useState('');
-  const [fromHook,    setFromHook]    = useState(false);
-  const [tourStep,    setTourStep]    = useState(0);
-  const [bubbleH,     setBubbleH]     = useState(0);
-  const [factBubbles, setFactBubbles] = useState<string[]>([]);
-  const [flyPhase,    setFlyPhase]    = useState<'approach' | 'orbit' | 'return' | null>(null);
+  const [mode,          setMode]          = useState<WidgetMode>('idle');
+  const [bubbleText,    setBubbleText]    = useState('');
+  const [fromHook,      setFromHook]      = useState(false);
+  const [tourStep,      setTourStep]      = useState(0);
+  const [bubbleH,       setBubbleH]       = useState(0);
+  const [widgetH,       setWidgetH]       = useState(0);
+  const [factBubbles,   setFactBubbles]   = useState<string[]>([]);
+  const [factPageIndex, setFactPageIndex] = useState(0);
+  const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
 
-  const modeRef         = useRef<WidgetMode>('idle');
-  const exitTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const modeRef        = useRef<WidgetMode>('idle');
+  const exitTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const messageRef     = useRef<string | null>(null);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -145,6 +135,16 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { messageRef.current = message; }, [message]);
+
+  // ── Track widget height for dynamic UFO positioning ───────────────────────
+  useEffect(() => {
+    const el = widgetRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidgetH(el.offsetHeight));
+    ro.observe(el);
+    setWidgetH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   // ── First-login greeting ──────────────────────────────────────────────────
   useEffect(() => {
@@ -173,8 +173,6 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, [mode, fromHook]);
 
   // ── Immediate message display ─────────────────────────────────────────────
-  // When a message arrives from the hook, show it in the bubble after a brief
-  // grace period. If an animation is running, defer to idle resume.
   useEffect(() => {
     clearTimeout(msgShowRef.current);
     if (!message) return;
@@ -207,17 +205,22 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(tid);
   }, [mode]);
 
-  // ── Mobile: measure bubble height for UFO positioning ────────────────────
-  const showingBubble = mode === 'greeting' || mode === 'ai_bubble' || mode === 'tour' || mode === 'choice';
+  // ── Derived mode flags ────────────────────────────────────────────────────
+  const inBubble     = mode === 'greeting' || mode === 'ai_bubble';
+  const inTour       = mode === 'tour';
+  const inFactPage   = mode === 'fact_page';
+  const showingBubble = inBubble || inTour || inFactPage;
+
+  // ── Measure bubble height for dynamic UFO pushdown (all viewports) ───────
   useEffect(() => {
-    if (!isMob() || !showingBubble) { setBubbleH(0); return; }
+    if (!showingBubble) { setBubbleH(0); return; }
     const el = bubbleRef.current;
     if (!el) { setBubbleH(0); return; }
     const ro = new ResizeObserver(() => setBubbleH(el.offsetHeight));
     ro.observe(el);
     setBubbleH(el.offsetHeight);
     return () => ro.disconnect();
-  }, [showingBubble, bubbleText, tourStep]);
+  }, [showingBubble, bubbleText, tourStep, factPageIndex]);
 
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
@@ -244,7 +247,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Dismiss bubble (✕ button) — silent close, no exit phrase ────────────
+  // ── Dismiss bubble (✕) — silent close, no exit phrase ───────────────────
   const dismissBubble = () => {
     clearTimeout(autoDismissRef.current);
     clearTimeout(exitTimerRef.current);
@@ -252,12 +255,29 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── UFO click: open choice or collapse scatter ────────────────────────────
+  // ── Fact pagination ───────────────────────────────────────────────────────
+  const handleFactNext = useCallback(() => {
+    setFactPageIndex(prev => {
+      const next = prev + 1;
+      if (next >= factBubbles.length) {
+        setMode('idle');
+        return 0;
+      }
+      return next;
+    });
+  }, [factBubbles.length]);
+
+  const handleFactSkip = useCallback(() => {
+    setMode('idle');
+    setFactPageIndex(0);
+  }, []);
+
+  // ── UFO click: open choice; advance page while in fact_page ──────────────
   const handleUfoClick = useCallback(() => {
     const cur = modeRef.current;
     if (cur === 'fly_to_moon' || cur === 'tour') return;
-    if (cur === 'fact_scatter') {
-      setMode('idle');
+    if (cur === 'fact_page') {
+      handleFactNext();
       return;
     }
     if (cur === 'idle' || cur === 'ai_bubble' || cur === 'greeting') {
@@ -270,9 +290,9 @@ const TamagotchiWidget: React.FC<Props> = ({
       }
       setMode('choice');
     }
-  }, []);
+  }, [handleFactNext]);
 
-  // ── Choice: No → random exit phrase → moon orbit ────────────────────────
+  // ── Choice: No → random exit phrase → moon orbit ─────────────────────────
   const handleChoiceNo = useCallback(() => {
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
@@ -297,18 +317,17 @@ const TamagotchiWidget: React.FC<Props> = ({
     }, 1500);
   }, [t]);
 
-  // ── Choice: Yes → show scattered facts or info bubble ────────────────────
+  // ── Choice: Yes → paginated fact viewer ──────────────────────────────────
   const handleChoiceYes = useCallback(() => {
-    setMode(prev => (prev !== 'choice' ? prev : 'fact_scatter'));
-    setFactBubbles(prev => {
-      if (prev.length === 0) {
-        setBubbleText(t('dashboard.tama_no_facts'));
-        setFromHook(false);
-        setMode('ai_bubble');
-      }
-      return prev;
-    });
-  }, [t]);
+    if (factBubbles.length === 0) {
+      setBubbleText(t('dashboard.tama_no_facts'));
+      setFromHook(false);
+      setMode('ai_bubble');
+      return;
+    }
+    setFactPageIndex(0);
+    setMode('fact_page');
+  }, [factBubbles.length, t]);
 
   // ── Cleanup all timers on unmount ─────────────────────────────────────────
   useEffect(() => {
@@ -322,29 +341,31 @@ const TamagotchiWidget: React.FC<Props> = ({
     };
   }, []);
 
-  // ── Compute UFO vertical position ─────────────────────────────────────────
-  const inBubble = mode === 'greeting' || mode === 'ai_bubble';
-  const inTour   = mode === 'tour';
-  const mob      = isMob();
+  // ── Dynamic layout: bubble height → screen min-height → UFO position ─────
+  // Screen grows vertically when bubble + UFO would overflow, so hearts remain
+  // visible and nothing is clipped.
+  const screenMinH = showingBubble && bubbleH > 0
+    ? BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H * 2 + HEARTS_BOTTOM
+    : undefined;
 
   let ufoTop: string;
-  if (inBubble || inTour || mode === 'choice') {
-    if (mob && bubbleH > 0 && widgetRef.current) {
-      const widgetH   = widgetRef.current.offsetHeight;
-      const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
-      ufoTop = `${Math.min((ufoCenter / widgetH) * 100, 90)}%`;
-    } else {
-      ufoTop = mob ? '78%' : '72%';
-    }
+  if (showingBubble && bubbleH > 0) {
+    const screenH = Math.max(screenMinH ?? 0, widgetH > 0 ? widgetH : 100);
+    const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
+    ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
   } else {
     ufoTop = '44%';
   }
 
-  const mobileBubbleStyle = mob ? { top: BUBBLE_TOP_PAD, bottom: 'auto' } : {};
+  const canPageNext = inFactPage && factBubbles.length > 1;
 
   return (
     <>
-    <div className="tama-screen" ref={widgetRef}>
+    <div
+      className="tama-screen"
+      ref={widgetRef}
+      style={screenMinH ? { minHeight: `${screenMinH}px` } : undefined}
+    >
 
       {/* ── Corner buttons ── */}
       <button
@@ -352,7 +373,12 @@ const TamagotchiWidget: React.FC<Props> = ({
         onClick={startTour}
         title={t('dashboard.tour_relaunch')}
       >?</button>
-      <button className="tama-corner-btn tama-corner-btn--tr" title="Play" disabled>▶</button>
+      <button
+        className="tama-corner-btn tama-corner-btn--tr"
+        title={canPageNext ? t('tour.next') : 'Play'}
+        disabled={!canPageNext}
+        onClick={canPageNext ? handleFactNext : undefined}
+      >▶</button>
 
       <div className="tama-scene">
 
@@ -367,7 +393,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* ── Moon — static anchor in top-right; visible during idle and fly-by ── */}
+        {/* ── Moon — visible during idle and fly-by ── */}
         <AnimatePresence>
           {(mode === 'idle' || mode === 'fly_to_moon') && (
             <motion.div
@@ -383,7 +409,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── UFO — Framer Motion handles position; CSS handles zero-G bob ── */}
+        {/* ── UFO — pushed down by bubble via ufoTop ── */}
         <motion.div
           className="tama-ufo"
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
@@ -408,13 +434,12 @@ const TamagotchiWidget: React.FC<Props> = ({
           }
           onClick={handleUfoClick}
         >
-          {/* CSS infinite bob — pure compositor animation, zero JS overhead */}
           <div className="tama-ufo-bob">
             <UfoSvg mood={mood} />
           </div>
         </motion.div>
 
-        {/* ── Hearts health bar (only renders earned hearts) ── */}
+        {/* ── Hearts health bar ── */}
         <div className="tama-hearts">
           {Array.from({ length: Math.min(heartsCount, 5) }, (_, i) => (
             <svg key={i} width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -435,7 +460,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               <motion.div
                 key="thought-bubble"
                 className="tama-thought-bubble"
-                style={{ x: '-50%', ...mobileBubbleStyle }}
+                style={{ x: '-50%' }}
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.85 }}
@@ -476,35 +501,15 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── Fact scatter bubbles ── */}
-        <AnimatePresence>
-          {mode === 'fact_scatter' && factBubbles.map((fact, i) => {
-            const pos = FACT_POSITIONS[i % FACT_POSITIONS.length];
-            return (
-              <motion.div
-                key={i}
-                className="tama-fact-mini-bubble"
-                style={{ left: `${pos.x}%`, top: `${pos.y}%`, x: '-50%', y: '-50%' }}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0 }}
-                transition={{ delay: i * 0.1, duration: 0.3 }}
-              >
-                <p className="tama-fact-mini-text">{fact}</p>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-
       </div>
 
-      {/* ── AI / greeting bubble — outside tama-scene so overflow: hidden doesn't clip ── */}
+      {/* ── AI / greeting bubble — positioned above UFO, contained within screen ── */}
       <AnimatePresence>
         {inBubble && (
           <motion.div
             ref={bubbleRef}
             className="tama-bubble"
-            style={{ x: '-50%', ...mobileBubbleStyle }}
+            style={{ x: '-50%' }}
             initial={{ opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
@@ -516,13 +521,13 @@ const TamagotchiWidget: React.FC<Props> = ({
         )}
       </AnimatePresence>
 
-      {/* ── Tour bubble — outside tama-scene so it can grow beyond scene bounds ── */}
+      {/* ── Tour bubble ── */}
       <AnimatePresence>
         {inTour && (
           <motion.div
             ref={bubbleRef}
             className="tama-bubble tama-bubble--tour"
-            style={{ x: '-50%', ...mobileBubbleStyle }}
+            style={{ x: '-50%' }}
             initial={{ opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
@@ -543,6 +548,38 @@ const TamagotchiWidget: React.FC<Props> = ({
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Fact page bubble — paginated, with Next / Skip controls ── */}
+      <AnimatePresence>
+        {inFactPage && (
+          <motion.div
+            ref={bubbleRef}
+            className="tama-bubble tama-bubble--fact"
+            style={{ x: '-50%' }}
+            initial={{ opacity: 0, scale: 0.88, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.88, y: 6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <p className="tama-bubble-text">{factBubbles[factPageIndex]}</p>
+            {factBubbles.length > 1 ? (
+              <div className="tama-fact-nav">
+                <span className="tama-fact-counter">{factPageIndex + 1} / {factBubbles.length}</span>
+                <div className="tama-fact-btns">
+                  <button className="tama-fact-btn tama-fact-btn--skip" onClick={handleFactSkip}>
+                    {t('tour.skip')}
+                  </button>
+                  <button className="tama-fact-btn tama-fact-btn--next" onClick={handleFactNext}>
+                    {t('tour.next')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="tama-bubble-close" onClick={handleFactSkip} aria-label="Close">✕</button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
