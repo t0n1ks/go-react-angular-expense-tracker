@@ -39,11 +39,12 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const analyzeLang = i18n.language.split('-')[0] || 'en';
   useEffect(() => {
-    axiosInstance.post(`/ai/analyze?language=${i18n.language}`)
+    axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
       .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
       .catch(() => {});
-  }, [axiosInstance, i18n.language]);
+  }, [axiosInstance, analyzeLang]);
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -65,12 +66,15 @@ const Dashboard: React.FC = () => {
 
   const { heartsCount } = useSettings();
 
+  const uiLang = i18n.language.split('-')[0] || 'en';
+
   const { message, dismiss, animationHint } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
     aiHumorEnabled,
     monthlySpendingGoal,
     currencySymbol,
+    language: uiLang,
     axiosInstance,
   });
 

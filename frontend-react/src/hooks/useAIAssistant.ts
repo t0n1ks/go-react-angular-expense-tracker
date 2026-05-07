@@ -60,6 +60,7 @@ interface Options {
   aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
   currencySymbol: string;
+  language: string; // bare 2-letter code: 'en' | 'de' | 'ru' | 'uk'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   axiosInstance: { get: (url: string) => Promise<{ data: any }> };
 }
@@ -69,9 +70,10 @@ export function useAIAssistant({
   aiAdviceEnabled,
   aiHumorEnabled,
   monthlySpendingGoal,
+  language,
   axiosInstance,
 }: Options) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
@@ -168,7 +170,7 @@ export function useAIAssistant({
 
     const fire = async () => {
       try {
-        const res = await axiosInstance.get(`/ai/next-action?language=${i18n.language}`);
+        const res = await axiosInstance.get(`/ai/next-action?language=${language}`);
         if (cancelled) return;
         const data = res.data as { type: string; content: string; animation_hint?: string };
         if (!data.content?.trim()) return;
@@ -194,7 +196,7 @@ export function useAIAssistant({
       clearTimeout(idleTimer.current);
       events.forEach(e => window.removeEventListener(e, resetTimer));
     };
-  }, [aiHumorEnabled, i18n.language, enqueue, axiosInstance]);
+  }, [aiHumorEnabled, language, enqueue, axiosInstance]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
