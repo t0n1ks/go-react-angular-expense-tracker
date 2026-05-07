@@ -476,4 +476,7 @@
   .tama-thought-bubble { bottom: 32%; }
 
   .tama-zone { font-size: 0.58rem; }
+
+  /* Narrower beam on mobile so it doesn't crowd a small viewport */
+  .tama-tractor-beam { width: 12px; }
 }

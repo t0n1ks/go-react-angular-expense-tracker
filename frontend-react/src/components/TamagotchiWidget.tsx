@@ -10,8 +10,8 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const INACTIVITY_MS   = 10_000;
-const IDLE_QUIET_MS   = 20_000; // mandatory hover gap between sequences
-const IDLE_JITTER_MS  = 10_000; // random extra: total quiet = 20–30 s
+const IDLE_QUIET_MS   = 30_000; // mandatory hover gap between sequences
+const IDLE_JITTER_MS  = 10_000; // random extra: total quiet = 30–40 s
 const AUTO_DISMISS_MS = 15_000;
 
 // ── Animation deck ────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const MOOD_UFO_COLOR: Record<string, string> = {
 const UfoSvg: React.FC<{ mood?: string }> = ({ mood }) => {
   const bodyColor = (mood && MOOD_UFO_COLOR[mood]) ?? '#d8d8d8';
   return (
-    <svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="30" height="18" viewBox="0 0 30 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="15" cy="12" rx="14" ry="4.5" fill={bodyColor} stroke="#ffffff" strokeWidth="0.8"/>
       <ellipse cx="15" cy="9.5" rx="6.5" ry="5" fill="#ffffff" stroke="#c8c8c8" strokeWidth="0.5"/>
       <circle cx="6"  cy="13" r="1.6" fill="#ffd700"/>
@@ -81,7 +81,7 @@ const UfoSvg: React.FC<{ mood?: string }> = ({ mood }) => {
 };
 
 const PixelMoon: React.FC = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="20" height="20" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="10" cy="10" r="8.5" fill="#ffd700" opacity="0.9"/>
     <circle cx="7"  cy="8"  r="2"   fill="#c9a800" opacity="0.55"/>
     <circle cx="13" cy="13" r="1.5" fill="#c9a800" opacity="0.45"/>
@@ -90,7 +90,7 @@ const PixelMoon: React.FC = () => (
 );
 
 const PixelCow: React.FC = () => (
-  <svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="30" height="18" viewBox="0 0 30 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="3"  y="5"  width="16" height="8"  rx="2" fill="#efefef"/>
     <rect x="5"  y="6"  width="4"  height="3"  rx="1" fill="#555"/>
     <rect x="13" y="6"  width="3"  height="3"  rx="1" fill="#555"/>
@@ -108,7 +108,7 @@ const PixelCow: React.FC = () => (
 );
 
 const PixelCoin: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="14" height="14" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="7" cy="7" r="6" fill="#ffd700" stroke="#c9a800" strokeWidth="0.8"/>
     <text x="7" y="10.5" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#6b4000" fontFamily="monospace">$</text>
   </svg>
@@ -480,10 +480,18 @@ const TamagotchiWidget: React.FC<Props> = ({
     };
   }, []);
 
-  // ── Compute UFO vertical position ─────────────────────────────────────────
+  // ── Compute UFO vertical position & responsive animation distances ────────
   const inBubble = mode === 'greeting' || mode === 'ai_bubble';
   const inTour   = mode === 'tour';
   const mob      = isMob();
+
+  // Responsive y-travel computed from live widget height so motion scales with
+  // any screen size instead of relying on hardcoded pixel offsets.
+  const widgetH   = widgetRef.current?.offsetHeight ?? 140;
+  // Cow center (bottom:12%) → UFO center (top:46%): ≈32% of widget height
+  const cowLiftY  = -(widgetH * 0.32);
+  // Coin center (bottom:18%) → UFO center (top:30%): ≈50% of widget height
+  const coinLiftY = -(widgetH * 0.50);
 
   let ufoTop: string;
   if (inBubble || inTour || mode === 'choice') {
@@ -593,19 +601,20 @@ const TamagotchiWidget: React.FC<Props> = ({
                   />
                 )}
               </AnimatePresence>
-              {/* Cow: entry walk → soft glow → bright beam → float to UFO → gone */}
+              {/* Cow: entry walk → soft glow → bright beam → float to UFO → gone.
+                  x:'-50%' centers the 30px sprite at left:50% (matches UFO center). */}
               <motion.div
                 className="tama-cow"
-                style={{ transformOrigin: 'center center' }}
+                style={{ x: '-50%', transformOrigin: 'center center' }}
                 initial={{ left: '-8%', y: 0, opacity: 1, scale: 1 }}
                 animate={
                   (cowPhase === 'lift' || cowPhase === 'done')
-                    ? { left: '46%', y: -62, opacity: 0, scale: 0 }
+                    ? { left: '50%', y: cowLiftY, opacity: 0, scale: 0 }
                     : cowPhase === 'beam'
-                      ? { left: '46%', y: 0, opacity: 1, scale: 1.1, filter: 'brightness(2.5)' }
+                      ? { left: '50%', y: 0, opacity: 1, scale: 1.1, filter: 'brightness(2.5)' }
                       : cowPhase === 'glow'
-                        ? { left: '46%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.5)' }
-                        : { left: '46%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
+                        ? { left: '50%', y: 0, opacity: 1, scale: 1.05, filter: 'brightness(1.5)' }
+                        : { left: '50%', y: 0, opacity: 1, scale: 1, filter: 'brightness(1)' }
                 }
                 transition={
                   cowPhase === 'lift'
@@ -642,7 +651,7 @@ const TamagotchiWidget: React.FC<Props> = ({
                   className="tama-coin"
                   style={{ left: c.left, transformOrigin: 'center center' }}
                   initial={{ y: 0, opacity: 0, scale: 1.1 }}
-                  animate={{ y: -72, opacity: [0, 1, 1, 0], scale: [1.1, 1.1, 0.7, 0.05] }}
+                  animate={{ y: coinLiftY, opacity: [0, 1, 1, 0], scale: [1.1, 1.1, 0.7, 0.05] }}
                   transition={{
                     delay: c.delay,
                     duration: 4.0,
