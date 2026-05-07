@@ -61,8 +61,12 @@ interface Options {
   monthlySpendingGoal: number;
   currencySymbol: string;
   language: string; // bare 2-letter code: 'en' | 'de' | 'ru' | 'uk'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  axiosInstance: { get: (url: string) => Promise<{ data: any }> };
+  axiosInstance: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    get: (url: string) => Promise<{ data: any }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    post: (url: string, data?: unknown) => Promise<{ data: any }>;
+  };
 }
 
 export function useAIAssistant({
@@ -208,9 +212,14 @@ export function useAIAssistant({
   }, [currentMessage, queue]);
 
   const dismiss = useCallback(() => {
+    // Python-sourced messages have an animation_hint; send rejection so Python can
+    // track apology mode. Local advice messages (no hint) don't need feedback.
+    if (currentHint !== null) {
+      void axiosInstance.post('/ai/feedback', { accepted: false });
+    }
     setCurrentMessage(null);
     setCurrentHint(null);
-  }, []);
+  }, [currentHint, axiosInstance]);
 
   return { message: currentMessage, hasMessage: currentMessage !== null, animationHint: currentHint, dismiss };
 }

@@ -17,6 +17,19 @@ import (
 
 var brainClient = &http.Client{Timeout: 10 * time.Second}
 
+// normalizeLangForBrain maps the ISO 639-1 code used by the frontend ("uk")
+// to the code the Python brain service expects ("ua"), and lowercases the result.
+func normalizeLangForBrain(lang string) string {
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	if lang == "uk" {
+		lang = "ua"
+	}
+	if lang == "" {
+		lang = "en"
+	}
+	return lang
+}
+
 // checkAndUpdateHearts awards one heart if the user stayed within budget every day for 60 days.
 // Designed to run in a goroutine after login — never blocks the response.
 func checkAndUpdateHearts(userID uint) {
@@ -63,20 +76,9 @@ func GetNextAction(c *gin.Context) {
 		return
 	}
 
-	// Prefer explicit ?language= query param; fall back to Accept-Language header.
-	// Normalize to bare language tag: "ru-RU" → "ru".
-	lang := strings.SplitN(strings.ToLower(strings.TrimSpace(c.Query("language"))), "-", 2)[0]
-	if lang == "" {
-		lang = "en"
-		if al := c.GetHeader("Accept-Language"); al != "" {
-			primary := strings.SplitN(al, ",", 2)[0]
-			primary = strings.SplitN(primary, "-", 2)[0]
-			primary = strings.ToLower(strings.TrimSpace(primary))
-			if primary != "" {
-				lang = primary
-			}
-		}
-	}
+	// Language is set exclusively by the frontend query param — never inferred from
+	// browser headers, so the UI locale is always the single source of truth.
+	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 
 	brainURL := os.Getenv("AI_SERVICE_URL")
 	if brainURL == "" {
@@ -203,10 +205,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		})
 	}
 
-	analyzeLang := strings.SplitN(strings.ToLower(strings.TrimSpace(c.Query("language"))), "-", 2)[0]
-	if analyzeLang == "" {
-		analyzeLang = "en"
-	}
+	analyzeLang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 
 	payload := analyzeBehaviorRequest{
 		UserProfile:  profile,
@@ -234,18 +233,65 @@ func AnalyzeBehavior(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Brain-API-Key", os.Getenv("AI_SERVICE_KEY"))
 
+	analyzeResp, err := brainClient.Do(req)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
+		return
+	}
+	defer analyzeResp.Body.Close()
+
+	respBody, err := io.ReadAll(analyzeResp.Body)
+	if err != nil || analyzeResp.StatusCode < 200 || analyzeResp.StatusCode >= 300 {
+		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
+		return
+	}
+
+	c.Data(analyzeResp.StatusCode, "application/json", respBody)
+}
+
+// SendFeedback proxies POST /v1/tamagotchi/feedback to the Python AI brain service.
+// Rejection signals let Python activate apology mode after repeated dismissals.
+// Always returns 200 — the client must never see a service-down error on feedback.
+func SendFeedback(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var incoming struct {
+		Accepted bool `json:"accepted"`
+	}
+	if err := c.ShouldBindJSON(&incoming); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	type feedbackPayload struct {
+		UserID   uint `json:"user_id"`
+		Accepted bool `json:"accepted"`
+	}
+	payload, _ := json.Marshal(feedbackPayload{UserID: userID.(uint), Accepted: incoming.Accepted})
+
+	brainURL := os.Getenv("AI_SERVICE_URL")
+	if brainURL == "" {
+		brainURL = "http://localhost:8001"
+	}
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost,
+		brainURL+"/v1/tamagotchi/feedback", bytes.NewReader(payload))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Brain-API-Key", os.Getenv("AI_SERVICE_KEY"))
+
 	resp, err := brainClient.Do(req)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "AI service unavailable"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return
 	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to read AI service response"})
-		return
-	}
-
-	c.Data(resp.StatusCode, "application/json", respBody)
+	resp.Body.Close()
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
