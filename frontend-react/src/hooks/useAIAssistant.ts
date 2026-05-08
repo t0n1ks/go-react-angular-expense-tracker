@@ -177,27 +177,38 @@ export function useAIAssistant({
     firstFired.current = false;
 
     const doFire = async () => {
+      let served = false;
       try {
         const res = await axiosInstance.get(`/ai/next-action?language=${effectiveLang}`);
         if (cancelled) return;
         const data = res.data as { type: string; content: string; animation_hint?: string };
-        if (!data.content?.trim()) return;
-        enqueue({ text: data.content, hint: data.animation_hint ?? null });
-        if (data.type === 'FACT') {
-          storeFact(data.content);
+        if (data.content?.trim()) {
+          enqueue({ text: data.content, hint: data.animation_hint ?? null });
+          if (data.type === 'FACT') storeFact(data.content);
+          served = true;
         }
-      } catch {
-        // Python service unavailable — remain silent, no fallback text
+      } catch { /* service unavailable — fall through to local pool */ }
+
+      if (served || cancelled) return;
+
+      // Local fallback: alternate between tips and humor pools
+      const poolKey = Math.random() < 0.5 ? 'tips' : 'humor';
+      const fallback = pickFromKey(poolKey);
+      if (fallback) {
+        enqueue({ text: fallback, hint: null });
+      } else if (firstFired.current) {
+        // Both service and local failed — self-reschedule rather than go silent
+        idleTimer.current = setTimeout(() => void doFire(), 60_000);
       }
     };
 
     fireRef.current = () => void doFire();
 
-    // First fire: guaranteed after 25 s regardless of activity
+    // First fire: guaranteed after 30 s regardless of activity
     idleTimer.current = setTimeout(() => {
       firstFired.current = true;
       void doFire();
-    }, 25_000);
+    }, 30_000);
 
     // After first fire, activity resets the 60 s idle timer
     const resetIdle = () => {
@@ -214,7 +225,7 @@ export function useAIAssistant({
       clearTimeout(idleTimer.current);
       events.forEach(e => window.removeEventListener(e, resetIdle));
     };
-  }, [aiHumorEnabled, effectiveLang, enqueue, axiosInstance]);
+  }, [aiHumorEnabled, effectiveLang, enqueue, axiosInstance, pickFromKey]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
