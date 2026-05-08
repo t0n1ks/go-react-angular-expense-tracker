@@ -170,11 +170,11 @@
   padding: 0.5rem 0.7rem 0.55rem;
 }
 
-/* Fact page variant: fixed width so nav buttons never overflow */
+/* Fact page variant: shrinks to content but min-width keeps nav from overflowing */
 .tama-bubble--fact {
   padding: 0.45rem 0.7rem;
-  width: 90%;
-  max-width: 90%;
+  min-width: min(200px, 88%);
+  max-width: 88%;
 }
 
 .tama-bubble-title {

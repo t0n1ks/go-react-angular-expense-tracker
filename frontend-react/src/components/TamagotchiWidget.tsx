@@ -37,19 +37,24 @@ function loadAllFacts(maxTotal = 50): string[] {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k?.startsWith('tama_fact_history_')) {
-        const dateStr = k.replace('tama_fact_history_', '');
         const raw = localStorage.getItem(k);
-        if (raw) byDate[dateStr] = JSON.parse(raw) as string[];
+        if (raw) byDate[k.replace('tama_fact_history_', '')] = JSON.parse(raw) as string[];
       }
     }
   } catch { /* ignore */ }
-  const sorted = Object.keys(byDate).sort().reverse();
+  const sorted = Object.keys(byDate).sort().reverse(); // most recent day first
+  const seen = new Set<string>();
   const all: string[] = [];
   for (const d of sorted) {
-    all.push(...byDate[d].slice().reverse());
-    if (all.length >= maxTotal) break;
+    for (const fact of byDate[d].slice().reverse()) { // most recently seen within day first
+      if (!seen.has(fact)) {
+        seen.add(fact);
+        all.push(fact);
+      }
+      if (all.length >= maxTotal) return all;
+    }
   }
-  return all.slice(0, maxTotal);
+  return all;
 }
 
 function applyHighlight(step: typeof STEPS[0]): void {
