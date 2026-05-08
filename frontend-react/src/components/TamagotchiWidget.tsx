@@ -31,6 +31,27 @@ function isMob(): boolean {
   return window.matchMedia('(max-width: 1024px)').matches;
 }
 
+function loadAllFacts(maxTotal = 50): string[] {
+  const byDate: Record<string, string[]> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith('tama_fact_history_')) {
+        const dateStr = k.replace('tama_fact_history_', '');
+        const raw = localStorage.getItem(k);
+        if (raw) byDate[dateStr] = JSON.parse(raw) as string[];
+      }
+    }
+  } catch { /* ignore */ }
+  const sorted = Object.keys(byDate).sort().reverse();
+  const all: string[] = [];
+  for (const d of sorted) {
+    all.push(...byDate[d].slice().reverse());
+    if (all.length >= maxTotal) break;
+  }
+  return all.slice(0, maxTotal);
+}
+
 function applyHighlight(step: typeof STEPS[0]): void {
   clearHighlights();
   const el = document.querySelector<HTMLElement>(isMob() ? step.mobile : step.desktop);
@@ -281,13 +302,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       return;
     }
     if (cur === 'idle' || cur === 'ai_bubble' || cur === 'greeting') {
-      const key = `tama_fact_history_${new Date().toISOString().split('T')[0]}`;
-      try {
-        const raw = localStorage.getItem(key);
-        setFactBubbles(raw ? (JSON.parse(raw) as string[]) : []);
-      } catch {
-        setFactBubbles([]);
-      }
+      setFactBubbles(loadAllFacts());
       setMode('choice');
     }
   }, [handleFactNext]);

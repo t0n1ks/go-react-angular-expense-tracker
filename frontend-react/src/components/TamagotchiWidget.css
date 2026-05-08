@@ -170,9 +170,10 @@
   padding: 0.5rem 0.7rem 0.55rem;
 }
 
-/* Fact page variant: symmetric padding, slightly wider */
+/* Fact page variant: fixed width so nav buttons never overflow */
 .tama-bubble--fact {
   padding: 0.45rem 0.7rem;
+  width: 90%;
   max-width: 90%;
 }
 
