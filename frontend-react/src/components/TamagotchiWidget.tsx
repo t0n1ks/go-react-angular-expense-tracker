@@ -470,7 +470,7 @@ const TamagotchiWidget: React.FC<Props> = ({
                   const factsQ = t('dashboard.tama_wanna_facts');
                   const [qLine1, qLine2 = ''] = factsQ.split('\n');
                   return (
-                    <svg viewBox="0 0 120 56" width="140" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+                    <svg viewBox="0 0 120 56" width="96" xmlns="http://www.w3.org/2000/svg" overflow="visible">
                       <circle cx="57" cy="54" r="3" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
                       <circle cx="59" cy="48" r="4.5" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
                       <rect x="4" y="4" width="112" height="38" rx="10"

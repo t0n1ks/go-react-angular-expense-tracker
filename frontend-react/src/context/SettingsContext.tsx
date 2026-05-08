@@ -35,7 +35,7 @@ const SETTINGS_KEY = 'user_settings';
 const DEFAULT_SETTINGS: UserSettings = {
   currency: 'USD',
   aiAdviceEnabled: true,
-  aiHumorEnabled: false,
+  aiHumorEnabled: true,
   monthlySpendingGoal: 0,
   expectedSalary: 0,
   paydayMode: 'smart',
@@ -83,7 +83,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         const fetched: UserSettings = {
           currency: (d.currency as Currency) || 'USD',
           aiAdviceEnabled: d.ai_advice_enabled ?? true,
-          aiHumorEnabled: d.ai_humor_enabled ?? false,
+          aiHumorEnabled: d.ai_humor_enabled ?? true,
           monthlySpendingGoal: d.monthly_spending_goal ?? 0,
           expectedSalary: d.expected_salary ?? 0,
           paydayMode: (d.payday_mode === 'fixed' ? 'fixed' : 'smart'),
