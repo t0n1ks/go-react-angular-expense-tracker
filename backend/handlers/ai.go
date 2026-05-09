@@ -85,7 +85,6 @@ func GetNextAction(c *gin.Context) {
 	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
 		brainURL, userID.(uint), lang)
 
-	log.Printf("[ai] next-action → calling URL: %s", url)
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
