@@ -1,4 +1,19 @@
 services:
+  brain:
+    build:
+      context: ../fin-guard-ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - BRAIN_API_KEY=${AI_SERVICE_KEY:-changeme_shared_secret}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   backend:
     build: ./backend
     volumes:
@@ -6,8 +21,13 @@ services:
     environment:
       - DB_PATH=/app/data/expenses.db
       - JWT_SECRET=${JWT_SECRET:-supersecretkey_change_me_in_production}
+      - AI_SERVICE_URL=http://brain:8001
+      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-changeme_shared_secret}
     expose:
       - "8080"
+    depends_on:
+      brain:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
       interval: 10s

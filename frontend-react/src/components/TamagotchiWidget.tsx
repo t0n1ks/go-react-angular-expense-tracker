@@ -31,30 +31,15 @@ function isMob(): boolean {
   return window.matchMedia('(max-width: 1024px)').matches;
 }
 
-function loadAllFacts(maxTotal = 50): string[] {
-  const byDate: Record<string, string[]> = {};
+function loadTodayFacts(): string[] {
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith('tama_fact_history_')) {
-        const raw = localStorage.getItem(k);
-        if (raw) byDate[k.replace('tama_fact_history_', '')] = JSON.parse(raw) as string[];
-      }
-    }
-  } catch { /* ignore */ }
-  const sorted = Object.keys(byDate).sort().reverse(); // most recent day first
-  const seen = new Set<string>();
-  const all: string[] = [];
-  for (const d of sorted) {
-    for (const fact of byDate[d].slice().reverse()) { // most recently seen within day first
-      if (!seen.has(fact)) {
-        seen.add(fact);
-        all.push(fact);
-      }
-      if (all.length >= maxTotal) return all;
-    }
+    const today = new Date().toISOString().split('T')[0];
+    const key = `tama_fact_history_${today}`;
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as string[]).slice().reverse() : [];
+  } catch {
+    return [];
   }
-  return all;
 }
 
 function applyHighlight(step: typeof STEPS[0]): void {
@@ -307,7 +292,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       return;
     }
     if (cur === 'idle' || cur === 'ai_bubble' || cur === 'greeting') {
-      setFactBubbles(loadAllFacts());
+      setFactBubbles(loadTodayFacts());
       setMode('choice');
     }
   }, [handleFactNext]);

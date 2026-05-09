@@ -8,7 +8,19 @@ A pet project for learning Go and React — a full-stack expense tracker with a 
 
 ## Running the Project
 
-**Backend** (from `backend/`):
+The UFO/Tamagotchi AI feature requires **three services** running simultaneously.
+
+**1. Python AI service** (from `../fin-guard-ai-service/`):
+```bash
+# One-time: install dependencies
+pip install -r requirements.txt
+
+# Start the service
+python -m app.main
+```
+AI service runs on `http://localhost:8001`. The Go backend will silently fall back to local message pools if this is not running — the UFO will work but without content from the AI service.
+
+**2. Go Backend** (from `backend/`):
 ```bash
 # One-time: install Air for hot reload
 go install github.com/air-verse/air@latest
@@ -21,13 +33,19 @@ go run .
 ```
 Backend runs on `http://localhost:8080`.
 
-**React frontend** (from `frontend-react/`):
+**3. React frontend** (from `frontend-react/`):
 ```bash
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # TypeScript check + Vite build
 npm run lint       # ESLint
 ```
+
+**Docker (all services at once)**:
+```bash
+docker compose up --build
+```
+Docker Compose starts `brain` (Python AI service on :8001), `backend` (Go on :8080), and `frontend` (React on :80) with proper health checks and startup ordering.
 
 ## Architecture
 
