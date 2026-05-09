@@ -18,13 +18,8 @@ import (
 
 var brainClient = &http.Client{Timeout: 10 * time.Second}
 
-// normalizeLangForBrain maps the ISO 639-1 code used by the frontend ("uk")
-// to the code the Python brain service expects ("ua"), and lowercases the result.
 func normalizeLangForBrain(lang string) string {
 	lang = strings.ToLower(strings.TrimSpace(lang))
-	if lang == "uk" {
-		lang = "ua"
-	}
 	if lang == "" {
 		lang = "en"
 	}
@@ -90,6 +85,7 @@ func GetNextAction(c *gin.Context) {
 	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
 		brainURL, userID.(uint), lang)
 
+	log.Printf("[ai] next-action → calling URL: %s", url)
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
