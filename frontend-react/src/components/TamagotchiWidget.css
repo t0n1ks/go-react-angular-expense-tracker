@@ -453,7 +453,7 @@
   margin-top: 5px;
   justify-content: flex-end;
   padding-right: 2px;
-  opacity: 0.5;
+  opacity: 0.55;
   font-size: 0.58rem;
   font-family: 'Courier New', monospace;
   color: var(--color-text-muted);
@@ -470,18 +470,4 @@
 .tama-service-dot--on  { background: #10b981; box-shadow: 0 0 4px #10b981; }
 .tama-service-dot--off { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
 
-.tama-service-status--off {
-  opacity: 0.85;
-  background: rgba(251, 191, 36, 0.10);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-
-@media (max-width: 480px) {
-  .tama-service-status--off {
-    opacity: 1;
-    background: rgba(251, 191, 36, 0.18);
-    border-color: rgba(251, 191, 36, 0.55);
-  }
-}
+.tama-service-status--off { opacity: 0.75; }

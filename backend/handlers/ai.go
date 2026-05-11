@@ -18,7 +18,7 @@ import (
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
-var brainClient = &http.Client{Timeout: 10 * time.Second}
+var brainClient = &http.Client{Timeout: 60 * time.Second}
 var brainWakeupClient = &http.Client{Timeout: 90 * time.Second}
 
 // brainStatus: 0=initializing, 1=online, 2=autonomous
