@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
@@ -53,8 +53,11 @@ const Dashboard: React.FC = () => {
       axiosInstance.get('/ai/status')
         .then((res: { data: { mode: string } }) => {
           const mode = (res.data as { mode: string }).mode;
-          if (mode === 'online' || mode === 'autonomous') {
-            setAIServiceMode(mode as 'online' | 'autonomous');
+          if (mode === 'online') {
+            setAIServiceMode('online');
+          } else if (mode === 'autonomous') {
+            setAIServiceMode('autonomous');
+            timerId = setTimeout(checkStatus, 5_000);
           } else {
             timerId = setTimeout(checkStatus, 10_000);
           }
@@ -64,6 +67,16 @@ const Dashboard: React.FC = () => {
     checkStatus();
     return () => clearTimeout(timerId);
   }, [axiosInstance]);
+
+  const prevModeRef = useRef<'online' | 'autonomous' | 'initializing'>('initializing');
+  useEffect(() => {
+    if (prevModeRef.current !== 'online' && aiServiceMode === 'online') {
+      axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
+        .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
+        .catch(() => {});
+    }
+    prevModeRef.current = aiServiceMode;
+  }, [aiServiceMode, axiosInstance, analyzeLang]);
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);

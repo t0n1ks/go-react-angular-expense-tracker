@@ -68,8 +68,9 @@ func WarmUpBrain() {
 			time.Sleep(delay)
 		}
 		if tryPingBrain() {
-			log.Printf("[ai] brain warm-up succeeded on attempt %d", i+1)
+			prev := atomic.LoadInt32(&brainStatus)
 			atomic.StoreInt32(&brainStatus, 1)
+			log.Printf("[ai] brain warm-up succeeded on attempt %d — status %d → 1 (online)", i+1, prev)
 			return
 		}
 		log.Printf("[ai] brain warm-up attempt %d failed", i+1)
@@ -78,13 +79,17 @@ func WarmUpBrain() {
 	atomic.StoreInt32(&brainStatus, 2)
 }
 
-// StartBrainRepoller runs a background ticker every 5 minutes.
-// If the AI service is not online, it attempts a fresh warm-up.
+// StartBrainRepoller runs a background loop that retries WarmUpBrain whenever
+// the AI service is not online. The sleep interval is adaptive: 30 s in
+// autonomous mode (aggressive recovery) and 5 min otherwise.
 func StartBrainRepoller() {
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
+		for {
+			if atomic.LoadInt32(&brainStatus) == 2 {
+				time.Sleep(30 * time.Second)
+			} else {
+				time.Sleep(5 * time.Minute)
+			}
 			if atomic.LoadInt32(&brainStatus) != 1 {
 				go WarmUpBrain()
 			}
@@ -326,6 +331,7 @@ func AnalyzeBehavior(c *gin.Context) {
 
 	analyzeResp, err := brainClient.Do(req)
 	if err != nil {
+		log.Printf("[ai] analyze: HTTP request failed — marking autonomous: %v", err)
 		atomic.StoreInt32(&brainStatus, 2)
 		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
 		return
@@ -334,11 +340,15 @@ func AnalyzeBehavior(c *gin.Context) {
 
 	respBody, err := io.ReadAll(analyzeResp.Body)
 	if err != nil || analyzeResp.StatusCode < 200 || analyzeResp.StatusCode >= 300 {
+		log.Printf("[ai] analyze: bad response (status %d) — marking autonomous", analyzeResp.StatusCode)
 		atomic.StoreInt32(&brainStatus, 2)
 		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
 		return
 	}
 
+	if prev := atomic.LoadInt32(&brainStatus); prev != 1 {
+		log.Printf("[ai] analyze succeeded — status %d → 1 (online)", prev)
+	}
 	atomic.StoreInt32(&brainStatus, 1)
 	c.Data(analyzeResp.StatusCode, "application/json", respBody)
 }

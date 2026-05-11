@@ -594,7 +594,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     </div>
 
     {aiServiceMode && aiServiceMode !== 'initializing' && (
-      <div className="tama-service-status">
+      <div className={`tama-service-status${aiServiceMode === 'autonomous' ? ' tama-service-status--off' : ''}`}>
         <span className={`tama-service-dot${aiServiceMode === 'online' ? ' tama-service-dot--on' : ' tama-service-dot--off'}`} />
         <span className="tama-service-label">
           {aiServiceMode === 'online' ? t('ai.status_online') : t('ai.status_autonomous')}
