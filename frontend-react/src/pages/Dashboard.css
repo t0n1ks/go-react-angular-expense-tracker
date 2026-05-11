@@ -183,6 +183,13 @@
     line-height: 1.2;
 }
 
+.weekly-budget-bonus-label {
+    font-size: 0.65rem;
+    color: #10b981;
+    margin-top: 2px;
+    display: block;
+}
+
 .weekly-budget-bar-track {
     height: 6px;
     border-radius: 9999px;

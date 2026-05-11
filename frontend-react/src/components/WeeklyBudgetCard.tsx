@@ -113,6 +113,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const weeklyAllowance = hasCycle
     ? Math.max(0, (monthlyBudget - spentSincePayday) / (daysRemaining / 7))
     : 0;
+  const baseLimitPerWeek = monthlyBudget / 4.3;
+  const savingsBonus = Math.max(0, weeklyAllowance - baseLimitPerWeek);
 
   // --- This week's spending (Mon–Sun) ---
   const weekStart = getWeekStart(today);
@@ -195,6 +197,11 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
                 style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}>
                 {formatAmount(weeklyAllowance)}
               </span>
+              {savingsBonus > 0.01 && (
+                <span className="weekly-budget-bonus-label">
+                  +{formatAmount(savingsBonus)} ({t('dashboard.weekly_savings_bonus')})
+                </span>
+              )}
             </div>
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent')}</span>

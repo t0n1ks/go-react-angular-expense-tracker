@@ -120,7 +120,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const currencySymbol = CURRENCY_SYMBOLS[settings.currency] ?? '$';
 
   const formatAmount = (amount: number): string =>
-    `${currencySymbol}${Math.abs(amount).toLocaleString()}`;
+    `${currencySymbol}${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const value: SettingsContextType = {
     ...settings,

@@ -71,7 +71,8 @@
     "weekly_payday_today": "День виплати! Встановіть наступний.",
     "weekly_budget_limit": "Місячний ліміт",
     "weekly_spent_since": "Витрачено з дня виплати",
-    "expenses_this_month": "цього місяця"
+    "expenses_this_month": "цього місяця",
+    "weekly_savings_bonus": "бонус економії"
   },
   "transactions": {
     "title": "Транзакції",

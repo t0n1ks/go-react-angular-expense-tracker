@@ -71,7 +71,8 @@
     "weekly_payday_today": "Zahltag! Lege deinen nächsten Zahltag fest.",
     "weekly_budget_limit": "Monatslimit",
     "weekly_spent_since": "Ausgegeben seit Zahltag",
-    "expenses_this_month": "diesen Monat"
+    "expenses_this_month": "diesen Monat",
+    "weekly_savings_bonus": "Sparbonus"
   },
   "transactions": {
     "title": "Transaktionen",
