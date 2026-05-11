@@ -24,6 +24,10 @@ function safeParseDate(value: string | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getWeekStart(d: Date): Date {
   const result = new Date(d);
   const day = result.getDay();
@@ -57,7 +61,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = toLocalDateStr(today);
 
   // --- Determine cycle boundaries ---
   let lastPayday: Date | null = null;
@@ -93,7 +97,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const hasCycle = nextPayday !== null;
 
   // --- Spending since last payday ---
-  const lastPaydayStr = lastPayday ? lastPayday.toISOString().slice(0, 10) : todayStr;
+  const lastPaydayStr = lastPayday ? toLocalDateStr(lastPayday) : todayStr;
   const spentSincePayday = transactions
     .filter(tx => {
       if (tx.type !== 'expense' || !tx.date) return false;
