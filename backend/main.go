@@ -20,6 +20,7 @@ func main() {
 
 	handlers.InitJWTSecret()
 	database.Connect()
+	go handlers.WarmUpBrain()
 
 	router := gin.Default()
 
@@ -69,6 +70,7 @@ func main() {
 		protected.POST("/ai/analyze", handlers.AnalyzeBehavior)
 		protected.GET("/ai/next-action", handlers.GetNextAction)
 		protected.POST("/ai/feedback", handlers.SendFeedback)
+		protected.GET("/ai/status", handlers.GetAIServiceStatus)
 	}
 
 	port := os.Getenv("PORT")

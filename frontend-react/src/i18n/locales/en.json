@@ -461,7 +461,9 @@
       "10-4. I'll be around.",
       "Noted. I never forget. 🖥️",
       "Engaging stealth mode. Bzzzt. 🛸"
-    ]
+    ],
+    "status_online": "AI Assistant is ready",
+    "status_autonomous": "Autonomous mode"
   },
   "tour": {
     "home_title": "Dashboard",

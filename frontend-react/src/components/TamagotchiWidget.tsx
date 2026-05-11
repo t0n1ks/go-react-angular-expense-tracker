@@ -110,6 +110,7 @@ interface Props {
   mood?: string;
   animationHint?: string | null;
   heartsCount?: number;
+  aiServiceMode?: 'online' | 'autonomous' | 'initializing';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   onDismiss,
   mood,
   heartsCount = 3,
+  aiServiceMode,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -590,6 +592,15 @@ const TamagotchiWidget: React.FC<Props> = ({
       </AnimatePresence>
 
     </div>
+
+    {aiServiceMode && aiServiceMode !== 'initializing' && (
+      <div className="tama-service-status">
+        <span className={`tama-service-dot${aiServiceMode === 'online' ? ' tama-service-dot--on' : ' tama-service-dot--off'}`} />
+        <span className="tama-service-label">
+          {aiServiceMode === 'online' ? t('ai.status_online') : t('ai.status_autonomous')}
+        </span>
+      </div>
+    )}
     </>
   );
 };

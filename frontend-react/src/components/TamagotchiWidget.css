@@ -442,3 +442,30 @@
   .tama-zone { font-size: 0.58rem; }
 
 }
+
+
+/* ── AI service status indicator ─────────────────────────────────────────────── */
+
+.tama-service-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  justify-content: flex-end;
+  padding-right: 2px;
+  opacity: 0.5;
+  font-size: 0.58rem;
+  font-family: 'Courier New', monospace;
+  color: rgba(255, 255, 255, 0.7);
+  user-select: none;
+}
+
+.tama-service-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tama-service-dot--on  { background: #10b981; box-shadow: 0 0 4px #10b981; }
+.tama-service-dot--off { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }

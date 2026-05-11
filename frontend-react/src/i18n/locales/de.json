@@ -401,7 +401,9 @@
       "10-4. Ich bin in der Nähe.",
       "Notiert. Ich vergesse nie. 🖥️",
       "Tarnmodus aktiviert. Bzzzt. 🛸"
-    ]
+    ],
+    "status_online": "KI-Assistent bereit",
+    "status_autonomous": "Autonomer Modus"
   },
   "tour": {
     "home_title": "Dashboard",

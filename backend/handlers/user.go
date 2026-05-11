@@ -147,6 +147,7 @@ func LoginUser(c *gin.Context) {
 	}
 
 	go checkAndUpdateHearts(user.ID)
+	go WarmUpBrain()
 
 	c.JSON(http.StatusOK, gin.H{
 		"token":    tokenString,

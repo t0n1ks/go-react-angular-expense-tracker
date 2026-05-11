@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +19,67 @@ import (
 )
 
 var brainClient = &http.Client{Timeout: 10 * time.Second}
+var brainWakeupClient = &http.Client{Timeout: 90 * time.Second}
+
+// brainStatus: 0=initializing, 1=online, 2=autonomous
+var brainStatus int32
+
+func getBrainBaseURL() string {
+	if url := os.Getenv("AI_SERVICE_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:8001"
+}
+
+func tryPingBrain() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, getBrainBaseURL()+"/health", nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("X-Brain-API-Key", os.Getenv("AI_SERVICE_KEY"))
+	resp, err := brainWakeupClient.Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+// WarmUpBrain pings the AI service with exponential backoff (3 attempts, 90 s timeout each).
+// Updates brainStatus atomically. Safe to run in a goroutine; exits early if already online.
+func WarmUpBrain() {
+	if atomic.LoadInt32(&brainStatus) == 1 {
+		return
+	}
+	delays := []time.Duration{0, 5 * time.Second, 20 * time.Second}
+	for i, delay := range delays {
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+		if tryPingBrain() {
+			log.Printf("[ai] brain warm-up succeeded on attempt %d", i+1)
+			atomic.StoreInt32(&brainStatus, 1)
+			return
+		}
+		log.Printf("[ai] brain warm-up attempt %d failed", i+1)
+	}
+	log.Printf("[ai] brain unreachable after all attempts — autonomous mode")
+	atomic.StoreInt32(&brainStatus, 2)
+}
+
+// GetAIServiceStatus returns the current AI service availability mode.
+func GetAIServiceStatus(c *gin.Context) {
+	switch atomic.LoadInt32(&brainStatus) {
+	case 1:
+		c.JSON(http.StatusOK, gin.H{"mode": "online"})
+	case 2:
+		c.JSON(http.StatusOK, gin.H{"mode": "autonomous"})
+	default:
+		c.JSON(http.StatusOK, gin.H{"mode": "initializing"})
+	}
+}
 
 func normalizeLangForBrain(lang string) string {
 	lang = strings.ToLower(strings.TrimSpace(lang))
@@ -77,13 +140,8 @@ func GetNextAction(c *gin.Context) {
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 	log.Printf("[ai] next-action uid=%v frontend_lang=%q → python_lang=%q", userID, c.Query("language"), lang)
 
-	brainURL := os.Getenv("AI_SERVICE_URL")
-	if brainURL == "" {
-		brainURL = "http://localhost:8001"
-	}
-
 	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
-		brainURL, userID.(uint), lang)
+		getBrainBaseURL(), userID.(uint), lang)
 
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
 	if err != nil {
@@ -144,9 +202,10 @@ type aiTransaction struct {
 }
 
 type analyzeBehaviorRequest struct {
-	UserProfile  aiUserProfile   `json:"user_profile"`
-	Transactions []aiTransaction `json:"transactions"`
-	AnalysisDate string          `json:"analysis_date"`
+	UserProfile    aiUserProfile   `json:"user_profile"`
+	Transactions   []aiTransaction `json:"transactions"`
+	AnalysisDate   string          `json:"analysis_date"`
+	UserCategories []string        `json:"user_categories"`
 }
 
 func AnalyzeBehavior(c *gin.Context) {
@@ -190,6 +249,15 @@ func AnalyzeBehavior(c *gin.Context) {
 		Language:            analyzeLang,
 	}
 
+	var cats []models.Category
+	if err := database.DB.Where("user_id = ?", uid).Find(&cats).Error; err != nil {
+		cats = nil
+	}
+	catNames := make([]string, 0, len(cats))
+	for _, cat := range cats {
+		catNames = append(catNames, cat.Name)
+	}
+
 	aiTxs := make([]aiTransaction, 0, len(txs))
 	for _, tx := range txs {
 		aiTxs = append(aiTxs, aiTransaction{
@@ -207,9 +275,10 @@ func AnalyzeBehavior(c *gin.Context) {
 	}
 
 	payload := analyzeBehaviorRequest{
-		UserProfile:  profile,
-		Transactions: aiTxs,
-		AnalysisDate: time.Now().Format("2006-01-02"),
+		UserProfile:    profile,
+		Transactions:   aiTxs,
+		AnalysisDate:   time.Now().Format("2006-01-02"),
+		UserCategories: catNames,
 	}
 
 	body, err := json.Marshal(payload)
@@ -218,12 +287,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		return
 	}
 
-	brainURL := os.Getenv("AI_SERVICE_URL")
-	if brainURL == "" {
-		brainURL = "http://localhost:8001"
-	}
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, brainURL+"/v1/analyze-behavior", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, getBrainBaseURL()+"/v1/analyze-behavior", bytes.NewReader(body))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 		return
@@ -233,6 +297,7 @@ func AnalyzeBehavior(c *gin.Context) {
 
 	analyzeResp, err := brainClient.Do(req)
 	if err != nil {
+		atomic.StoreInt32(&brainStatus, 2)
 		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
 		return
 	}
@@ -240,10 +305,12 @@ func AnalyzeBehavior(c *gin.Context) {
 
 	respBody, err := io.ReadAll(analyzeResp.Body)
 	if err != nil || analyzeResp.StatusCode < 200 || analyzeResp.StatusCode >= 300 {
+		atomic.StoreInt32(&brainStatus, 2)
 		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
 		return
 	}
 
+	atomic.StoreInt32(&brainStatus, 1)
 	c.Data(analyzeResp.StatusCode, "application/json", respBody)
 }
 
@@ -271,13 +338,8 @@ func SendFeedback(c *gin.Context) {
 	}
 	payload, _ := json.Marshal(feedbackPayload{UserID: userID.(uint), Accepted: incoming.Accepted})
 
-	brainURL := os.Getenv("AI_SERVICE_URL")
-	if brainURL == "" {
-		brainURL = "http://localhost:8001"
-	}
-
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost,
-		brainURL+"/v1/tamagotchi/feedback", bytes.NewReader(payload))
+		getBrainBaseURL()+"/v1/tamagotchi/feedback", bytes.NewReader(payload))
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		return

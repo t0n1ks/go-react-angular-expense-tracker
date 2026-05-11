@@ -24,6 +24,7 @@ const Dashboard: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiData, setAIData] = useState<{ tamagotchi_mood: string } | null>(null);
+  const [aiServiceMode, setAIServiceMode] = useState<'online' | 'autonomous' | 'initializing'>('initializing');
 
   const fetchData = useCallback(async () => {
     try {
@@ -45,6 +46,24 @@ const Dashboard: React.FC = () => {
       .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
       .catch(() => {});
   }, [axiosInstance, analyzeLang]);
+
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+    const checkStatus = () => {
+      axiosInstance.get('/ai/status')
+        .then((res: { data: { mode: string } }) => {
+          const mode = (res.data as { mode: string }).mode;
+          if (mode === 'online' || mode === 'autonomous') {
+            setAIServiceMode(mode as 'online' | 'autonomous');
+          } else {
+            timerId = setTimeout(checkStatus, 10_000);
+          }
+        })
+        .catch(() => { timerId = setTimeout(checkStatus, 15_000); });
+    };
+    checkStatus();
+    return () => clearTimeout(timerId);
+  }, [axiosInstance]);
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -142,6 +161,7 @@ const Dashboard: React.FC = () => {
         mood={aiData?.tamagotchi_mood}
         animationHint={animationHint}
         heartsCount={heartsCount}
+        aiServiceMode={aiServiceMode}
       />
     </div>
   );
