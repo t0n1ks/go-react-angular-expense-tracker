@@ -70,7 +70,8 @@
     "weekly_cancel": "Abbrechen",
     "weekly_payday_today": "Zahltag! Lege deinen nächsten Zahltag fest.",
     "weekly_budget_limit": "Monatslimit",
-    "weekly_spent_since": "Ausgegeben seit Zahltag"
+    "weekly_spent_since": "Ausgegeben seit Zahltag",
+    "expenses_this_month": "diesen Monat"
   },
   "transactions": {
     "title": "Transaktionen",

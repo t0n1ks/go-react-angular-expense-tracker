@@ -70,7 +70,8 @@
     "weekly_cancel": "Скасувати",
     "weekly_payday_today": "День виплати! Встановіть наступний.",
     "weekly_budget_limit": "Місячний ліміт",
-    "weekly_spent_since": "Витрачено з дня виплати"
+    "weekly_spent_since": "Витрачено з дня виплати",
+    "expenses_this_month": "цього місяця"
   },
   "transactions": {
     "title": "Транзакції",

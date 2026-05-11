@@ -24,6 +24,9 @@ var brainWakeupClient = &http.Client{Timeout: 90 * time.Second}
 // brainStatus: 0=initializing, 1=online, 2=autonomous
 var brainStatus int32
 
+// warmupRunning prevents concurrent warm-up goroutines from stacking up.
+var warmupRunning int32
+
 func getBrainBaseURL() string {
 	if url := os.Getenv("AI_SERVICE_URL"); url != "" {
 		return url
@@ -48,11 +51,17 @@ func tryPingBrain() bool {
 }
 
 // WarmUpBrain pings the AI service with exponential backoff (3 attempts, 90 s timeout each).
-// Updates brainStatus atomically. Safe to run in a goroutine; exits early if already online.
+// Updates brainStatus atomically. Safe to run in a goroutine; exits early if already online
+// or if another warm-up is already in progress.
 func WarmUpBrain() {
 	if atomic.LoadInt32(&brainStatus) == 1 {
 		return
 	}
+	if !atomic.CompareAndSwapInt32(&warmupRunning, 0, 1) {
+		return
+	}
+	defer atomic.StoreInt32(&warmupRunning, 0)
+
 	delays := []time.Duration{0, 5 * time.Second, 20 * time.Second}
 	for i, delay := range delays {
 		if delay > 0 {
@@ -69,9 +78,29 @@ func WarmUpBrain() {
 	atomic.StoreInt32(&brainStatus, 2)
 }
 
+// StartBrainRepoller runs a background ticker every 5 minutes.
+// If the AI service is not online, it attempts a fresh warm-up.
+func StartBrainRepoller() {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if atomic.LoadInt32(&brainStatus) != 1 {
+				go WarmUpBrain()
+			}
+		}
+	}()
+}
+
 // GetAIServiceStatus returns the current AI service availability mode.
+// If the service is not online, it fires a background re-warm so open tabs
+// can recover without requiring the user to re-login.
 func GetAIServiceStatus(c *gin.Context) {
-	switch atomic.LoadInt32(&brainStatus) {
+	status := atomic.LoadInt32(&brainStatus)
+	if status != 1 {
+		go WarmUpBrain()
+	}
+	switch status {
 	case 1:
 		c.JSON(http.StatusOK, gin.H{"mode": "online"})
 	case 2:

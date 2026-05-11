@@ -21,6 +21,7 @@ func main() {
 	handlers.InitJWTSecret()
 	database.Connect()
 	go handlers.WarmUpBrain()
+	handlers.StartBrainRepoller()
 
 	router := gin.Default()
 

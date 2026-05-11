@@ -70,7 +70,8 @@
     "weekly_cancel": "Cancel",
     "weekly_payday_today": "Payday! Set your next payday.",
     "weekly_budget_limit": "Monthly limit",
-    "weekly_spent_since": "Spent since payday"
+    "weekly_spent_since": "Spent since payday",
+    "expenses_this_month": "this month"
   },
   "transactions": {
     "title": "Transactions",

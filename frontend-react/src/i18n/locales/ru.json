@@ -70,7 +70,8 @@
     "weekly_cancel": "Отмена",
     "weekly_payday_today": "День зарплаты! Установите следующий.",
     "weekly_budget_limit": "Месячный лимит",
-    "weekly_spent_since": "Потрачено с дня выплаты"
+    "weekly_spent_since": "Потрачено с дня выплаты",
+    "expenses_this_month": "за этот месяц"
   },
   "transactions": {
     "title": "Транзакции",

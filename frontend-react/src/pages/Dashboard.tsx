@@ -131,6 +131,7 @@ const Dashboard: React.FC = () => {
           <div className="stat-content">
             <p className="label">{t('dashboard.expenses')}</p>
             <p className="value-minus">-{formatAmount(totalExpense)}</p>
+            <p className="stat-sublabel">{t('dashboard.expenses_this_month')}</p>
           </div>
         </div>
         {monthlySpendingGoal > 0 && (
