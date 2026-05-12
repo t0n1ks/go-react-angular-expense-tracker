@@ -18,8 +18,7 @@ import (
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
-var brainClient = &http.Client{Timeout: 60 * time.Second}
-var brainWakeupClient = &http.Client{Timeout: 90 * time.Second}
+var brainClient = &http.Client{Timeout: 15 * time.Second}
 
 // brainStatus: 0=initializing, 1=online, 2=autonomous
 var brainStatus int32
@@ -35,14 +34,12 @@ func getBrainBaseURL() string {
 }
 
 func tryPingBrain() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, getBrainBaseURL()+"/health", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, getBrainBaseURL()+"/health", nil)
 	if err != nil {
 		return false
 	}
 	req.Header.Set("X-Brain-API-Key", os.Getenv("AI_SERVICE_KEY"))
-	resp, err := brainWakeupClient.Do(req)
+	resp, err := brainClient.Do(req)
 	if err != nil {
 		return false
 	}
@@ -50,9 +47,9 @@ func tryPingBrain() bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
-// WarmUpBrain pings the AI service with progressive backoff (5 attempts, up to ~50 s).
-// Updates brainStatus atomically. Safe to run in a goroutine; exits early if already online
-// or if another warm-up is already in progress.
+// WarmUpBrain pings the AI service once and updates brainStatus atomically.
+// Safe to run in a goroutine; exits early if already online or if another
+// check is already in progress.
 func WarmUpBrain() {
 	if atomic.LoadInt32(&brainStatus) == 1 {
 		return
@@ -62,34 +59,22 @@ func WarmUpBrain() {
 	}
 	defer atomic.StoreInt32(&warmupRunning, 0)
 
-	delays := []time.Duration{0, 5 * time.Second, 10 * time.Second, 15 * time.Second, 20 * time.Second}
-	for i, delay := range delays {
-		if delay > 0 {
-			time.Sleep(delay)
-		}
-		if tryPingBrain() {
-			prev := atomic.LoadInt32(&brainStatus)
-			atomic.StoreInt32(&brainStatus, 1)
-			log.Printf("[ai] brain warm-up succeeded on attempt %d — status %d → 1 (online)", i+1, prev)
-			return
-		}
-		log.Printf("[ai] brain warm-up attempt %d failed", i+1)
+	if tryPingBrain() {
+		prev := atomic.LoadInt32(&brainStatus)
+		atomic.StoreInt32(&brainStatus, 1)
+		log.Printf("[ai] brain online — status %d → 1", prev)
+	} else {
+		log.Printf("[ai] brain unreachable — autonomous mode")
+		atomic.StoreInt32(&brainStatus, 2)
 	}
-	log.Printf("[ai] brain unreachable after all attempts — autonomous mode")
-	atomic.StoreInt32(&brainStatus, 2)
 }
 
-// StartBrainRepoller runs a background loop that retries WarmUpBrain whenever
-// the AI service is not online. The sleep interval is adaptive: 30 s in
-// autonomous mode (aggressive recovery) and 5 min otherwise.
+// StartBrainRepoller runs a background loop that checks brain availability
+// every 5 minutes and re-runs WarmUpBrain if the service is not online.
 func StartBrainRepoller() {
 	go func() {
 		for {
-			if atomic.LoadInt32(&brainStatus) == 2 {
-				time.Sleep(30 * time.Second)
-			} else {
-				time.Sleep(5 * time.Minute)
-			}
+			time.Sleep(5 * time.Minute)
 			if atomic.LoadInt32(&brainStatus) != 1 {
 				go WarmUpBrain()
 			}
