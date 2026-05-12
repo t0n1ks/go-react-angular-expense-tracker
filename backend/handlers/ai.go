@@ -50,7 +50,7 @@ func tryPingBrain() bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
-// WarmUpBrain pings the AI service with exponential backoff (3 attempts, 90 s timeout each).
+// WarmUpBrain pings the AI service with progressive backoff (5 attempts, up to ~50 s).
 // Updates brainStatus atomically. Safe to run in a goroutine; exits early if already online
 // or if another warm-up is already in progress.
 func WarmUpBrain() {
@@ -62,7 +62,7 @@ func WarmUpBrain() {
 	}
 	defer atomic.StoreInt32(&warmupRunning, 0)
 
-	delays := []time.Duration{0, 5 * time.Second, 20 * time.Second}
+	delays := []time.Duration{0, 5 * time.Second, 10 * time.Second, 15 * time.Second, 20 * time.Second}
 	for i, delay := range delays {
 		if delay > 0 {
 			time.Sleep(delay)
