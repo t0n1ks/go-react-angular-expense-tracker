@@ -7,13 +7,32 @@ const FACT_HISTORY_MAX = 8;
 
 interface QueueItem { text: string; hint?: string | null; }
 
-function storeFact(text: string): void {
+export interface FactEntry {
+  content: string;
+  translations: Record<string, string>;
+}
+
+function coerceFactEntry(raw: unknown): FactEntry {
+  if (typeof raw === 'string') return { content: raw, translations: {} };
+  const r = raw as Partial<FactEntry>;
+  return { content: r.content ?? '', translations: r.translations ?? {} };
+}
+
+function storeFactEntry(entry: FactEntry): void {
   try {
     const key = `tama_fact_history_${new Date().toISOString().split('T')[0]}`;
     const raw = localStorage.getItem(key);
-    const existing: string[] = raw ? (JSON.parse(raw) as string[]) : [];
-    if (existing.includes(text)) return;
-    const updated = [...existing, text].slice(-FACT_HISTORY_MAX);
+    const existing: FactEntry[] = raw
+      ? (JSON.parse(raw) as unknown[]).map(coerceFactEntry)
+      : [];
+    // Deduplicate: skip if content matches any stored entry's content or its translations
+    const isDupe = existing.some(e =>
+      e.content === entry.content ||
+      Object.values(e.translations).includes(entry.content) ||
+      Object.values(entry.translations).some(t => e.content === t || Object.values(e.translations).includes(t)),
+    );
+    if (isDupe) return;
+    const updated = [...existing, entry].slice(-FACT_HISTORY_MAX);
     localStorage.setItem(key, JSON.stringify(updated));
   } catch { /* ignore */ }
 }
@@ -90,11 +109,22 @@ export function useAIAssistant({
     setQueue(q => (q.length < 2 ? [...q, item] : q));
   }, []);
 
-  // Pick a random item from a locale array key, with optional {{percent}} interpolation
+  // Pick without repeating: tracks seen indices per key in sessionStorage
   const pickFromKey = useCallback((key: string, percent?: number): string | null => {
     const pool = t(`ai.${key}`, { returnObjects: true }) as string[];
     if (!Array.isArray(pool) || pool.length === 0) return null;
-    const raw = pool[Math.floor(Math.random() * pool.length)];
+    const seenKey = `ai_seen_idx_${key}`;
+    let seen: number[];
+    try {
+      seen = JSON.parse(sessionStorage.getItem(seenKey) ?? '[]') as number[];
+    } catch { seen = []; }
+    const available = pool.map((_, i) => i).filter(i => !seen.includes(i));
+    const candidates = available.length > 0 ? available : pool.map((_, i) => i);
+    if (available.length === 0) seen = [];
+    const idx = candidates[Math.floor(Math.random() * candidates.length)];
+    seen.push(idx);
+    try { sessionStorage.setItem(seenKey, JSON.stringify(seen)); } catch { /* ignore */ }
+    const raw = pool[idx];
     return percent !== undefined ? raw.replace(/\{\{percent\}\}/g, String(percent)) : raw;
   }, [t]);
 
@@ -181,10 +211,18 @@ export function useAIAssistant({
       try {
         const res = await axiosInstance.get(`/ai/next-action?language=${effectiveLang}`);
         if (cancelled) return;
-        const data = res.data as { type: string; content: string; animation_hint?: string };
+        const data = res.data as {
+          type: string; content: string; animation_hint?: string;
+          all_translations?: Record<string, string>;
+        };
         if (data.content?.trim()) {
           enqueue({ text: data.content, hint: data.animation_hint ?? null });
-          if (data.type === 'FACT') storeFact(data.content);
+          if (data.type === 'FACT' || data.type === 'JOKE') {
+            storeFactEntry({
+              content: data.content,
+              translations: data.all_translations ?? { [effectiveLang]: data.content },
+            });
+          }
           served = true;
         }
       } catch { /* service unavailable — fall through to local pool */ }

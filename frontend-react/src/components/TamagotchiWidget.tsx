@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { type FactEntry } from '../hooks/useAIAssistant';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -31,12 +32,18 @@ function isMob(): boolean {
   return window.matchMedia('(max-width: 1024px)').matches;
 }
 
-function loadTodayFacts(): string[] {
+function coerceEntry(raw: unknown): FactEntry {
+  if (typeof raw === 'string') return { content: raw, translations: {} };
+  const r = raw as Partial<FactEntry>;
+  return { content: r.content ?? '', translations: r.translations ?? {} };
+}
+
+function loadTodayFacts(): FactEntry[] {
   try {
     const today = new Date().toISOString().split('T')[0];
     const key = `tama_fact_history_${today}`;
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as string[]).slice().reverse() : [];
+    return raw ? (JSON.parse(raw) as unknown[]).map(coerceEntry).reverse() : [];
   } catch {
     return [];
   }
@@ -122,7 +129,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   heartsCount = 3,
   aiServiceMode,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.resolvedLanguage ?? 'en';
   const { user } = useAuth();
   const [mode,          setMode]          = useState<WidgetMode>('idle');
   const [bubbleText,    setBubbleText]    = useState('');
@@ -130,7 +138,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
   const [widgetH,       setWidgetH]       = useState(0);
-  const [factBubbles,   setFactBubbles]   = useState<string[]>([]);
+  const [factBubbles,   setFactBubbles]   = useState<FactEntry[]>([]);
   const [factPageIndex, setFactPageIndex] = useState(0);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
 
@@ -571,7 +579,12 @@ const TamagotchiWidget: React.FC<Props> = ({
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
-            <p className="tama-bubble-text">{factBubbles[factPageIndex]}</p>
+            <p className="tama-bubble-text">
+              {(() => {
+                const entry = factBubbles[factPageIndex];
+                return entry.translations[currentLang] ?? entry.translations['en'] ?? entry.content;
+              })()}
+            </p>
             {factBubbles.length > 1 ? (
               <div className="tama-fact-nav">
                 <span className="tama-fact-counter">{factPageIndex + 1} / {factBubbles.length}</span>
