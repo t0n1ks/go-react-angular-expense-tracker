@@ -367,7 +367,12 @@ const Transactions: React.FC = () => {
             <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
           ) : (
             transactions.map(tr => (
-              <div key={tr.id} className="tx-card-item">
+              <div
+                key={tr.id}
+                className="tx-card-item"
+                onClick={() => { if (editingId !== tr.id) setSelectedTx(tr); }}
+                style={{ cursor: editingId === tr.id ? 'default' : 'pointer' }}
+              >
                 {editingId === tr.id ? (
                   <div className="tx-card-edit">
                     <div className="tx-card-edit-field">
@@ -426,19 +431,19 @@ const Transactions: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="tx-card-top" onClick={() => setSelectedTx(tr)} style={{ cursor: 'pointer' }}>
+                    <div className="tx-card-top">
                       <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
                       <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
                         {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
                       </span>
                     </div>
-                    <div className="tx-card-meta" onClick={() => setSelectedTx(tr)} style={{ cursor: 'pointer' }}>
+                    <div className="tx-card-meta">
                       <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
                       {tr.description && <span className="tx-card-desc">{tr.description}</span>}
                     </div>
                     <div className="tx-card-actions">
-                      <button onClick={() => handleEditStart(tr)} className="action-btn edit"><Pencil size={16}/></button>
-                      <button onClick={() => handleDelete(tr)} className="action-btn delete"><Trash2 size={16}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit"><Pencil size={16}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete"><Trash2 size={16}/></button>
                     </div>
                   </>
                 )}

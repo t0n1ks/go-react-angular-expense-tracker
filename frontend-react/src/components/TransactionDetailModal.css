@@ -55,7 +55,7 @@
 
 .txd-close:hover {
   background: rgba(148, 163, 184, 0.22);
-  color: var(--color-text-primary, #1e293b);
+  color: var(--color-text-heading);
 }
 
 .txd-header {
@@ -144,7 +144,7 @@
 .txd-value {
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--color-text-primary, #1e293b);
+  color: var(--color-text-body);
   word-break: break-word;
 }
 
