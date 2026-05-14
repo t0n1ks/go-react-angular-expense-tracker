@@ -150,7 +150,13 @@
     "forecast_modal_context": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du am Monatsende {{balance}} {{direction}} haben.",
     "forecast_modal_surplus_word": "übrig",
     "forecast_modal_deficit_word": "im Minus",
-    "forecast_modal_tier": "Ausgabenklasse"
+    "forecast_modal_tier": "Ausgabenklasse",
+    "forecast_modal_title_payday": "Prognose bis zum Zahltag",
+    "forecast_positive_payday": "Prognostizierter Überschuss bis zum Zahltag",
+    "forecast_negative_payday": "Prognostiziertes Defizit bis zum Zahltag",
+    "forecast_modal_days_until_payday": "Tage bis zum Zahltag",
+    "forecast_modal_days_payday_count": "Noch {{count}} Tage bis zum Zahltag",
+    "forecast_modal_context_payday": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du bis zum Zahltag {{balance}} {{direction}} haben."
   },
   "settings": {
     "title": "Einstellungen",

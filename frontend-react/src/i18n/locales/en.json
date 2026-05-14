@@ -150,7 +150,13 @@
     "forecast_modal_context": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by end of month.",
     "forecast_modal_surplus_word": "left over",
     "forecast_modal_deficit_word": "in the red",
-    "forecast_modal_tier": "Spending tier"
+    "forecast_modal_tier": "Spending tier",
+    "forecast_modal_title_payday": "Payday Projection",
+    "forecast_positive_payday": "Projected surplus by payday",
+    "forecast_negative_payday": "Projected deficit by payday",
+    "forecast_modal_days_until_payday": "Days until payday",
+    "forecast_modal_days_payday_count": "{{count}} days until payday",
+    "forecast_modal_context_payday": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by payday."
   },
   "settings": {
     "title": "Settings",

@@ -22,6 +22,7 @@ import "./Statistics.css";
 interface Transaction {
   amount: number;
   type: "expense" | "income";
+  income_type?: string;
   date: string;
   category?: { name: string };
 }
@@ -34,7 +35,7 @@ interface AnalysisResult {
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -118,21 +119,64 @@ const Statistics: React.FC = () => {
     return Object.entries(dailyMap).map(([date, balance]) => ({ date, balance }));
   }, [transactions, i18n.language]);
 
-  const dailySpendingRate = useMemo(() => {
+  const nextPayday = useMemo((): Date | null => {
+    if (paydayMode === 'fixed' && fixedPayday > 0) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const d = today.getDate(), m = today.getMonth(), y = today.getFullYear();
+      return d < fixedPayday ? new Date(y, m, fixedPayday) : new Date(y, m + 1, fixedPayday);
+    }
+    if (manualNextPayday) {
+      const raw = manualNextPayday.includes('T') ? manualNextPayday : manualNextPayday + 'T12:00:00';
+      const parsed = new Date(raw);
+      if (!isNaN(parsed.getTime()) && parsed > new Date()) return parsed;
+    }
+    return null;
+  }, [paydayMode, fixedPayday, manualNextPayday]);
+
+  const lastPayday = useMemo((): Date => {
+    if (paydayMode === 'fixed' && fixedPayday > 0) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const d = today.getDate(), m = today.getMonth(), y = today.getFullYear();
+      return d >= fixedPayday ? new Date(y, m, fixedPayday) : new Date(y, m - 1, fixedPayday);
+    }
+    const lastIncome = transactions
+      .filter(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type))
+      .map(t => { const raw = t.date.includes('T') ? t.date : t.date + 'T12:00:00'; return new Date(raw); })
+      .filter(d => !isNaN(d.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+    if (lastIncome) return lastIncome;
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysElapsed = Math.max(1, now.getDate());
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }, [paydayMode, fixedPayday, transactions]);
+
+  const dailySpendingRate = useMemo(() => {
+    const daysElapsed = Math.max(1, Math.ceil((Date.now() - lastPayday.getTime()) / 86_400_000) + 1);
     const total = transactions
-      .filter((t) => t.type === "expense" && new Date(t.date) >= monthStart)
+      .filter(t => t.type === "expense" && new Date(t.date) >= lastPayday)
       .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
     return total / daysElapsed;
-  }, [transactions]);
+  }, [transactions, lastPayday]);
 
   const daysRemaining = useMemo(() => {
+    if (nextPayday) {
+      return Math.max(0, Math.ceil((nextPayday.getTime() - Date.now()) / 86_400_000));
+    }
     const now = new Date();
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     return Math.max(0, lastDay - now.getDate());
-  }, []);
+  }, [nextPayday]);
+
+  const periodLabel = nextPayday !== null ? 'payday' : 'month';
+
+  const displayedPredictedBalance = useMemo(() => {
+    if (analysis?.predicted_end_of_month_balance == null) return null;
+    if (!nextPayday) return analysis.predicted_end_of_month_balance;
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const daysAfterPayday = Math.max(0,
+      Math.ceil((endOfMonth.getTime() - nextPayday.getTime()) / 86_400_000));
+    return analysis.predicted_end_of_month_balance + dailySpendingRate * daysAfterPayday;
+  }, [analysis, nextPayday, dailySpendingRate]);
 
   const BRUSH_WINDOW = 14;
   const needsBrush = timelineData.length > 7;
@@ -245,7 +289,7 @@ const Statistics: React.FC = () => {
       {analysis && (
         <div className="forecast-section">
           <ForecastCard
-            predictedBalance={analysis.predicted_end_of_month_balance}
+            predictedBalance={displayedPredictedBalance}
             healthScore={analysis.financial_health_score}
             spendingTier={analysis.spending_tier}
             dailyRate={dailySpendingRate}
@@ -256,11 +300,12 @@ const Statistics: React.FC = () => {
 
       <ForecastDetailModal
         open={forecastOpen}
-        predictedBalance={analysis?.predicted_end_of_month_balance ?? null}
+        predictedBalance={displayedPredictedBalance}
         healthScore={analysis?.financial_health_score ?? null}
         spendingTier={analysis?.spending_tier ?? "pacing_good"}
         dailyRate={dailySpendingRate}
         daysRemaining={daysRemaining}
+        periodLabel={periodLabel}
         onClose={() => setForecastOpen(false)}
       />
     </div>

@@ -12,6 +12,7 @@ interface Props {
   spendingTier: string;
   dailyRate: number;
   daysRemaining: number;
+  periodLabel?: 'payday' | 'month';
   onClose: () => void;
 }
 
@@ -22,6 +23,7 @@ const ForecastDetailModal: React.FC<Props> = ({
   spendingTier,
   dailyRate,
   daysRemaining,
+  periodLabel = 'month',
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -75,7 +77,7 @@ const ForecastDetailModal: React.FC<Props> = ({
               <div className="fmd-icon">
                 <BrainCircuit size={22} />
               </div>
-              <h2 className="fmd-title">{t("statistics.forecast_modal_title")}</h2>
+              <h2 className="fmd-title">{t(periodLabel === 'payday' ? "statistics.forecast_modal_title_payday" : "statistics.forecast_modal_title")}</h2>
             </div>
 
             <div className="fmd-divider" />
@@ -88,7 +90,9 @@ const ForecastDetailModal: React.FC<Props> = ({
                   {isPositive ? "+" : "−"}{formatAmount(Math.abs(predictedBalance))}
                 </div>
                 <p className="fmd-balance-sub">
-                  {isPositive ? t("statistics.forecast_positive") : t("statistics.forecast_negative")}
+                  {isPositive
+                    ? t(periodLabel === 'payday' ? "statistics.forecast_positive_payday" : "statistics.forecast_positive")
+                    : t(periodLabel === 'payday' ? "statistics.forecast_negative_payday" : "statistics.forecast_negative")}
                 </p>
 
                 <div className="fmd-divider" />
@@ -105,9 +109,11 @@ const ForecastDetailModal: React.FC<Props> = ({
                   <div className="fmd-row">
                     <CalendarCheck2 size={16} className="fmd-row-icon" />
                     <div className="fmd-row-content">
-                      <span className="fmd-row-label">{t("statistics.forecast_modal_days_left")}</span>
+                      <span className="fmd-row-label">
+                        {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_until_payday" : "statistics.forecast_modal_days_left")}
+                      </span>
                       <span className="fmd-row-value">
-                        {t("statistics.forecast_modal_days_remaining", { count: daysRemaining })}
+                        {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_payday_count" : "statistics.forecast_modal_days_remaining", { count: daysRemaining })}
                       </span>
                     </div>
                   </div>
@@ -140,7 +146,7 @@ const ForecastDetailModal: React.FC<Props> = ({
 
                 <div className="fmd-context">
                   <p>
-                    {t("statistics.forecast_modal_context", {
+                    {t(periodLabel === 'payday' ? "statistics.forecast_modal_context_payday" : "statistics.forecast_modal_context", {
                       rate: formatAmount(dailyRate),
                       balance: formatAmount(Math.abs(predictedBalance)),
                       direction: isPositive ? t("statistics.forecast_modal_surplus_word") : t("statistics.forecast_modal_deficit_word"),

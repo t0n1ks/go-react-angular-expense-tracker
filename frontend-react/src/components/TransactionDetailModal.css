@@ -116,7 +116,7 @@
 
 .txd-row {
   display: grid;
-  grid-template-columns: 18px 90px 1fr;
+  grid-template-columns: 18px 115px 1fr;
   align-items: baseline;
   gap: 0.6rem;
   min-height: 22px;
@@ -167,6 +167,6 @@
     font-size: 1.85rem;
   }
   .txd-row {
-    grid-template-columns: 18px 80px 1fr;
+    grid-template-columns: 18px 100px 1fr;
   }
 }

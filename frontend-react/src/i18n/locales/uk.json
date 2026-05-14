@@ -150,7 +150,13 @@
     "forecast_modal_context": "При поточному темпі витрат {{rate}}/день до кінця місяця у вас буде {{balance}} {{direction}}.",
     "forecast_modal_surplus_word": "в залишку",
     "forecast_modal_deficit_word": "в мінусі",
-    "forecast_modal_tier": "Темп витрат"
+    "forecast_modal_tier": "Темп витрат",
+    "forecast_modal_title_payday": "Прогноз до зарплати",
+    "forecast_positive_payday": "Прогнозований залишок до зарплати",
+    "forecast_negative_payday": "Прогнозований дефіцит до зарплати",
+    "forecast_modal_days_until_payday": "До зарплати",
+    "forecast_modal_days_payday_count": "{{count}} дн. до зарплати",
+    "forecast_modal_context_payday": "За темпу витрат {{rate}}/день, до зарплати у вас буде {{balance}} {{direction}}."
   },
   "settings": {
     "title": "Налаштування",
