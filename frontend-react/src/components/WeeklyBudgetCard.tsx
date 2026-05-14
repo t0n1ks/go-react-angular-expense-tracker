@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 
 interface Transaction {
@@ -58,6 +59,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings } = useSettings();
   const [editingPayday, setEditingPayday] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
+  const [showInsight, setShowInsight] = useState(false);
+  const insightRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -135,6 +138,38 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
 
+  // --- Delta: compare today's daily limit vs yesterday's ---
+  const yesterdayStr = (() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1);
+    return toLocalDateStr(d);
+  })();
+
+  const spentYesterday = transactions
+    .filter(tx => tx.type === 'expense' && tx.date?.slice(0, 10) === yesterdayStr)
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  const yesterdayDaysRemaining = daysRemaining + 1;
+  const yesterdaySpentSincePayday = spentSincePayday - spentYesterday;
+
+  const cycleDays = (lastPayday && nextPayday)
+    ? Math.round((nextPayday.getTime() - lastPayday.getTime()) / 86_400_000)
+    : 0;
+  const isFirstDayOfCycle = hasCycle && cycleDays > 0 && yesterdayDaysRemaining >= cycleDays;
+
+  const yesterdayWeeklyAllowance = (!isFirstDayOfCycle && yesterdayDaysRemaining > 0)
+    ? Math.max(0, (monthlyBudget - yesterdaySpentSincePayday) / (yesterdayDaysRemaining / 7))
+    : 0;
+
+  const todayDailyLimit = weeklyAllowance / 7;
+  const yesterdayDailyLimit = yesterdayWeeklyAllowance / 7;
+
+  const deltaDirection: 'up' | 'down' | 'neutral' =
+    isFirstDayOfCycle || !hasCycle ? 'neutral'
+    : todayDailyLimit - yesterdayDailyLimit > 0.01 ? 'up'
+    : yesterdayDailyLimit - todayDailyLimit > 0.01 ? 'down'
+    : 'neutral';
+
   const nextPaydayDisplay = nextPayday
     ? nextPayday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : '';
@@ -158,6 +193,24 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     setEditingPayday(false);
     setPendingDate('');
   };
+
+  useEffect(() => {
+    if (!showInsight) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (insightRef.current && !insightRef.current.contains(e.target as Node)) {
+        setShowInsight(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowInsight(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showInsight]);
 
   return (
     <div className="weekly-budget-card">
@@ -191,17 +244,97 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
                 {formatAmount(spentSincePayday)}
               </span>
             </div>
-            <div className="weekly-budget-stat">
+            <div className="weekly-budget-stat" style={{ position: 'relative' }}>
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_can_spend')}</span>
-              <span className="weekly-budget-stat-value"
-                style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}>
-                {formatAmount(weeklyAllowance)}
-              </span>
+              <div className="budget-can-spend-row">
+                <span
+                  className="weekly-budget-stat-value"
+                  style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}
+                >
+                  {formatAmount(weeklyAllowance)}
+                </span>
+
+                <AnimatePresence>
+                  {deltaDirection !== 'neutral' && (
+                    <motion.span
+                      key={deltaDirection}
+                      className="budget-delta-arrow"
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -4 }}
+                      transition={{ duration: 0.2 }}
+                      aria-hidden="true"
+                    >
+                      {deltaDirection === 'up'
+                        ? <TrendingUp size={14} color="#10b981" />
+                        : <TrendingDown size={14} color="#f87171" />}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+
+                <button
+                  className="budget-insight-btn"
+                  onClick={() => setShowInsight(v => !v)}
+                  aria-label="Budget insight"
+                  type="button"
+                >
+                  <Info size={14} />
+                </button>
+              </div>
+
               {savingsBonus > 0.01 && (
                 <span className="weekly-budget-bonus-label">
                   +{formatAmount(savingsBonus)} ({t('dashboard.weekly_savings_bonus')})
                 </span>
               )}
+
+              <AnimatePresence>
+                {showInsight && (
+                  <motion.div
+                    ref={insightRef}
+                    className="budget-insight-popover"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {deltaDirection !== 'neutral' && (
+                      <p className="budget-insight-popover-title">
+                        {deltaDirection === 'up'
+                          ? t('dashboard.budget_insight_title_up')
+                          : t('dashboard.budget_insight_title_down')}
+                      </p>
+                    )}
+                    {deltaDirection !== 'neutral' && (
+                      <p className="budget-insight-popover-body">
+                        {deltaDirection === 'up'
+                          ? t('dashboard.budget_insight_reason_up')
+                          : t('dashboard.budget_insight_reason_down')}
+                      </p>
+                    )}
+                    <div className="budget-insight-formula">
+                      <span className="budget-insight-formula-label">
+                        {t('dashboard.budget_insight_formula_label')}
+                      </span>
+                      <span>{t('dashboard.budget_insight_formula')}</span>
+                      <span>
+                        {t('dashboard.budget_insight_example', {
+                          remaining: formatAmount(monthlyBudget - spentSincePayday),
+                          days: daysRemaining,
+                          daily: formatAmount(todayDailyLimit),
+                        })}
+                      </span>
+                    </div>
+                    {deltaDirection !== 'neutral' && (
+                      <p className={`budget-insight-cheer budget-insight-cheer--${deltaDirection}`}>
+                        {deltaDirection === 'up'
+                          ? t('dashboard.budget_insight_cheer_up')
+                          : t('dashboard.budget_insight_cheer_down')}
+                      </p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent')}</span>

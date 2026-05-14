@@ -72,7 +72,16 @@
     "weekly_budget_limit": "Місячний ліміт",
     "weekly_spent_since": "Витрачено з дня виплати",
     "expenses_this_month": "цього місяця",
-    "weekly_savings_bonus": "бонус економії"
+    "weekly_savings_bonus": "бонус економії",
+    "budget_insight_title_up": "Бюджет покращився",
+    "budget_insight_title_down": "Бюджет скориговано",
+    "budget_insight_reason_up": "Ваш денний ліміт зріс, бо вчора ви витратили менше, ніж планувалось.",
+    "budget_insight_reason_down": "Ліміт зменшено, щоб повернути вас до плану після вчорашніх витрат.",
+    "budget_insight_formula_label": "Як це розраховується:",
+    "budget_insight_formula": "Залишок ÷ Днів до виплати = Денний ліміт",
+    "budget_insight_example": "{{remaining}} ÷ {{days}} дн. = {{daily}}/день",
+    "budget_insight_cheer_up": "Чудова економія! Продовжуйте в тому ж дусі.",
+    "budget_insight_cheer_down": "Тримайтеся! У вас все вийде."
   },
   "transactions": {
     "title": "Транзакції",
