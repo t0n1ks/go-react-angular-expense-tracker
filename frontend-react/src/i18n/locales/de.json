@@ -106,7 +106,11 @@
     "error_update": "Fehler beim Aktualisieren der Transaktion",
     "error_delete": "Fehler beim Löschen der Transaktion",
     "error_no_cat": "Bitte erstellen Sie zuerst eine Kategorie!",
-    "confirm_delete": "Diese Transaktion löschen?"
+    "confirm_delete": "Diese Transaktion löschen?",
+    "detail_category": "Kategorie",
+    "detail_date": "Datum",
+    "detail_added_at": "Erfasst um",
+    "detail_note": "Notiz"
   },
   "categories": {
     "title": "Kategorien verwalten",
@@ -127,7 +131,26 @@
     "no_expenses": "Ausgaben hinzufügen, um Analysen zu sehen",
     "no_data": "Keine Daten verfügbar",
     "no_data_sub": "Fügen Sie Ihre ersten Transaktionen hinzu",
-    "loading": "Analysen werden geladen..."
+    "loading": "Analysen werden geladen...",
+    "forecast_title": "Monatsendprognose",
+    "forecast_aria": "ML-Monatsendprognose anzeigen",
+    "forecast_surplus": "Überschuss",
+    "forecast_deficit": "Defizit",
+    "forecast_unavailable": "KI-Prognose nicht verfügbar",
+    "forecast_health": "Finanzielle Gesundheit:",
+    "forecast_rate_line": "Ausgaben bei {{rate}}/Tag",
+    "forecast_positive": "Voraussichtlicher Überschuss zum Monatsende",
+    "forecast_negative": "Voraussichtliches Defizit zum Monatsende",
+    "forecast_modal_title": "Monatsendprojektion",
+    "forecast_modal_rate": "Tägliche Ausgabenrate",
+    "forecast_modal_day": "Tag",
+    "forecast_modal_days_left": "Verbleibende Tage",
+    "forecast_modal_days_remaining": "Noch {{count}} Tage im Monat",
+    "forecast_modal_health": "Finanzielle Gesundheit",
+    "forecast_modal_context": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du am Monatsende {{balance}} {{direction}} haben.",
+    "forecast_modal_surplus_word": "übrig",
+    "forecast_modal_deficit_word": "im Minus",
+    "forecast_modal_tier": "Ausgabenklasse"
   },
   "settings": {
     "title": "Einstellungen",
@@ -184,6 +207,14 @@
     "uk": "Ukrainisch"
   },
   "ai": {
+    "forecast_tier": {
+      "salary_just_in": "Zahltag-Woche",
+      "pacing_over": "Über Budget",
+      "pacing_warn": "Limit in Sicht",
+      "pacing_great": "Weit unter Budget",
+      "balanced": "Ausgewogen",
+      "pacing_good": "Im Plan"
+    },
     "salary_just_in": [
       "Treibstoff geladen! Der Monat läuft — jetzt bleibt es, den Plan durchzuhalten.",
       "Gehalt bestätigt. Die eigentliche Herausforderung beginnt: 4 Wochen Disziplin.",
@@ -380,7 +411,9 @@
       "Wohnkosten sollten 30% des Bruttoeinkommens nicht übersteigen.",
       "Lehre Kinder früh über Geld. Finanzgewohnheiten bilden sich vor dem 10. Lebensjahr.",
       "Überprüfe jährlich deinen Versicherungsschutz — Lebensveränderungen erfordern angepassten Schutz.",
-      "Kleine Lecks versenken große Schiffe: 5€/Tag unnötig = 1.825€/Jahr = eine solide Investition."
+      "Kleine Lecks versenken große Schiffe: 5€/Tag unnötig = 1.825€/Jahr = eine solide Investition.",
+      "Die Zahlen stimmen. Schau in die Statistiken — deine Monatsendprognose ist fertig.",
+      "Meine Rechnung ist aktualisiert. Die Statistiken zeigen deine prognostizierte Bilanz zum Monatsende."
     ],
     "hungry": [
       "Ich bin hungrig nach Daten, Mensch! Hast du heute etwas ausgegeben? Meine Sensoren erkennen null Transaktionen.",

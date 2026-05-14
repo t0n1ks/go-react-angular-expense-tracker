@@ -403,3 +403,12 @@
     padding: 0.35rem 0.5rem;
   }
 }
+
+.tx-row-clickable {
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.tx-row-clickable:hover {
+    background: var(--color-bg-input, rgba(148, 163, 184, 0.07));
+}

@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
+import TransactionDetailModal from '../components/TransactionDetailModal';
 import './Transactions.css';
 
 interface Category { id: number; name: string; }
@@ -11,6 +12,7 @@ interface Transaction {
   id: number;
   amount: number;
   date: string;
+  created_at?: string;
   description: string;
   type: 'expense' | 'income';
   income_type?: string;
@@ -35,6 +37,7 @@ const Transactions: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ item: Transaction; index: number } | null>(null);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [editState, setEditState] = useState({
     amount: '',
@@ -330,7 +333,7 @@ const Transactions: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    <tr key={tr.id}>
+                    <tr key={tr.id} className="tx-row-clickable" onClick={() => setSelectedTx(tr)}>
                       <td>{new Date(tr.date).toLocaleDateString()}</td>
                       <td><span className="category-tag">{tr.category?.name || t('transactions.no_category')}</span></td>
                       <td>{tr.description || '—'}</td>
@@ -343,10 +346,10 @@ const Transactions: React.FC = () => {
                         {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
                       </td>
                       <td>
-                        <button onClick={() => handleEditStart(tr)} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
+                        <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
                           <Pencil size={18}/>
                         </button>
-                        <button onClick={() => handleDelete(tr)} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
                           <Trash2 size={18}/>
                         </button>
                       </td>
@@ -423,13 +426,13 @@ const Transactions: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="tx-card-top">
+                    <div className="tx-card-top" onClick={() => setSelectedTx(tr)} style={{ cursor: 'pointer' }}>
                       <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
                       <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
                         {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
                       </span>
                     </div>
-                    <div className="tx-card-meta">
+                    <div className="tx-card-meta" onClick={() => setSelectedTx(tr)} style={{ cursor: 'pointer' }}>
                       <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
                       {tr.description && <span className="tx-card-desc">{tr.description}</span>}
                     </div>
@@ -451,6 +454,11 @@ const Transactions: React.FC = () => {
         message={pendingDelete ? t('snackbar.transaction_deleted') : null}
         onUndo={handleUndoDelete}
         onClose={handleSnackbarClose}
+      />
+
+      <TransactionDetailModal
+        tx={selectedTx}
+        onClose={() => setSelectedTx(null)}
       />
     </div>
   );

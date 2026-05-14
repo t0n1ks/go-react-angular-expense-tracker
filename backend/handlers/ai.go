@@ -318,7 +318,15 @@ func AnalyzeBehavior(c *gin.Context) {
 	if err != nil {
 		log.Printf("[ai] analyze: HTTP request failed — marking autonomous: %v", err)
 		atomic.StoreInt32(&brainStatus, 2)
-		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
+		c.JSON(http.StatusOK, gin.H{
+			"tamagotchi_mood":                "content",
+			"smart_nudge":                    "",
+			"spending_tier":                  "pacing_good",
+			"risk_flags":                     []string{},
+			"financial_health_score":         nil,
+			"sustainability_score":           nil,
+			"predicted_end_of_month_balance": nil,
+		})
 		return
 	}
 	defer analyzeResp.Body.Close()
@@ -327,7 +335,15 @@ func AnalyzeBehavior(c *gin.Context) {
 	if err != nil || analyzeResp.StatusCode < 200 || analyzeResp.StatusCode >= 300 {
 		log.Printf("[ai] analyze: bad response (status %d) — marking autonomous", analyzeResp.StatusCode)
 		atomic.StoreInt32(&brainStatus, 2)
-		c.JSON(http.StatusOK, gin.H{"tamagotchi_mood": "content", "smart_nudge": "", "spending_tier": "pacing_good", "risk_flags": []string{}})
+		c.JSON(http.StatusOK, gin.H{
+			"tamagotchi_mood":                "content",
+			"smart_nudge":                    "",
+			"spending_tier":                  "pacing_good",
+			"risk_flags":                     []string{},
+			"financial_health_score":         nil,
+			"sustainability_score":           nil,
+			"predicted_end_of_month_balance": nil,
+		})
 		return
 	}
 

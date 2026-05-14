@@ -91,6 +91,11 @@
     font-weight: 700;
 }
 
+.forecast-section {
+    margin-top: 2rem;
+    max-width: 540px;
+}
+
 @media (max-width: 600px) {
     .charts-layout {
         grid-template-columns: 1fr;
@@ -98,5 +103,9 @@
 
     .statistics-wrapper {
         padding: 1rem;
+    }
+
+    .forecast-section {
+        max-width: 100%;
     }
 }

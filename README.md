@@ -33,6 +33,18 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 - **In-widget guided tour:** highlights sidebar nav items via `classList.add('tour-highlight-active')` without leaving the widget; first-login greeting persisted in `localStorage`
 - **128+ localised content entries** — humor, financial facts, actionable tips, and hungry messages
 
+### ML-Powered End-of-Month Forecast
+The Statistics page shows a **live end-of-month balance projection** computed by the Python AI brain using `scikit-learn` LinearRegression on cumulative daily expense data. The forecast card displays:
+- Projected surplus or deficit (green / red with trend icon)
+- Daily spending velocity (`total_expenses_this_month / days_elapsed`)
+- Financial health score bar (0–100) with colour-coded fill
+- Spending tier badge ("on track", "over budget", etc.)
+
+Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining and the raw health score. Degrades gracefully to hidden state when the AI service is offline.
+
+### Transaction Detail Modal (Mini-Receipt)
+Clicking any transaction row or mobile card opens a **receipt-style overlay** showing the full timestamp (date + `HH:mm:ss` from GORM's `created_at`), category, formatted amount, transaction type, and the user's original description. Uses Framer Motion spring animation — slide-up on mobile, fade-scale on desktop.
+
 ### Full Finance Tracking
 - Income / expense transactions with categories, amounts, dates, descriptions, and income type (full salary / partial)
 - Undo-delete with a 5.5 s grace period via bottom snackbar; the actual API call is deferred until timeout
@@ -117,7 +129,7 @@ middleware/auth.go     — JWT validation; injects userID into Gin context
 | Protected | GET | `/api/summary/daily` | daily totals |
 | Protected | GET | `/api/summary/period` | period aggregation |
 | Protected | GET | `/api/stats` | per-category breakdown |
-| Protected | POST | `/api/ai/analyze` | full behavior analysis via AI brain (scores, mood, nudge) |
+| Protected | POST | `/api/ai/analyze` | full behavior analysis via AI brain (scores, mood, nudge, ML forecast) |
 | Protected | GET | `/api/ai/next-action` | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
 | Protected | POST | `/api/ai/feedback` | accept / reject signal for AI apology-mode tracking |
 
@@ -127,7 +139,8 @@ The Go backend proxies all `/api/ai/*` requests to a separate Python FastAPI mic
 
 ```
 Go backend ──POST /v1/analyze-behavior──► fin-guard-ai-service
-           ◄── financial_health_score, tamagotchi_mood, smart_nudge ──
+           ◄── financial_health_score, tamagotchi_mood, smart_nudge,
+               predicted_end_of_month_balance (LinearRegression) ──
 
 Go backend ──GET /v1/tamagotchi/next-action──► fin-guard-ai-service
            ◄── { type: "JOKE"|"FACT"|"ADVICE"|"GREETING", content, animation_hint } ──
@@ -146,13 +159,16 @@ context/
   ThemeContext.tsx     — Light/dark toggle, persisted to localStorage
 pages/
   Dashboard.tsx        — Stat cards + TamagotchiWidget + hasTxToday computation
-  Transactions.tsx     — Full CRUD · desktop table · mobile cards · undo-delete
+  Transactions.tsx     — Full CRUD · desktop table · mobile cards · undo-delete · detail modal
   Categories.tsx       — Grid CRUD · smart word-wrap · undo-delete
-  Statistics.tsx       — Recharts pie + period selector
+  Statistics.tsx       — Recharts pie + balance timeline + ML forecast card
   Settings.tsx         — Currency, language, 50/30/20 rule explainer, goals, delete account
 components/
-  TamagotchiWidget.tsx — UFO state machine, ResizeObserver positioning, in-widget tour
-  TamagotchiWidget.css — Pixel-grid dark screen, CSS animations, responsive sizing
+  TamagotchiWidget.tsx     — UFO state machine, ResizeObserver positioning, in-widget tour
+  TamagotchiWidget.css     — Pixel-grid dark screen, CSS animations, responsive sizing
+  ForecastCard.tsx         — Clickable ML forecast summary card with health bar
+  ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left, health score, context sentence
+  TransactionDetailModal.tsx — Mini-receipt modal: full timestamp, description, category, amount
   Layout.tsx           — Sidebar (desktop) + bottom nav (mobile), theme toggle
   DeleteSnackbar.tsx   — Framer Motion toast with undo + dismiss
 hooks/
@@ -280,7 +296,6 @@ The Go backend degrades gracefully when the AI service is unreachable — it ret
 - [ ] **More UFO events** — meteor showers, alien diplomats, financial horoscopes
 - [ ] **Additional UFO skins** — retro rocket, flying saucer variants, seasonal themes (Halloween accountant, Christmas budget elf)
 - [ ] **Collaborative budgets** — shared expense tracking for couples or flatmates with real-time sync
-- [ ] **AI spending predictions** — trend-based monthly forecast using past transaction patterns
 - [ ] **Recurring transactions** — auto-log monthly bills and subscriptions with skip/pause support
 - [ ] **Custom categories with icons** — emoji or icon picker; colour labels for chart clarity
 - [ ] **Mobile app** — React Native shell with native haptics and offline-first sync

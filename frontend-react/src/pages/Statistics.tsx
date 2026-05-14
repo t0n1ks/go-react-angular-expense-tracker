@@ -15,6 +15,8 @@ import {
   Brush,
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
+import ForecastCard from "../components/ForecastCard";
+import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
 
 interface Transaction {
@@ -24,6 +26,12 @@ interface Transaction {
   category?: { name: string };
 }
 
+interface AnalysisResult {
+  predicted_end_of_month_balance: number | null;
+  financial_health_score: number | null;
+  spending_tier: string;
+}
+
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { formatAmount } = useSettings();
@@ -31,6 +39,8 @@ const Statistics: React.FC = () => {
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [forecastOpen, setForecastOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -44,9 +54,32 @@ const Statistics: React.FC = () => {
     }
   }, [axiosInstance]);
 
+  const fetchAnalysis = useCallback(async () => {
+    try {
+      const lang = i18n.language.split("-")[0];
+      const { data } = await axiosInstance.post(`/ai/analyze?language=${lang}`);
+      if (data && typeof data === "object") {
+        setAnalysis({
+          predicted_end_of_month_balance:
+            typeof data.predicted_end_of_month_balance === "number"
+              ? data.predicted_end_of_month_balance
+              : null,
+          financial_health_score:
+            typeof data.financial_health_score === "number"
+              ? data.financial_health_score
+              : null,
+          spending_tier: data.spending_tier || "pacing_good",
+        });
+      }
+    } catch {
+      // AI service may be offline — degrade gracefully
+    }
+  }, [axiosInstance, i18n.language]);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchAnalysis();
+  }, [fetchData, fetchAnalysis]);
 
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -84,6 +117,22 @@ const Statistics: React.FC = () => {
 
     return Object.entries(dailyMap).map(([date, balance]) => ({ date, balance }));
   }, [transactions, i18n.language]);
+
+  const dailySpendingRate = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const daysElapsed = Math.max(1, now.getDate());
+    const total = transactions
+      .filter((t) => t.type === "expense" && new Date(t.date) >= monthStart)
+      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+    return total / daysElapsed;
+  }, [transactions]);
+
+  const daysRemaining = useMemo(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return Math.max(0, lastDay - now.getDate());
+  }, []);
 
   const BRUSH_WINDOW = 14;
   const needsBrush = timelineData.length > 7;
@@ -192,6 +241,28 @@ const Statistics: React.FC = () => {
           )}
         </div>
       </div>
+
+      {analysis && (
+        <div className="forecast-section">
+          <ForecastCard
+            predictedBalance={analysis.predicted_end_of_month_balance}
+            healthScore={analysis.financial_health_score}
+            spendingTier={analysis.spending_tier}
+            dailyRate={dailySpendingRate}
+            onClick={() => setForecastOpen(true)}
+          />
+        </div>
+      )}
+
+      <ForecastDetailModal
+        open={forecastOpen}
+        predictedBalance={analysis?.predicted_end_of_month_balance ?? null}
+        healthScore={analysis?.financial_health_score ?? null}
+        spendingTier={analysis?.spending_tier ?? "pacing_good"}
+        dailyRate={dailySpendingRate}
+        daysRemaining={daysRemaining}
+        onClose={() => setForecastOpen(false)}
+      />
     </div>
   );
 };

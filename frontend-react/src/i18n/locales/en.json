@@ -106,7 +106,11 @@
     "error_update": "Error updating transaction",
     "error_delete": "Error deleting transaction",
     "error_no_cat": "Please create a category first!",
-    "confirm_delete": "Delete this transaction?"
+    "confirm_delete": "Delete this transaction?",
+    "detail_category": "Category",
+    "detail_date": "Date",
+    "detail_added_at": "Added at",
+    "detail_note": "Note"
   },
   "categories": {
     "title": "Manage Categories",
@@ -127,7 +131,26 @@
     "no_expenses": "Add expenses to analyze",
     "no_data": "No data available",
     "no_data_sub": "Add your first transactions",
-    "loading": "Loading analytics..."
+    "loading": "Loading analytics...",
+    "forecast_title": "End-of-Month Forecast",
+    "forecast_aria": "View ML end-of-month forecast details",
+    "forecast_surplus": "surplus",
+    "forecast_deficit": "deficit",
+    "forecast_unavailable": "AI forecast unavailable",
+    "forecast_health": "Financial health:",
+    "forecast_rate_line": "Spending at {{rate}}/day",
+    "forecast_positive": "Projected surplus by end of month",
+    "forecast_negative": "Projected deficit by end of month",
+    "forecast_modal_title": "End-of-Month Projection",
+    "forecast_modal_rate": "Daily spending rate",
+    "forecast_modal_day": "day",
+    "forecast_modal_days_left": "Days remaining",
+    "forecast_modal_days_remaining": "{{count}} days left in the month",
+    "forecast_modal_health": "Financial health",
+    "forecast_modal_context": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by end of month.",
+    "forecast_modal_surplus_word": "left over",
+    "forecast_modal_deficit_word": "in the red",
+    "forecast_modal_tier": "Spending tier"
   },
   "settings": {
     "title": "Settings",
@@ -184,6 +207,14 @@
     "uk": "Ukrainian"
   },
   "ai": {
+    "forecast_tier": {
+      "salary_just_in": "Payday week",
+      "pacing_over": "Over budget",
+      "pacing_warn": "Approaching limit",
+      "pacing_great": "Well under budget",
+      "balanced": "Well balanced",
+      "pacing_good": "On track"
+    },
     "salary_just_in": [
       "Fuel loaded! The month is in motion — now let's fly straight and not do anything reckless.",
       "Payday confirmed. The real challenge begins: keeping it together for 4 weeks.",
@@ -356,7 +387,9 @@
       "The rich get richer partly because returns compound on returns — time is your most powerful asset.",
       "Set up a sinking fund: a dedicated savings account for irregular large expenses like travel or repairs.",
       "Review your biggest expense categories quarterly — small cuts in large categories beat large cuts in small ones.",
-      "Financial stress is the #1 cause of relationship problems. Talking openly about money is an investment."
+      "Financial stress is the #1 cause of relationship problems. Talking openly about money is an investment.",
+      "I've run the numbers. Peek at the Statistics tab — your end-of-month forecast is ready.",
+      "My math is updated. The Statistics section has your projected end-of-month balance — worth a look."
     ],
     "humor": [
       "Fun fact: 67% of economists agree that watching your spending is good. The other 33% work for shopping malls.",
