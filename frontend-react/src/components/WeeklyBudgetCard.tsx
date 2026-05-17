@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CalendarDays, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 interface Transaction {
   id: number;
@@ -57,6 +58,7 @@ function getFixedPaydayDates(fixedDay: number): { last: Date; next: Date } {
 const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, formatAmount }) => {
   const { t } = useTranslation();
   const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings } = useSettings();
+  const { user } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
   const [showInsight, setShowInsight] = useState(false);
@@ -117,7 +119,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     ? Math.max(0, (monthlyBudget - spentSincePayday) / (daysRemaining / 7))
     : 0;
   const baseLimitPerWeek = monthlyBudget / 4.3;
-  const savingsBonus = Math.max(0, weeklyAllowance - baseLimitPerWeek);
 
   // --- This week's spending (Mon–Sun) ---
   const weekStart = getWeekStart(today);
@@ -132,42 +133,54 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const isOver = hasCycle && weekSpent > weeklyAllowance;
-  const pct = weeklyAllowance > 0 ? Math.min((weekSpent / weeklyAllowance) * 100, 100) : 0;
-  const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
-
   const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
 
-  // --- Delta: compare today's daily limit vs yesterday's ---
-  const yesterdayStr = (() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 1);
-    return toLocalDateStr(d);
-  })();
+  // --- Static weekly lock ---
+  const currentWeekStartStr = toLocalDateStr(getWeekStart(today));
+  const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
 
-  const spentYesterday = transactions
-    .filter(tx => tx.type === 'expense' && tx.date?.slice(0, 10) === yesterdayStr)
+  let lockedAllowance: number;
+  if (!hasCycle) {
+    lockedAllowance = 0;
+  } else {
+    try {
+      const raw = localStorage.getItem(lockKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.weekStart === currentWeekStartStr && typeof parsed.lockedAllowance === 'number') {
+          lockedAllowance = parsed.lockedAllowance;
+        } else {
+          const val = Math.max(0, weeklyAllowance);
+          localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance: val }));
+          lockedAllowance = val;
+        }
+      } else {
+        const val = Math.max(0, weeklyAllowance);
+        localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance: val }));
+        lockedAllowance = val;
+      }
+    } catch {
+      lockedAllowance = Math.max(0, weeklyAllowance);
+    }
+  }
+
+  const savingsBonus = Math.max(0, lockedAllowance - baseLimitPerWeek);
+  const isOver = hasCycle && weekSpent > lockedAllowance;
+  const pct = lockedAllowance > 0 ? Math.min((weekSpent / lockedAllowance) * 100, 100) : 0;
+  const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
+
+  // --- Delta: today's spending vs locked daily baseline ---
+  const spentToday = transactions
+    .filter(tx => tx.type === 'expense' && tx.date?.slice(0, 10) === todayStr)
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const yesterdayDaysRemaining = daysRemaining + 1;
-  const yesterdaySpentSincePayday = spentSincePayday - spentYesterday;
-
-  const cycleDays = (lastPayday && nextPayday)
-    ? Math.round((nextPayday.getTime() - lastPayday.getTime()) / 86_400_000)
-    : 0;
-  const isFirstDayOfCycle = hasCycle && cycleDays > 0 && yesterdayDaysRemaining >= cycleDays;
-
-  const yesterdayWeeklyAllowance = (!isFirstDayOfCycle && yesterdayDaysRemaining > 0)
-    ? Math.max(0, (monthlyBudget - yesterdaySpentSincePayday) / (yesterdayDaysRemaining / 7))
-    : 0;
-
-  const todayDailyLimit = weeklyAllowance / 7;
-  const yesterdayDailyLimit = yesterdayWeeklyAllowance / 7;
+  const lockedDailyBaseline = lockedAllowance / 7;
+  const todayDailyLimit = weeklyAllowance / 7; // live rate, used in popover formula
 
   const deltaDirection: 'up' | 'down' | 'neutral' =
-    isFirstDayOfCycle || !hasCycle ? 'neutral'
-    : todayDailyLimit - yesterdayDailyLimit > 0.01 ? 'up'
-    : yesterdayDailyLimit - todayDailyLimit > 0.01 ? 'down'
+    !hasCycle || lockedAllowance === 0 ? 'neutral'
+    : spentToday < lockedDailyBaseline - 0.01 ? 'up'
+    : spentToday > lockedDailyBaseline + 0.01 ? 'down'
     : 'neutral';
 
   const nextPaydayDisplay = nextPayday
@@ -251,7 +264,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
                   className="weekly-budget-stat-value"
                   style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}
                 >
-                  {formatAmount(weeklyAllowance)}
+                  {formatAmount(lockedAllowance)}
                 </span>
 
                 <AnimatePresence>

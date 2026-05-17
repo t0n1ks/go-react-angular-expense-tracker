@@ -73,15 +73,15 @@
     "weekly_spent_since": "Потрачено с дня выплаты",
     "expenses_this_month": "за этот месяц",
     "weekly_savings_bonus": "бонус экономии",
-    "budget_insight_title_up": "Бюджет улучшился",
-    "budget_insight_title_down": "Бюджет скорректирован",
-    "budget_insight_reason_up": "Ваш дневной лимит вырос, потому что вчера вы потратили меньше запланированного.",
-    "budget_insight_reason_down": "Лимит снижен, чтобы вернуть вас в норму после вчерашних расходов.",
+    "budget_insight_title_up": "Экономия сегодня",
+    "budget_insight_title_down": "Дневной бюджет превышен",
+    "budget_insight_reason_up": "Вы ниже дневного целевого лимита. При таком темпе бюджет на следующей неделе будет выше.",
+    "budget_insight_reason_down": "Вы превысили дневной целевой лимит. Бюджет на следующей неделе будет скорректирован вниз.",
     "budget_insight_formula_label": "Как это рассчитывается:",
     "budget_insight_formula": "Остаток ÷ Дней до выплаты = Дневной лимит",
     "budget_insight_example": "{{remaining}} ÷ {{days}} дн. = {{daily}}/день",
-    "budget_insight_cheer_up": "Отличная экономия! Продолжайте в том же духе.",
-    "budget_insight_cheer_down": "Держитесь! У вас всё получится."
+    "budget_insight_cheer_up": "Отличная экономия! За такую дисциплину лимит на следующей неделе вырастет.",
+    "budget_insight_cheer_down": "Лимит на следующей неделе снизится. Держитесь — следующая неделя будет лучше!"
   },
   "transactions": {
     "title": "Транзакции",

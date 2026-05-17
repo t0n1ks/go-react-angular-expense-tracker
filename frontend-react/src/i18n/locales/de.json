@@ -73,15 +73,15 @@
     "weekly_spent_since": "Ausgegeben seit Zahltag",
     "expenses_this_month": "diesen Monat",
     "weekly_savings_bonus": "Sparbonus",
-    "budget_insight_title_up": "Budget verbessert",
-    "budget_insight_title_down": "Budget angepasst",
-    "budget_insight_reason_up": "Dein Tageslimit ist gestiegen, weil du gestern weniger als geplant ausgegeben hast.",
-    "budget_insight_reason_down": "Dein Limit wurde gesenkt, um dich nach den gestrigen Ausgaben auf Kurs zu halten.",
+    "budget_insight_title_up": "Heute im Plus",
+    "budget_insight_title_down": "Tagesbudget überschritten",
+    "budget_insight_reason_up": "Du liegst unter dem heutigen Budget-Ziel. Bei diesem Tempo wird dein nächstes Wochenbudget höher sein.",
+    "budget_insight_reason_down": "Du hast das heutige Budget-Ziel überschritten. Dein nächstes Wochenbudget wird entsprechend angepasst.",
     "budget_insight_formula_label": "So wird es berechnet:",
     "budget_insight_formula": "Restbetrag ÷ Verbleibende Tage = Tageslimit",
     "budget_insight_example": "{{remaining}} ÷ {{days}} Tage = {{daily}}/Tag",
-    "budget_insight_cheer_up": "Toll gespart! Weiter so.",
-    "budget_insight_cheer_down": "Bleib diszipliniert! Du schaffst das."
+    "budget_insight_cheer_up": "Toll gespart! Dein Limit für nächste Woche wird durch diese Disziplin erhöht.",
+    "budget_insight_cheer_down": "Dein Limit für nächste Woche sinkt. Bleib diszipliniert für eine bessere Woche!"
   },
   "transactions": {
     "title": "Transaktionen",

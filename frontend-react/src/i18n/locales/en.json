@@ -73,15 +73,15 @@
     "weekly_spent_since": "Spent since payday",
     "expenses_this_month": "this month",
     "weekly_savings_bonus": "savings bonus",
-    "budget_insight_title_up": "Budget Improved",
-    "budget_insight_title_down": "Budget Adjusted",
-    "budget_insight_reason_up": "Your daily limit increased because you spent less than planned yesterday.",
-    "budget_insight_reason_down": "Your limit decreased to keep you on track after yesterday's spending.",
+    "budget_insight_title_up": "Saving Today",
+    "budget_insight_title_down": "Over Daily Budget",
+    "budget_insight_reason_up": "You're under today's budget target. If you keep this pace, your next weekly allowance will be higher.",
+    "budget_insight_reason_down": "You've exceeded today's budget target. Your next weekly allowance will be adjusted down.",
     "budget_insight_formula_label": "How it's calculated:",
     "budget_insight_formula": "Remaining ÷ Days Left = Daily Limit",
     "budget_insight_example": "{{remaining}} ÷ {{days}} days = {{daily}}/day",
-    "budget_insight_cheer_up": "Great job saving! Keep it up.",
-    "budget_insight_cheer_down": "Stay disciplined! You've got this."
+    "budget_insight_cheer_up": "Great job saving! Your limit for next week will be increased because of this discipline.",
+    "budget_insight_cheer_down": "Your limit for next week will decrease. Stay disciplined for a better week ahead!"
   },
   "transactions": {
     "title": "Transactions",
