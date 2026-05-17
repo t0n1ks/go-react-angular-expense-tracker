@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { type FactEntry } from '../hooks/useAIAssistant';
+import TamagotchiJournalModal from './TamagotchiJournalModal';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -13,10 +13,10 @@ const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
 const MSG_SHOW_DELAY  = 3_000;
 
-const BUBBLE_TOP_PAD = 24;   // px from top of screen to bubble top edge
-const UFO_GAP        = 8;    // px gap between bubble bottom and UFO center
-const UFO_HALF_H     = 9;    // half UFO sprite height in px
-const HEARTS_BOTTOM  = 28;   // space reserved for hearts row at bottom
+const BUBBLE_TOP_PAD = 24;
+const UFO_GAP        = 8;
+const UFO_HALF_H     = 9;
+const HEARTS_BOTTOM  = 28;
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
@@ -32,23 +32,6 @@ function isMob(): boolean {
   return window.matchMedia('(max-width: 1024px)').matches;
 }
 
-function coerceEntry(raw: unknown): FactEntry {
-  if (typeof raw === 'string') return { content: raw, translations: {} };
-  const r = raw as Partial<FactEntry>;
-  return { content: r.content ?? '', translations: r.translations ?? {} };
-}
-
-function loadTodayFacts(): FactEntry[] {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const key = `tama_fact_history_${today}`;
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as unknown[]).map(coerceEntry).reverse() : [];
-  } catch {
-    return [];
-  }
-}
-
 function applyHighlight(step: typeof STEPS[0]): void {
   clearHighlights();
   const el = document.querySelector<HTMLElement>(isMob() ? step.mobile : step.desktop);
@@ -58,6 +41,94 @@ function applyHighlight(step: typeof STEPS[0]): void {
 function clearHighlights(): void {
   document.querySelectorAll<HTMLElement>(`.${HIGHLIGHT_CLASS}`)
     .forEach(el => el.classList.remove(HIGHLIGHT_CLASS));
+}
+
+// ── Audio synthesis ───────────────────────────────────────────────────────────
+
+function playBloop(): void {
+  try {
+    const AC = window.AudioContext ?? (window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.start(); osc.stop(ctx.currentTime + 0.25);
+  } catch { /* unsupported browser */ }
+}
+
+function playMoo(): void {
+  try {
+    const AC = window.AudioContext ?? (window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const osc = ctx.createOscillator();
+    const flt = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    flt.type = 'lowpass'; flt.frequency.value = 300;
+    osc.connect(flt); flt.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(150, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.3);
+    osc.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.65);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+  } catch { /* ignore */ }
+}
+
+// ── Cycle-exhaustion content picker ──────────────────────────────────────────
+
+function getNextFromCycle(items: string[], userId: string | number, type: 'fact' | 'joke'): string {
+  const key = `tama_${type}_cycle_${userId}`;
+  let state: { order: number[]; index: number } = { order: [], index: 0 };
+  try { state = JSON.parse(localStorage.getItem(key) ?? '{}'); } catch { /* ignore */ }
+  if (!Array.isArray(state.order) || state.index >= state.order.length) {
+    const idxs = items.map((_, i) => i);
+    for (let i = idxs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+    }
+    state = { order: idxs, index: 0 };
+  }
+  const picked = state.order[state.index];
+  state.index++;
+  try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* ignore */ }
+  return items[picked] ?? items[0];
+}
+
+// ── Daily discoveries (journal) ───────────────────────────────────────────────
+
+function getTodayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export interface Discoveries { date: string; facts: string[]; jokes: string[]; }
+
+export function loadDiscoveries(userId: string | number): Discoveries {
+  const today = getTodayKey();
+  try {
+    const raw = localStorage.getItem(`tama_discoveries_${userId}`);
+    if (!raw) return { date: today, facts: [], jokes: [] };
+    const parsed = JSON.parse(raw) as Discoveries;
+    if (parsed.date !== today) return { date: today, facts: [], jokes: [] };
+    return parsed;
+  } catch { return { date: today, facts: [], jokes: [] }; }
+}
+
+function addDiscovery(userId: string | number, type: 'fact' | 'joke', content: string): void {
+  try {
+    const current = loadDiscoveries(userId);
+    const list = type === 'fact' ? current.facts : current.jokes;
+    if (!list.includes(content)) list.push(content);
+    localStorage.setItem(`tama_discoveries_${userId}`, JSON.stringify(current));
+  } catch { /* ignore */ }
 }
 
 // ── SVG sprites ───────────────────────────────────────────────────────────────
@@ -107,7 +178,7 @@ const STARS = [
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fact_page' | 'fly_to_moon';
+type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fly_to_moon';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -129,8 +200,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   heartsCount = 3,
   aiServiceMode,
 }) => {
-  const { t, i18n } = useTranslation();
-  const currentLang = i18n.resolvedLanguage ?? 'en';
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [mode,          setMode]          = useState<WidgetMode>('idle');
   const [bubbleText,    setBubbleText]    = useState('');
@@ -138,9 +208,13 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
   const [widgetH,       setWidgetH]       = useState(0);
-  const [factBubbles,   setFactBubbles]   = useState<FactEntry[]>([]);
-  const [factPageIndex, setFactPageIndex] = useState(0);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
+  const [rainbowStarIdx, setRainbowStarIdx] = useState<number | null>(null);
+  const [cowVisible,     setCowVisible]     = useState(false);
+  const [cowExiting,     setCowExiting]     = useState(false);
+  const [cowTop,         setCowTop]         = useState(35);
+  const [cowKey,         setCowKey]         = useState(0);
+  const [showJournal,    setShowJournal]    = useState(false);
 
   const modeRef        = useRef<WidgetMode>('idle');
   const exitTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -153,6 +227,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const pendingHookMsg = useRef(false);
   const widgetRef      = useRef<HTMLDivElement>(null);
   const bubbleRef      = useRef<HTMLDivElement>(null);
+  const rainbowTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cowTimerRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cowAutoHideRef  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { messageRef.current = message; }, [message]);
@@ -227,12 +304,11 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, [mode]);
 
   // ── Derived mode flags ────────────────────────────────────────────────────
-  const inBubble     = mode === 'greeting' || mode === 'ai_bubble';
-  const inTour       = mode === 'tour';
-  const inFactPage   = mode === 'fact_page';
-  const showingBubble = inBubble || inTour || inFactPage;
+  const inBubble      = mode === 'greeting' || mode === 'ai_bubble';
+  const inTour        = mode === 'tour';
+  const showingBubble = inBubble || inTour;
 
-  // ── Measure bubble height for dynamic UFO pushdown (all viewports) ───────
+  // ── Measure bubble height for dynamic UFO pushdown ───────────────────────
   useEffect(() => {
     if (!showingBubble) { setBubbleH(0); return; }
     const el = bubbleRef.current;
@@ -241,7 +317,49 @@ const TamagotchiWidget: React.FC<Props> = ({
     ro.observe(el);
     setBubbleH(el.offsetHeight);
     return () => ro.disconnect();
-  }, [showingBubble, bubbleText, tourStep, factPageIndex]);
+  }, [showingBubble, bubbleText, tourStep]);
+
+  // ── Rainbow star scheduling ───────────────────────────────────────────────
+  useEffect(() => {
+    const schedule = () => {
+      const delay = 30_000 + Math.random() * 60_000;
+      rainbowTimerRef.current = setTimeout(() => {
+        const idx = Math.floor(Math.random() * STARS.length);
+        setRainbowStarIdx(idx);
+        if (modeRef.current === 'idle') {
+          setBubbleText(t('dashboard.tama_hint_star'));
+          setFromHook(false);
+          setMode('ai_bubble');
+        }
+      }, delay);
+    };
+    schedule();
+    return () => clearTimeout(rainbowTimerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
+
+  // ── Space cow scheduling ──────────────────────────────────────────────────
+  useEffect(() => {
+    const scheduleCow = () => {
+      const delay = 60_000 + Math.random() * 120_000;
+      cowTimerRef.current = setTimeout(() => {
+        setCowTop(15 + Math.random() * 40);
+        setCowKey(k => k + 1);
+        setCowExiting(false);
+        setCowVisible(true);
+        cowAutoHideRef.current = setTimeout(() => {
+          setCowVisible(false);
+          scheduleCow();
+        }, 22_000);
+      }, delay);
+    };
+    scheduleCow();
+    return () => {
+      clearTimeout(cowTimerRef.current);
+      clearTimeout(cowAutoHideRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
@@ -268,7 +386,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Dismiss bubble (✕) — silent close, no exit phrase ───────────────────
+  // ── Dismiss bubble (✕) ───────────────────────────────────────────────────
   const dismissBubble = () => {
     clearTimeout(autoDismissRef.current);
     clearTimeout(exitTimerRef.current);
@@ -276,36 +394,67 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Fact pagination ───────────────────────────────────────────────────────
-  const handleFactNext = useCallback(() => {
-    setFactPageIndex(prev => {
-      const next = prev + 1;
-      if (next >= factBubbles.length) {
-        setMode('idle');
-        return 0;
+  // ── Rainbow star click ────────────────────────────────────────────────────
+  const handleStarClick = useCallback((idx: number) => {
+    if (rainbowStarIdx !== idx) return;
+    const factsPool = t('ai.facts', { returnObjects: true }) as string[];
+    const fact = getNextFromCycle(factsPool, user?.id ?? 'anon', 'fact');
+    addDiscovery(user?.id ?? 'anon', 'fact', fact);
+    setRainbowStarIdx(null);
+    playBloop();
+    navigator.vibrate?.(15);
+    clearTimeout(autoDismissRef.current);
+    setBubbleText(fact);
+    setFromHook(false);
+    setMode('ai_bubble');
+    clearTimeout(rainbowTimerRef.current);
+    rainbowTimerRef.current = setTimeout(() => {
+      const next = Math.floor(Math.random() * STARS.length);
+      setRainbowStarIdx(next);
+      if (modeRef.current === 'idle') {
+        setBubbleText(t('dashboard.tama_hint_star'));
+        setFromHook(false);
+        setMode('ai_bubble');
       }
-      return next;
-    });
-  }, [factBubbles.length]);
+    }, 45_000);
+  }, [rainbowStarIdx, t, user?.id]);
 
-  const handleFactSkip = useCallback(() => {
-    setMode('idle');
-    setFactPageIndex(0);
-  }, []);
+  // ── Space cow click ───────────────────────────────────────────────────────
+  const handleCowClick = useCallback(() => {
+    if (cowExiting) return;
+    clearTimeout(cowAutoHideRef.current);
+    setCowExiting(true);
+    playMoo();
+    navigator.vibrate?.(15);
+    const jokesPool = t('ai.humor', { returnObjects: true }) as string[];
+    const joke = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
+    addDiscovery(user?.id ?? 'anon', 'joke', joke);
+    clearTimeout(autoDismissRef.current);
+    setBubbleText(joke);
+    setFromHook(false);
+    setMode('ai_bubble');
+    cowTimerRef.current = setTimeout(() => {
+      setCowVisible(false);
+      const delay = 60_000 + Math.random() * 90_000;
+      cowTimerRef.current = setTimeout(() => {
+        setCowTop(15 + Math.random() * 40);
+        setCowKey(k => k + 1);
+        setCowExiting(false);
+        setCowVisible(true);
+        cowAutoHideRef.current = setTimeout(() => {
+          setCowVisible(false);
+        }, 22_000);
+      }, delay);
+    }, 1000);
+  }, [cowExiting, t, user?.id]);
 
-  // ── UFO click: open choice; advance page while in fact_page ──────────────
+  // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
     const cur = modeRef.current;
-    if (cur === 'fly_to_moon' || cur === 'tour') return;
-    if (cur === 'fact_page') {
-      handleFactNext();
-      return;
-    }
-    if (cur === 'idle' || cur === 'ai_bubble' || cur === 'greeting') {
-      setFactBubbles(loadTodayFacts());
-      setMode('choice');
-    }
-  }, [handleFactNext]);
+    if (cur === 'fly_to_moon' || cur === 'tour' || cur === 'choice') return;
+    setBubbleText(t('dashboard.tama_journal_prompt'));
+    setMode('choice');
+  }, [t]);
 
   // ── Choice: No → random exit phrase → moon orbit ─────────────────────────
   const handleChoiceNo = useCallback(() => {
@@ -332,17 +481,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     }, 1500);
   }, [t]);
 
-  // ── Choice: Yes → paginated fact viewer ──────────────────────────────────
+  // ── Choice: Yes → open journal modal ─────────────────────────────────────
   const handleChoiceYes = useCallback(() => {
-    if (factBubbles.length === 0) {
-      setBubbleText(t('dashboard.tama_no_facts'));
-      setFromHook(false);
-      setMode('ai_bubble');
-      return;
-    }
-    setFactPageIndex(0);
-    setMode('fact_page');
-  }, [factBubbles.length, t]);
+    setMode('idle');
+    setShowJournal(true);
+  }, []);
 
   // ── Cleanup all timers on unmount ─────────────────────────────────────────
   useEffect(() => {
@@ -353,12 +496,13 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(msgShowRef.current);
       clearTimeout(autoDismissRef.current);
       clearTimeout(exitTimerRef.current);
+      clearTimeout(rainbowTimerRef.current);
+      clearTimeout(cowTimerRef.current);
+      clearTimeout(cowAutoHideRef.current);
     };
   }, []);
 
-  // ── Dynamic layout: bubble height → screen min-height → UFO position ─────
-  // Screen grows vertically when bubble + UFO would overflow, so hearts remain
-  // visible and nothing is clipped.
+  // ── Dynamic layout ────────────────────────────────────────────────────────
   const screenMinH = showingBubble && bubbleH > 0
     ? BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H * 2 + HEARTS_BOTTOM
     : undefined;
@@ -372,8 +516,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     ufoTop = '44%';
   }
 
-  const canPageNext = inFactPage && factBubbles.length > 1;
-
   return (
     <>
     <div
@@ -382,33 +524,35 @@ const TamagotchiWidget: React.FC<Props> = ({
       style={screenMinH ? { minHeight: `${screenMinH}px` } : undefined}
     >
 
-      {/* ── Corner buttons ── */}
+      {/* ── Corner button (tour) ── */}
       <button
         className="tama-corner-btn tama-corner-btn--tl"
         onClick={startTour}
         title={t('dashboard.tour_relaunch')}
       >?</button>
-      <button
-        className="tama-corner-btn tama-corner-btn--tr"
-        title={canPageNext ? t('tour.next') : 'Play'}
-        disabled={!canPageNext}
-        onClick={canPageNext ? handleFactNext : undefined}
-      >▶</button>
 
       <div className="tama-scene">
 
-        {/* ── Persistent star field ── */}
+        {/* ── Persistent star field with rainbow hitboxes ── */}
         <div className="tama-stars">
           {STARS.map((s, i) => (
             <div
               key={i}
-              className="tama-star"
-              style={{ left: `${s.x}%`, top: `${s.y}%`, animationDelay: `${s.d}s` }}
-            />
+              className="tama-star-hitbox"
+              style={{ left: `${s.x}%`, top: `${s.y}%` }}
+              onClick={() => handleStarClick(i)}
+              role={rainbowStarIdx === i ? 'button' : undefined}
+              aria-label={rainbowStarIdx === i ? 'Cosmic secret' : undefined}
+            >
+              <div
+                className={`tama-star${rainbowStarIdx === i ? ' tama-star--rainbow' : ''}`}
+                style={{ animationDelay: `${s.d}s` }}
+              />
+            </div>
           ))}
         </div>
 
-        {/* ── Moon — visible during idle and fly-by ── */}
+        {/* ── Moon ── */}
         <AnimatePresence>
           {(mode === 'idle' || mode === 'fly_to_moon') && (
             <motion.div
@@ -424,7 +568,35 @@ const TamagotchiWidget: React.FC<Props> = ({
           )}
         </AnimatePresence>
 
-        {/* ── UFO — pushed down by bubble via ufoTop ── */}
+        {/* ── Space cow ── */}
+        <AnimatePresence>
+          {cowVisible && (
+            <motion.div
+              key={cowKey}
+              className={`tama-space-cow${cowExiting ? ' tama-space-cow--exiting' : ''}`}
+              style={{ top: `${cowTop}%` }}
+              initial={{ left: '-15%', scale: 1, opacity: 1 }}
+              animate={cowExiting
+                ? { left: '82%', top: '8%', scale: 0.05, opacity: 0 }
+                : { left: '115%' }
+              }
+              transition={cowExiting
+                ? { duration: 0.7, ease: [0.4, 0, 1, 1] }
+                : { duration: 18, ease: 'linear' }
+              }
+              onAnimationComplete={() => {
+                if (!cowExiting) setCowVisible(false);
+              }}
+              onClick={handleCowClick}
+              role="button"
+              aria-label="Space cow"
+            >
+              🐄
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── UFO ── */}
         <motion.div
           className="tama-ufo"
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
@@ -482,7 +654,7 @@ const TamagotchiWidget: React.FC<Props> = ({
                 transition={{ duration: 0.25 }}
               >
                 {(() => {
-                  const factsQ = t('dashboard.tama_wanna_facts');
+                  const factsQ = t('dashboard.tama_journal_prompt');
                   const [qLine1, qLine2 = ''] = factsQ.split('\n');
                   return (
                     <svg viewBox="0 0 120 56" width="96" xmlns="http://www.w3.org/2000/svg" overflow="visible">
@@ -518,7 +690,7 @@ const TamagotchiWidget: React.FC<Props> = ({
 
       </div>
 
-      {/* ── AI / greeting bubble — positioned above UFO, contained within screen ── */}
+      {/* ── AI / greeting bubble ── */}
       <AnimatePresence>
         {inBubble && (
           <motion.div
@@ -567,43 +739,6 @@ const TamagotchiWidget: React.FC<Props> = ({
         )}
       </AnimatePresence>
 
-      {/* ── Fact page bubble — paginated, with Next / Skip controls ── */}
-      <AnimatePresence>
-        {inFactPage && (
-          <motion.div
-            ref={bubbleRef}
-            className="tama-bubble tama-bubble--fact"
-            style={{ x: '-50%' }}
-            initial={{ opacity: 0, scale: 0.88, y: 6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.88, y: 6 }}
-            transition={{ duration: 0.2 }}
-          >
-            <p className="tama-bubble-text">
-              {(() => {
-                const entry = factBubbles[factPageIndex];
-                return entry.translations[currentLang] ?? entry.translations['en'] ?? entry.content;
-              })()}
-            </p>
-            {factBubbles.length > 1 ? (
-              <div className="tama-fact-nav">
-                <span className="tama-fact-counter">{factPageIndex + 1} / {factBubbles.length}</span>
-                <div className="tama-fact-btns">
-                  <button className="tama-fact-btn tama-fact-btn--skip" onClick={handleFactSkip}>
-                    {t('tour.skip')}
-                  </button>
-                  <button className="tama-fact-btn tama-fact-btn--next" onClick={handleFactNext}>
-                    {t('tour.next')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button className="tama-bubble-close" onClick={handleFactSkip} aria-label="Close">✕</button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </div>
 
     {aiServiceMode && aiServiceMode !== 'initializing' && (
@@ -614,6 +749,12 @@ const TamagotchiWidget: React.FC<Props> = ({
         </span>
       </div>
     )}
+
+    <TamagotchiJournalModal
+      open={showJournal}
+      userId={user?.id ?? 'anon'}
+      onClose={() => setShowJournal(false)}
+    />
     </>
   );
 };

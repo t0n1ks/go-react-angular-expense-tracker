@@ -40,20 +40,8 @@
 }
 
 .tama-corner-btn--tl { left: 8px; }
-.tama-corner-btn--tr { right: 8px; opacity: 0.28; cursor: not-allowed; }
 
 .tama-corner-btn--tl:hover {
-  background: rgba(255, 215, 0, 0.16);
-  border-color: rgba(255, 215, 0, 0.6);
-  color: #ffd700;
-}
-
-.tama-corner-btn--tr:not([disabled]) {
-  opacity: 1;
-  cursor: pointer;
-}
-
-.tama-corner-btn--tr:not([disabled]):hover {
   background: rgba(255, 215, 0, 0.16);
   border-color: rgba(255, 215, 0, 0.6);
   color: #ffd700;
@@ -87,8 +75,22 @@
   pointer-events: none;
 }
 
-.tama-star {
+/* ── Star hitbox (32 × 32 touch target, centred on dot) ─── */
+.tama-star-hitbox {
   position: absolute;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  z-index: 8;
+  pointer-events: all;
+}
+.tama-star-hitbox:has(.tama-star--rainbow) { cursor: pointer; }
+
+.tama-star {
   width: 2px;
   height: 2px;
   border-radius: 50%;
@@ -100,6 +102,57 @@
 @keyframes tama-twinkle {
   0%, 100% { opacity: 0.08; transform: scale(1); }
   50%       { opacity: 0.9;  transform: scale(1.6); }
+}
+
+/* Rainbow override — replaces tama-twinkle while active */
+.tama-star--rainbow {
+  width: 4px;
+  height: 4px;
+  animation: tama-rainbow-pulse 1.4s linear infinite;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+@keyframes tama-rainbow-pulse {
+  0%   { background: #ff4444; transform: scale(1.2); }
+  16%  { background: #ff9900; transform: scale(1.5); }
+  33%  { background: #ffff00; transform: scale(1.2); }
+  50%  { background: #44ff44; transform: scale(1.5); }
+  66%  { background: #44aaff; transform: scale(1.2); }
+  83%  { background: #cc44ff; transform: scale(1.5); }
+  100% { background: #ff4444; transform: scale(1.2); }
+}
+
+/* ── Space cow ──────────────────────────────────────────── */
+.tama-space-cow {
+  position: absolute;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 12;
+  user-select: none;
+  filter: drop-shadow(0 0 4px rgba(180, 220, 255, 0.5));
+  animation: tama-cow-bob 3s ease-in-out infinite;
+}
+
+.tama-space-cow::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -3px;
+  width: 115%;
+  height: 72%;
+  border-radius: 50%;
+  background: rgba(180, 220, 255, 0.14);
+  border: 1.5px solid rgba(180, 220, 255, 0.55);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+
+.tama-space-cow--exiting { pointer-events: none; }
+
+@keyframes tama-cow-bob {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-4px) rotate(2deg); }
 }
 
 /* ── Moon ───────────────────────────────────────────────────────────────────── */
@@ -433,7 +486,6 @@
   }
 
   .tama-corner-btn--tl { left: 6px; }
-  .tama-corner-btn--tr { right: 6px; }
 
   .tama-moon { top: 10%; right: 10%; transform: scale(0.85); transform-origin: top right; }
 

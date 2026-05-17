@@ -1,0 +1,153 @@
+.tama-journal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+}
+
+@media (min-width: 600px) {
+  .tama-journal-overlay {
+    align-items: center;
+  }
+}
+
+.tama-journal-card {
+  background: var(--color-bg-card);
+  border-radius: 1.5rem 1.5rem 0 0;
+  border: 1px solid var(--color-border-card);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  padding: 1.75rem 1.75rem 2.5rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  position: relative;
+}
+
+@media (min-width: 600px) {
+  .tama-journal-card {
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    max-height: 70vh;
+  }
+}
+
+.tama-journal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+}
+
+.tama-journal-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(167, 139, 250, 0.12);
+  color: #a78bfa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tama-journal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 0;
+  line-height: 1.2;
+  flex: 1;
+}
+
+.tama-journal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--color-bg-input, rgba(148, 163, 184, 0.12));
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 0.75rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tama-journal-close:hover {
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--color-text-heading);
+}
+
+.tama-journal-body {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-right: 2px;
+}
+
+.tama-journal-empty {
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  text-align: center;
+  padding: 1rem 0.5rem 0.5rem;
+  margin: 0;
+}
+
+.tama-journal-section {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a78bfa;
+  margin: 0 0 0.6rem;
+}
+
+.tama-journal-section--jokes {
+  color: #fbbf24;
+}
+
+.tama-journal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tama-journal-list li {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-text-body);
+  padding: 0.6rem 0.85rem;
+  background: var(--color-bg-input, rgba(148, 163, 184, 0.07));
+  border-radius: 0.75rem;
+  border-left: 3px solid rgba(167, 139, 250, 0.4);
+}
+
+.tama-journal-list--jokes li {
+  border-left-color: rgba(251, 191, 36, 0.4);
+}
+
+@media (max-width: 380px) {
+  .tama-journal-card {
+    padding: 1.5rem 1.25rem 2rem;
+  }
+}

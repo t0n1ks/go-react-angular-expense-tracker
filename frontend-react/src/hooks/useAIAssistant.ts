@@ -1,41 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-
-// ─── Fact history ─────────────────────────────────────────────────────────────
-
-const FACT_HISTORY_MAX = 8;
-
-interface QueueItem { text: string; hint?: string | null; }
-
-export interface FactEntry {
-  content: string;
-  translations: Record<string, string>;
-}
-
-function coerceFactEntry(raw: unknown): FactEntry {
-  if (typeof raw === 'string') return { content: raw, translations: {} };
-  const r = raw as Partial<FactEntry>;
-  return { content: r.content ?? '', translations: r.translations ?? {} };
-}
-
-function storeFactEntry(entry: FactEntry): void {
-  try {
-    const key = `tama_fact_history_${new Date().toISOString().split('T')[0]}`;
-    const raw = localStorage.getItem(key);
-    const existing: FactEntry[] = raw
-      ? (JSON.parse(raw) as unknown[]).map(coerceFactEntry)
-      : [];
-    // Deduplicate: skip if content matches any stored entry's content or its translations
-    const isDupe = existing.some(e =>
-      e.content === entry.content ||
-      Object.values(e.translations).includes(entry.content) ||
-      Object.values(entry.translations).some(t => e.content === t || Object.values(e.translations).includes(t)),
-    );
-    if (isDupe) return;
-    const updated = [...existing, entry].slice(-FACT_HISTORY_MAX);
-    localStorage.setItem(key, JSON.stringify(updated));
-  } catch { /* ignore */ }
-}
 
 // ─── Weekly tier fingerprint ──────────────────────────────────────────────────
 
@@ -73,10 +37,11 @@ interface Transaction {
   category?: { name: string };
 }
 
+interface QueueItem { text: string; hint?: string | null; }
+
 interface Options {
   transactions: Transaction[];
   aiAdviceEnabled: boolean;
-  aiHumorEnabled: boolean;
   monthlySpendingGoal: number;
   currencySymbol: string;
   axiosInstance: {
@@ -90,20 +55,12 @@ interface Options {
 export function useAIAssistant({
   transactions,
   aiAdviceEnabled,
-  aiHumorEnabled,
   monthlySpendingGoal,
-  axiosInstance,
 }: Options) {
-  const { t, i18n } = useTranslation();
-  // Derive language from i18n directly so it stays reactive on every language switch.
-  // resolvedLanguage is always a bare code like 'uk'; language may be 'uk-UA'.
-  const effectiveLang = i18n.resolvedLanguage ?? i18n.language?.split('-')[0] ?? 'en';
+  const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string | null>(null);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const firstFired = useRef(false);
-  const fireRef = useRef<(() => void) | null>(null);
 
   const enqueue = useCallback((item: QueueItem) => {
     setQueue(q => (q.length < 2 ? [...q, item] : q));
@@ -199,72 +156,6 @@ export function useAIAssistant({
     if (msg) enqueue({ text: msg });
   }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
 
-  // ── Idle humor timer — first fire at 25 s, then 60 s idle after dismiss ──
-  useEffect(() => {
-    if (!aiHumorEnabled) return;
-
-    let cancelled = false;
-    firstFired.current = false;
-
-    const doFire = async () => {
-      let served = false;
-      try {
-        const res = await axiosInstance.get(`/ai/next-action?language=${effectiveLang}`);
-        if (cancelled) return;
-        const data = res.data as {
-          type: string; content: string; animation_hint?: string;
-          all_translations?: Record<string, string>;
-        };
-        if (data.content?.trim()) {
-          enqueue({ text: data.content, hint: data.animation_hint ?? null });
-          if (data.type === 'FACT' || data.type === 'JOKE') {
-            storeFactEntry({
-              content: data.content,
-              translations: data.all_translations ?? { [effectiveLang]: data.content },
-            });
-          }
-          served = true;
-        }
-      } catch { /* service unavailable — fall through to local pool */ }
-
-      if (served || cancelled) return;
-
-      // Local fallback: alternate between tips and humor pools
-      const poolKey = Math.random() < 0.5 ? 'tips' : 'humor';
-      const fallback = pickFromKey(poolKey);
-      if (fallback) {
-        enqueue({ text: fallback, hint: null });
-      } else if (firstFired.current) {
-        // Both service and local failed — self-reschedule rather than go silent
-        idleTimer.current = setTimeout(() => void doFire(), 60_000);
-      }
-    };
-
-    fireRef.current = () => void doFire();
-
-    // First fire: guaranteed after 30 s regardless of activity
-    idleTimer.current = setTimeout(() => {
-      firstFired.current = true;
-      void doFire();
-    }, 30_000);
-
-    // After first fire, activity resets the 60 s idle timer
-    const resetIdle = () => {
-      if (!firstFired.current) return;
-      clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(() => void doFire(), 60_000);
-    };
-
-    const events = ['mousemove', 'click', 'keydown'] as const;
-    events.forEach(e => window.addEventListener(e, resetIdle));
-
-    return () => {
-      cancelled = true;
-      clearTimeout(idleTimer.current);
-      events.forEach(e => window.removeEventListener(e, resetIdle));
-    };
-  }, [aiHumorEnabled, effectiveLang, enqueue, axiosInstance, pickFromKey]);
-
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (currentMessage === null && queue.length > 0) {
@@ -277,11 +168,6 @@ export function useAIAssistant({
   const dismiss = useCallback(() => {
     setCurrentMessage(null);
     setCurrentHint(null);
-    // Restart 60 s idle timer after user dismisses a message
-    if (firstFired.current && fireRef.current) {
-      clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(fireRef.current, 60_000);
-    }
   }, []);
 
   return { message: currentMessage, hasMessage: currentMessage !== null, animationHint: currentHint, dismiss };

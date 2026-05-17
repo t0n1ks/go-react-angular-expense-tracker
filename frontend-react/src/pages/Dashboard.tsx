@@ -19,7 +19,7 @@ interface Transaction {
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, currencySymbol, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary } = useSettings();
+  const { formatAmount, currencySymbol, aiAdviceEnabled, monthlySpendingGoal, expectedSalary } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +101,6 @@ const Dashboard: React.FC = () => {
   const { message, dismiss, animationHint } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
-    aiHumorEnabled,
     monthlySpendingGoal,
     currencySymbol,
     axiosInstance,
