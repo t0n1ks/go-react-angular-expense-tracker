@@ -164,70 +164,18 @@ const PixelMoon: React.FC = () => (
 );
 
 const SpaceCowSvg: React.FC = () => (
-  <svg width="80" height="52" viewBox="0 0 80 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    {/* Antenna */}
-    <rect x="14" y="3"  width="2"   height="7"  fill="#333"/>
-    <circle cx="15" cy="2.5" r="2.5" fill="#ffd700" stroke="#222" strokeWidth="0.8"/>
-
-    {/* Helmet outer shell */}
-    <circle cx="15" cy="26" r="15" fill="#c0c8d8" stroke="#222" strokeWidth="1.5"/>
-    <circle cx="15" cy="26" r="13" fill="#d0d8e8"/>
-
-    {/* Visor */}
-    <ellipse cx="12" cy="26" rx="8" ry="10" fill="rgba(210,170,235,0.55)" stroke="#222" strokeWidth="1"/>
-
-    {/* Horn stubs (inside visor, above eyes) */}
-    <rect x="8"  y="15" width="3" height="3" rx="1" fill="#c8a060" stroke="#222" strokeWidth="0.6"/>
-    <rect x="13" y="15" width="3" height="3" rx="1" fill="#c8a060" stroke="#222" strokeWidth="0.6"/>
-
-    {/* Eyes */}
-    <rect x="8"  y="21" width="3" height="3" fill="#222"/>
-    <rect x="13" y="21" width="3" height="3" fill="#222"/>
-
-    {/* Rosy cheeks */}
-    <rect x="7"  y="26" width="3" height="2" rx="1" fill="rgba(255,140,140,0.55)"/>
-    <rect x="14" y="26" width="3" height="2" rx="1" fill="rgba(255,140,140,0.55)"/>
-
-    {/* Nose */}
-    <rect x="9" y="29" width="6" height="3" rx="1" fill="#ffb3ba" stroke="#222" strokeWidth="0.6"/>
-
-    {/* Oxygen tube */}
-    <path d="M28 28 Q24 26 22 30 Q20 34 24 33 Q26 32 27 35" stroke="#888" strokeWidth="2" fill="none" strokeDasharray="3 1.5" strokeLinecap="round"/>
-
-    {/* Body */}
-    <rect x="28" y="14" width="26" height="24" rx="3" fill="#fff" stroke="#222" strokeWidth="1.5"/>
-
-    {/* Spots */}
-    <rect x="30" y="16" width="7"  height="6"  rx="1" fill="#222"/>
-    <rect x="43" y="22" width="6"  height="7"  rx="1" fill="#222"/>
-    <rect x="36" y="28" width="4"  height="4"  rx="1" fill="#222"/>
-
-    {/* Backpack */}
-    <rect x="54" y="14" width="9" height="16" rx="1" fill="#333" stroke="#222" strokeWidth="1"/>
-    <rect x="55" y="17" width="7" height="1.5" fill="#555"/>
-    <rect x="55" y="21" width="7" height="1.5" fill="#555"/>
-    <rect x="55" y="25" width="7" height="1.5" fill="#555"/>
-    <rect x="56" y="27" width="5" height="3"   rx="1" fill="#4aaa88" stroke="#222" strokeWidth="0.5"/>
-
-    {/* Legs (front pair) */}
-    <rect x="31" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
-    <rect x="29" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
-
-    <rect x="40" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
-    <rect x="38" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
-
-    {/* Legs (back pair) */}
-    <rect x="44" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
-    <rect x="42" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
-
-    <rect x="48" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
-    <rect x="46" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
-
-    {/* Tail */}
-    <path d="M63 26 Q67 20 69 24 Q71 28 68 31" stroke="#222" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-    {/* Tail fluff (+) */}
-    <rect x="63" y="30" width="8"   height="2" fill="#222"/>
-    <rect x="66" y="27" width="2"   height="8" fill="#222"/>
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    shapeRendering="crispEdges"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path fill="#000000" d="M1 2 H3 V3 H1 Z M0 3 H1 V6 H0 Z M3 3 H4 V6 H3 Z M1 6 H3 V7 H1 Z M4 1 H12 V2 H4 Z M4 2 H5 V7 H4 Z M11 2 H12 V7 H11 Z M4 7 H12 V8 H4 Z M5 8 H6 V11 H5 Z M7 9 H8 V12 H7 Z M8 8 H9 V11 H8 Z M10 9 H11 V12 H10 Z M12 2 H15 V3 H12 Z M13 1 H14 V4 H13 Z" />
+    <path fill="#ffffff" d="M1 3 H3 V6 H1 Z M5 2 H11 V7 H5 Z" />
+    <path fill="#ff8da1" d="M1 4 H2 V5 H1 Z" />
+    <path fill="#8B4513" d="M6 3 H7 V4 H6 Z M9 5 H10 V6 H9 Z" />
   </svg>
 );
 
