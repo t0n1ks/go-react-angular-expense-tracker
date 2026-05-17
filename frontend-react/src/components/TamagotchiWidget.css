@@ -125,27 +125,11 @@
 /* ── Space cow ──────────────────────────────────────────── */
 .tama-space-cow {
   position: absolute;
-  font-size: 1.3rem;
-  line-height: 1;
   cursor: pointer;
   z-index: 12;
   user-select: none;
-  filter: drop-shadow(0 0 4px rgba(180, 220, 255, 0.5));
+  filter: drop-shadow(0 0 5px rgba(180, 220, 255, 0.45));
   animation: tama-cow-bob 3s ease-in-out infinite;
-}
-
-.tama-space-cow::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: -3px;
-  width: 115%;
-  height: 72%;
-  border-radius: 50%;
-  background: rgba(180, 220, 255, 0.14);
-  border: 1.5px solid rgba(180, 220, 255, 0.55);
-  backdrop-filter: blur(1px);
-  pointer-events: none;
 }
 
 .tama-space-cow--exiting { pointer-events: none; }

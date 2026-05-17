@@ -163,6 +163,74 @@ const PixelMoon: React.FC = () => (
   </svg>
 );
 
+const SpaceCowSvg: React.FC = () => (
+  <svg width="80" height="52" viewBox="0 0 80 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    {/* Antenna */}
+    <rect x="14" y="3"  width="2"   height="7"  fill="#333"/>
+    <circle cx="15" cy="2.5" r="2.5" fill="#ffd700" stroke="#222" strokeWidth="0.8"/>
+
+    {/* Helmet outer shell */}
+    <circle cx="15" cy="26" r="15" fill="#c0c8d8" stroke="#222" strokeWidth="1.5"/>
+    <circle cx="15" cy="26" r="13" fill="#d0d8e8"/>
+
+    {/* Visor */}
+    <ellipse cx="12" cy="26" rx="8" ry="10" fill="rgba(210,170,235,0.55)" stroke="#222" strokeWidth="1"/>
+
+    {/* Horn stubs (inside visor, above eyes) */}
+    <rect x="8"  y="15" width="3" height="3" rx="1" fill="#c8a060" stroke="#222" strokeWidth="0.6"/>
+    <rect x="13" y="15" width="3" height="3" rx="1" fill="#c8a060" stroke="#222" strokeWidth="0.6"/>
+
+    {/* Eyes */}
+    <rect x="8"  y="21" width="3" height="3" fill="#222"/>
+    <rect x="13" y="21" width="3" height="3" fill="#222"/>
+
+    {/* Rosy cheeks */}
+    <rect x="7"  y="26" width="3" height="2" rx="1" fill="rgba(255,140,140,0.55)"/>
+    <rect x="14" y="26" width="3" height="2" rx="1" fill="rgba(255,140,140,0.55)"/>
+
+    {/* Nose */}
+    <rect x="9" y="29" width="6" height="3" rx="1" fill="#ffb3ba" stroke="#222" strokeWidth="0.6"/>
+
+    {/* Oxygen tube */}
+    <path d="M28 28 Q24 26 22 30 Q20 34 24 33 Q26 32 27 35" stroke="#888" strokeWidth="2" fill="none" strokeDasharray="3 1.5" strokeLinecap="round"/>
+
+    {/* Body */}
+    <rect x="28" y="14" width="26" height="24" rx="3" fill="#fff" stroke="#222" strokeWidth="1.5"/>
+
+    {/* Spots */}
+    <rect x="30" y="16" width="7"  height="6"  rx="1" fill="#222"/>
+    <rect x="43" y="22" width="6"  height="7"  rx="1" fill="#222"/>
+    <rect x="36" y="28" width="4"  height="4"  rx="1" fill="#222"/>
+
+    {/* Backpack */}
+    <rect x="54" y="14" width="9" height="16" rx="1" fill="#333" stroke="#222" strokeWidth="1"/>
+    <rect x="55" y="17" width="7" height="1.5" fill="#555"/>
+    <rect x="55" y="21" width="7" height="1.5" fill="#555"/>
+    <rect x="55" y="25" width="7" height="1.5" fill="#555"/>
+    <rect x="56" y="27" width="5" height="3"   rx="1" fill="#4aaa88" stroke="#222" strokeWidth="0.5"/>
+
+    {/* Legs (front pair) */}
+    <rect x="31" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
+    <rect x="29" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
+
+    <rect x="40" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
+    <rect x="38" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
+
+    {/* Legs (back pair) */}
+    <rect x="44" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
+    <rect x="42" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
+
+    <rect x="48" y="38" width="5" height="7" rx="1" fill="#ddd" stroke="#222" strokeWidth="1"/>
+    <rect x="46" y="44" width="9" height="2.5" rx="1" fill="#e8e0a0" stroke="#222" strokeWidth="0.8"/>
+
+    {/* Tail */}
+    <path d="M63 26 Q67 20 69 24 Q71 28 68 31" stroke="#222" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+    {/* Tail fluff (+) */}
+    <rect x="63" y="30" width="8"   height="2" fill="#222"/>
+    <rect x="66" y="27" width="2"   height="8" fill="#222"/>
+  </svg>
+);
+
 // ── Static layout data ────────────────────────────────────────────────────────
 
 const STARS = [
@@ -227,9 +295,12 @@ const TamagotchiWidget: React.FC<Props> = ({
   const pendingHookMsg = useRef(false);
   const widgetRef      = useRef<HTMLDivElement>(null);
   const bubbleRef      = useRef<HTMLDivElement>(null);
-  const rainbowTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cowTimerRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cowAutoHideRef  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const rainbowTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cowTimerRef        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cowAutoHideRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const msgsSinceHintRef   = useRef(0);
+  const cowQueuedRef       = useRef(false);
+  const spawnCowOrQueueRef = useRef<() => void>(() => {});
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { messageRef.current = message; }, [message]);
@@ -284,6 +355,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       setBubbleText(messageRef.current);
       setFromHook(true);
       setMode('ai_bubble');
+      msgsSinceHintRef.current += 1;
     }, MSG_SHOW_DELAY);
     return () => clearTimeout(msgShowRef.current);
   }, [message]);
@@ -299,6 +371,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       setBubbleText(messageRef.current);
       setFromHook(true);
       setMode('ai_bubble');
+      msgsSinceHintRef.current += 1;
     }, 2000);
     return () => clearTimeout(tid);
   }, [mode]);
@@ -326,10 +399,11 @@ const TamagotchiWidget: React.FC<Props> = ({
       rainbowTimerRef.current = setTimeout(() => {
         const idx = Math.floor(Math.random() * STARS.length);
         setRainbowStarIdx(idx);
-        if (modeRef.current === 'idle') {
+        if (modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
           setBubbleText(t('dashboard.tama_hint_star'));
           setFromHook(false);
           setMode('ai_bubble');
+          msgsSinceHintRef.current = 0;
         }
       }, delay);
     };
@@ -338,22 +412,25 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  // ── Space cow scheduling ──────────────────────────────────────────────────
+  // ── Space cow scheduling (collision-aware) ───────────────────────────────
   useEffect(() => {
-    const scheduleCow = () => {
-      const delay = 60_000 + Math.random() * 120_000;
-      cowTimerRef.current = setTimeout(() => {
-        setCowTop(15 + Math.random() * 40);
-        setCowKey(k => k + 1);
-        setCowExiting(false);
-        setCowVisible(true);
-        cowAutoHideRef.current = setTimeout(() => {
-          setCowVisible(false);
-          scheduleCow();
-        }, 22_000);
-      }, delay);
+    const spawnCowOrQueue = () => {
+      const isDialogue = ['greeting', 'ai_bubble', 'tour', 'choice'].includes(modeRef.current);
+      if (isDialogue) { cowQueuedRef.current = true; return; }
+      setCowTop(15 + Math.random() * 40);
+      setCowKey(k => k + 1);
+      setCowExiting(false);
+      setCowVisible(true);
+      cowAutoHideRef.current = setTimeout(() => {
+        setCowVisible(false);
+        cowTimerRef.current = setTimeout(
+          spawnCowOrQueueRef.current,
+          45_000 + Math.random() * 90_000,
+        );
+      }, 22_000);
     };
-    scheduleCow();
+    spawnCowOrQueueRef.current = spawnCowOrQueue;
+    cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 60_000 + Math.random() * 90_000);
     return () => {
       clearTimeout(cowTimerRef.current);
       clearTimeout(cowAutoHideRef.current);
@@ -361,8 +438,33 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Deferred cow spawn: fires when mode returns to idle ───────────────────
+  useEffect(() => {
+    if (mode !== 'idle' || !cowQueuedRef.current) return;
+    cowQueuedRef.current = false;
+    const tid = setTimeout(() => {
+      if (modeRef.current !== 'idle') { cowQueuedRef.current = true; return; }
+      spawnCowOrQueueRef.current();
+    }, 800);
+    return () => clearTimeout(tid);
+  }, [mode]);
+
+  // ── Force-hide cow if dialogue opens while cow is mid-flight ──────────────
+  useEffect(() => {
+    const isDialogue = mode === 'greeting' || mode === 'ai_bubble' ||
+                       mode === 'tour'     || mode === 'choice';
+    if (!isDialogue || !cowVisible) return;
+    clearTimeout(cowAutoHideRef.current);
+    setCowVisible(false);
+    cowQueuedRef.current = true;
+  }, [mode, cowVisible]);
+
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
+    clearTimeout(flyTimerRef.current);
+    clearTimeout(fly1Ref.current);
+    clearTimeout(fly2Ref.current);
+    setFlyPhase(null);
     clearHighlights();
     setTourStep(0);
     setMode('tour');
@@ -397,6 +499,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Rainbow star click ────────────────────────────────────────────────────
   const handleStarClick = useCallback((idx: number) => {
     if (rainbowStarIdx !== idx) return;
+    clearTimeout(flyTimerRef.current);
+    clearTimeout(fly1Ref.current);
+    clearTimeout(fly2Ref.current);
+    setFlyPhase(null);
     const factsPool = t('ai.facts', { returnObjects: true }) as string[];
     const fact = getNextFromCycle(factsPool, user?.id ?? 'anon', 'fact');
     addDiscovery(user?.id ?? 'anon', 'fact', fact);
@@ -411,10 +517,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     rainbowTimerRef.current = setTimeout(() => {
       const next = Math.floor(Math.random() * STARS.length);
       setRainbowStarIdx(next);
-      if (modeRef.current === 'idle') {
+      if (modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
         setBubbleText(t('dashboard.tama_hint_star'));
         setFromHook(false);
         setMode('ai_bubble');
+        msgsSinceHintRef.current = 0;
       }
     }, 45_000);
   }, [rainbowStarIdx, t, user?.id]);
@@ -422,6 +529,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Space cow click ───────────────────────────────────────────────────────
   const handleCowClick = useCallback(() => {
     if (cowExiting) return;
+    clearTimeout(flyTimerRef.current);
+    clearTimeout(fly1Ref.current);
+    clearTimeout(fly2Ref.current);
+    setFlyPhase(null);
     clearTimeout(cowAutoHideRef.current);
     setCowExiting(true);
     playMoo();
@@ -435,16 +546,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('ai_bubble');
     cowTimerRef.current = setTimeout(() => {
       setCowVisible(false);
-      const delay = 60_000 + Math.random() * 90_000;
-      cowTimerRef.current = setTimeout(() => {
-        setCowTop(15 + Math.random() * 40);
-        setCowKey(k => k + 1);
-        setCowExiting(false);
-        setCowVisible(true);
-        cowAutoHideRef.current = setTimeout(() => {
-          setCowVisible(false);
-        }, 22_000);
-      }, delay);
+      cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 45_000 + Math.random() * 90_000);
     }, 1000);
   }, [cowExiting, t, user?.id]);
 
@@ -552,21 +654,10 @@ const TamagotchiWidget: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* ── Moon ── */}
-        <AnimatePresence>
-          {(mode === 'idle' || mode === 'fly_to_moon') && (
-            <motion.div
-              key="moon"
-              className="tama-moon"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              <PixelMoon />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ── Moon (always persistent — needed as fly_to_moon target) ── */}
+        <div className="tama-moon">
+          <PixelMoon />
+        </div>
 
         {/* ── Space cow ── */}
         <AnimatePresence>
@@ -591,7 +682,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               role="button"
               aria-label="Space cow"
             >
-              🐄
+              <SpaceCowSvg />
             </motion.div>
           )}
         </AnimatePresence>
