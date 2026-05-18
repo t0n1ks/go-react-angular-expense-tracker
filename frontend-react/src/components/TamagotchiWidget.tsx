@@ -44,45 +44,6 @@ function clearHighlights(): void {
     .forEach(el => el.classList.remove(HIGHLIGHT_CLASS));
 }
 
-// ── Audio synthesis ───────────────────────────────────────────────────────────
-
-function playBloop(): void {
-  try {
-    const AC = window.AudioContext ?? (window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext;
-    if (!AC) return;
-    const ctx = new AC();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    osc.start(); osc.stop(ctx.currentTime + 0.25);
-  } catch { /* unsupported browser */ }
-}
-
-function playMoo(): void {
-  try {
-    const AC = window.AudioContext ?? (window as unknown as Record<string, unknown>).webkitAudioContext as typeof AudioContext;
-    if (!AC) return;
-    const ctx = new AC();
-    const osc = ctx.createOscillator();
-    const flt = ctx.createBiquadFilter();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    flt.type = 'lowpass'; flt.frequency.value = 300;
-    osc.connect(flt); flt.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.setValueAtTime(150, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.3);
-    osc.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.65);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-    osc.start(); osc.stop(ctx.currentTime + 0.8);
-  } catch { /* ignore */ }
-}
-
 // ── Cycle-exhaustion content picker ──────────────────────────────────────────
 
 function getNextFromCycle(items: string[], userId: string | number, type: 'fact' | 'joke'): string {
@@ -233,7 +194,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const cowTimerRef        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cowAutoHideRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const msgsSinceHintRef   = useRef(0);
-  const cowQueuedRef       = useRef(false);
+  const pendingJokeRef     = useRef<string | null>(null);
+  const cowCooldownRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const starCooldownRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const spawnCowOrQueueRef = useRef<() => void>(() => {});
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
@@ -346,11 +309,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  // ── Space cow scheduling (collision-aware) ───────────────────────────────
+  // ── Space cow scheduling ─────────────────────────────────────────────────
   useEffect(() => {
-    const spawnCowOrQueue = () => {
-      const isDialogue = ['greeting', 'ai_bubble', 'tour', 'choice'].includes(modeRef.current);
-      if (isDialogue) { cowQueuedRef.current = true; return; }
+    const spawnCow = () => {
       setCowTop(15 + Math.random() * 40);
       setCowKey(k => k + 1);
       setCowExiting(false);
@@ -359,39 +320,18 @@ const TamagotchiWidget: React.FC<Props> = ({
         setCowVisible(false);
         cowTimerRef.current = setTimeout(
           spawnCowOrQueueRef.current,
-          45_000 + Math.random() * 90_000,
+          10_000 + Math.random() * 10_000,
         );
       }, 22_000);
     };
-    spawnCowOrQueueRef.current = spawnCowOrQueue;
-    cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 60_000 + Math.random() * 90_000);
+    spawnCowOrQueueRef.current = spawnCow;
+    cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
     return () => {
       clearTimeout(cowTimerRef.current);
       clearTimeout(cowAutoHideRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── Deferred cow spawn: fires when mode returns to idle ───────────────────
-  useEffect(() => {
-    if (mode !== 'idle' || !cowQueuedRef.current) return;
-    cowQueuedRef.current = false;
-    const tid = setTimeout(() => {
-      if (modeRef.current !== 'idle') { cowQueuedRef.current = true; return; }
-      spawnCowOrQueueRef.current();
-    }, 800);
-    return () => clearTimeout(tid);
-  }, [mode]);
-
-  // ── Force-hide cow if dialogue opens while cow is mid-flight ──────────────
-  useEffect(() => {
-    const isDialogue = mode === 'greeting' || mode === 'ai_bubble' ||
-                       mode === 'tour'     || mode === 'choice';
-    if (!isDialogue || !cowVisible) return;
-    clearTimeout(cowAutoHideRef.current);
-    setCowVisible(false);
-    cowQueuedRef.current = true;
-  }, [mode, cowVisible]);
 
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
@@ -433,6 +373,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Rainbow star click ────────────────────────────────────────────────────
   const handleStarClick = useCallback((idx: number) => {
     if (rainbowStarIdx !== idx) return;
+    if (starCooldownRef.current || mode !== 'idle') return;
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
@@ -441,8 +382,8 @@ const TamagotchiWidget: React.FC<Props> = ({
     const fact = getNextFromCycle(factsPool, user?.id ?? 'anon', 'fact');
     addDiscovery(user?.id ?? 'anon', 'fact', fact);
     setRainbowStarIdx(null);
-    playBloop();
-    navigator.vibrate?.(15);
+    navigator.vibrate?.(50);
+    starCooldownRef.current = setTimeout(() => { starCooldownRef.current = null; }, 30_000);
     clearTimeout(autoDismissRef.current);
     setBubbleText(fact);
     setFromHook(false);
@@ -458,31 +399,24 @@ const TamagotchiWidget: React.FC<Props> = ({
         msgsSinceHintRef.current = 0;
       }
     }, 45_000);
-  }, [rainbowStarIdx, t, user?.id]);
+  }, [rainbowStarIdx, t, user?.id, mode]);
 
   // ── Space cow click ───────────────────────────────────────────────────────
   const handleCowClick = useCallback(() => {
-    if (cowExiting) return;
+    if (cowExiting || cowCooldownRef.current || mode !== 'idle') return;
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
     setFlyPhase(null);
     clearTimeout(cowAutoHideRef.current);
     setCowExiting(true);
-    playMoo();
-    navigator.vibrate?.(15);
+    navigator.vibrate?.(200);
     const jokesPool = t('ai.humor', { returnObjects: true }) as string[];
     const joke = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
     addDiscovery(user?.id ?? 'anon', 'joke', joke);
-    clearTimeout(autoDismissRef.current);
-    setBubbleText(joke);
-    setFromHook(false);
-    setMode('ai_bubble');
-    cowTimerRef.current = setTimeout(() => {
-      setCowVisible(false);
-      cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 45_000 + Math.random() * 90_000);
-    }, 1000);
-  }, [cowExiting, t, user?.id]);
+    pendingJokeRef.current = joke;
+    cowCooldownRef.current = setTimeout(() => { cowCooldownRef.current = null; }, 30_000);
+  }, [cowExiting, t, user?.id, mode]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
@@ -535,6 +469,8 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(rainbowTimerRef.current);
       clearTimeout(cowTimerRef.current);
       clearTimeout(cowAutoHideRef.current);
+      if (cowCooldownRef.current) clearTimeout(cowCooldownRef.current);
+      if (starCooldownRef.current) clearTimeout(starCooldownRef.current);
     };
   }, []);
 
@@ -607,15 +543,27 @@ const TamagotchiWidget: React.FC<Props> = ({
               }
               transition={cowExiting
                 ? {
-                    duration: 0.75,
-                    times: [0, 0.14, 1],
-                    left: { delay: 0.1, duration: 0.65, ease: [0.4, 0, 1, 1] },
-                    top:  { delay: 0.1, duration: 0.65, ease: [0.4, 0, 1, 1] },
+                    duration: 3.0,
+                    times: [0, 0.033, 1],
+                    left: { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
+                    top:  { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
                   }
                 : { duration: 18, ease: 'linear' }
               }
               onAnimationComplete={() => {
-                if (!cowExiting) setCowVisible(false);
+                if (cowExiting) {
+                  if (pendingJokeRef.current) {
+                    clearTimeout(autoDismissRef.current);
+                    setBubbleText(pendingJokeRef.current);
+                    setFromHook(false);
+                    setMode('ai_bubble');
+                    pendingJokeRef.current = null;
+                  }
+                  setCowVisible(false);
+                  cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
+                } else {
+                  setCowVisible(false);
+                }
               }}
               onClick={handleCowClick}
               role="button"

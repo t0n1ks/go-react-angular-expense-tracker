@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -17,6 +18,19 @@ import (
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
+
+var afkPhrases = []string{
+	"[AFK-mode] I've been orbiting your budget in silence... 🛸",
+	"[AFK-mode] System idle. The UFO waits, the numbers multiply.",
+	"[AFK-mode] Running diagnostics. Everything checks out — except your snack spending.",
+	"[AFK-mode] Deep space detected no anomalies. Your wallet, however...",
+	"[AFK-mode] Maintenance mode: polishing the abduction beam. Back soon.",
+	"[AFK-mode] Low-power mode. Recharging on stardust and good vibes.",
+	"[AFK-mode] Autonomous protocol active. Brain offline, instincts online.",
+	"[AFK-mode] Signal lost with HQ. Proceeding on last known coordinates.",
+	"[AFK-mode] Local AI engaged. The cloud is sleeping — I am not.",
+	"[AFK-mode] Fallback systems nominal. No brain, no problem. Probably.",
+}
 
 var brainClient = &http.Client{Timeout: 15 * time.Second}
 
@@ -171,14 +185,14 @@ func GetNextAction(c *gin.Context) {
 
 	resp, err := brainClient.Do(req)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
+		c.JSON(http.StatusOK, gin.H{"type": "AFK", "content": afkPhrases[rand.Intn(len(afkPhrases))], "animation_hint": "FLY_BY_MOON"})
 		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
+		c.JSON(http.StatusOK, gin.H{"type": "AFK", "content": afkPhrases[rand.Intn(len(afkPhrases))], "animation_hint": "FLY_BY_MOON"})
 		return
 	}
 
@@ -186,7 +200,7 @@ func GetNextAction(c *gin.Context) {
 	// browser never logs a console network error for unsupported languages or
 	// when the AI service is offline.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": ""})
+		c.JSON(http.StatusOK, gin.H{"type": "AFK", "content": afkPhrases[rand.Intn(len(afkPhrases))], "animation_hint": "FLY_BY_MOON"})
 		return
 	}
 
