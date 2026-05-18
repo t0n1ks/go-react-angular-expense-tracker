@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import TamagotchiJournalModal from './TamagotchiJournalModal';
+import cowSpriteUrl from '../assets/pixelcow.png';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -621,7 +622,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               aria-label="Space cow"
             >
               <img
-                src="/pixelcow.png"
+                src={cowSpriteUrl}
                 width="24"
                 height="24"
                 alt=""
