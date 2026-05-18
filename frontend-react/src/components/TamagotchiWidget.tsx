@@ -312,6 +312,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Space cow scheduling ─────────────────────────────────────────────────
   useEffect(() => {
     const spawnCow = () => {
+      if (cowCooldownRef.current) return;
       setCowTop(15 + Math.random() * 40);
       setCowKey(k => k + 1);
       setCowExiting(false);
@@ -415,7 +416,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     const joke = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
     addDiscovery(user?.id ?? 'anon', 'joke', joke);
     pendingJokeRef.current = joke;
-    cowCooldownRef.current = setTimeout(() => { cowCooldownRef.current = null; }, 30_000);
+    cowCooldownRef.current = setTimeout(() => {
+      cowCooldownRef.current = null;
+      clearTimeout(cowTimerRef.current);
+      cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
+    }, 30_000);
   }, [cowExiting, t, user?.id, mode]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
