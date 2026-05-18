@@ -165,15 +165,15 @@ const PixelMoon: React.FC = () => (
 
 const SpaceCowSvg: React.FC = () => (
   <svg
-    width="16"
-    height="16"
+    width="20"
+    height="20"
     viewBox="0 0 16 16"
     shapeRendering="crispEdges"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
     <path fill="#000000" d="M1 2 H3 V3 H1 Z M0 3 H1 V6 H0 Z M3 3 H4 V6 H3 Z M1 6 H3 V7 H1 Z M4 1 H12 V2 H4 Z M4 2 H5 V7 H4 Z M11 2 H12 V7 H11 Z M4 7 H12 V8 H4 Z M5 8 H6 V11 H5 Z M7 9 H8 V12 H7 Z M8 8 H9 V11 H8 Z M10 9 H11 V12 H10 Z M12 2 H15 V3 H12 Z M13 1 H14 V4 H13 Z" />
-    <path fill="#ffffff" d="M1 3 H3 V6 H1 Z M5 2 H11 V7 H5 Z" />
+    <path fill="#F0F8FF" d="M1 3 H3 V6 H1 Z M5 2 H11 V7 H5 Z" />
     <path fill="#ff8da1" d="M1 4 H2 V5 H1 Z" />
     <path fill="#8B4513" d="M6 3 H7 V4 H6 Z M9 5 H10 V6 H9 Z" />
   </svg>
@@ -616,11 +616,16 @@ const TamagotchiWidget: React.FC<Props> = ({
               style={{ top: `${cowTop}%` }}
               initial={{ left: '-15%', scale: 1, opacity: 1 }}
               animate={cowExiting
-                ? { left: '82%', top: '8%', scale: 0.05, opacity: 0 }
+                ? { left: '82%', top: '8%', scale: [1, 1.2, 0.05], opacity: [1, 1, 0] }
                 : { left: '115%' }
               }
               transition={cowExiting
-                ? { duration: 0.7, ease: [0.4, 0, 1, 1] }
+                ? {
+                    duration: 0.75,
+                    times: [0, 0.14, 1],
+                    left: { delay: 0.1, duration: 0.65, ease: [0.4, 0, 1, 1] },
+                    top:  { delay: 0.1, duration: 0.65, ease: [0.4, 0, 1, 1] },
+                  }
                 : { duration: 18, ease: 'linear' }
               }
               onAnimationComplete={() => {

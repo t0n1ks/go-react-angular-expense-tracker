@@ -128,7 +128,9 @@
   cursor: pointer;
   z-index: 12;
   user-select: none;
-  filter: drop-shadow(0 0 5px rgba(180, 220, 255, 0.45));
+  filter:
+    drop-shadow(0 0 3px rgba(200, 230, 255, 0.85))
+    drop-shadow(0 0 9px rgba(120, 180, 255, 0.40));
   animation: tama-cow-bob 3s ease-in-out infinite;
 }
 
