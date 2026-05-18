@@ -83,6 +83,7 @@ const Register: React.FC = () => {
   };
 
   return (
+    <>
     <div className="auth-page-reg">
       <div className="auth-card-reg">
         <h2 className="auth-title-reg">{t('auth.register_title')}</h2>
@@ -206,6 +207,7 @@ const Register: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+    </>
   );
 };
 
