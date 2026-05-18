@@ -138,9 +138,9 @@ const Register: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-8 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+        <div className="mt-8 flex items-center justify-center gap-1.5 text-[11px] text-gray-400 whitespace-nowrap">
           <ShieldCheck size={12} className="shrink-0 text-gray-400" />
-          <span>
+          <span className="whitespace-nowrap">
             {t('auth.disclaimer_short')}{' '}
             <button
               type="button"
