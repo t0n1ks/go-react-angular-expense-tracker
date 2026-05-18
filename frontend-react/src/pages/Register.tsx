@@ -138,18 +138,17 @@ const Register: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+        <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-gray-500">
           <ShieldCheck size={12} className="shrink-0 text-gray-400" />
           <span>
             {t('auth.disclaimer_short')}{' '}
             <button
               type="button"
               onClick={() => setPrivacyOpen(true)}
-              className="underline hover:text-gray-300 transition-colors cursor-pointer"
+              className="privacy-policy-link"
             >
               {t('auth.privacy_policy')}
-            </button>
-            .
+            </button>.
           </span>
         </div>
 
@@ -197,12 +196,6 @@ const Register: React.FC = () => {
               </div>
 
               <p className="privacy-modal-body">{t('auth.disclaimer_full')}</p>
-
-              <div className="privacy-modal-footer">
-                <button className="privacy-modal-btn" onClick={() => setPrivacyOpen(false)}>
-                  {t('auth.privacy_close')}
-                </button>
-              </div>
             </motion.div>
           </motion.div>
         )}
