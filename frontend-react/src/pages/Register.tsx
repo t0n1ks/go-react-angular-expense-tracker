@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { ShieldCheck } from 'lucide-react';
 import PasswordField from '../components/PasswordField';
 import './Register.css';
 
@@ -126,6 +127,17 @@ const Register: React.FC = () => {
             {t('auth.register_btn')}
           </button>
         </form>
+
+        <div className="mt-4 flex items-start gap-2 text-xs text-gray-500 leading-relaxed">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-gray-400" />
+          <p>
+            {t('auth.disclaimer')}{' '}
+            <a href="#" className="underline hover:text-gray-700 transition-colors">
+              {t('auth.privacy_policy')}
+            </a>
+            .
+          </p>
+        </div>
 
         <div className="auth-footer">
           <Link to="/login" className="auth-link" style={{ color: '#00b09b' }}>
