@@ -105,3 +105,128 @@
     color: var(--color-success-text);
     border-color: var(--color-success-border);
 }
+
+/* ── Privacy modal ─────────────────────────────────────────────────────────── */
+
+.privacy-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+}
+
+@media (min-width: 600px) {
+  .privacy-modal-overlay {
+    align-items: center;
+  }
+}
+
+.privacy-modal-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: 1.5rem 1.5rem 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.22);
+  padding: 1.75rem 1.75rem 2rem;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+  position: relative;
+}
+
+@media (min-width: 600px) {
+  .privacy-modal-card {
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  }
+}
+
+.privacy-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.privacy-modal-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(0, 176, 155, 0.12);
+  color: #00b09b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.privacy-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 0;
+  flex: 1;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.privacy-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--color-bg-input, rgba(148, 163, 184, 0.12));
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 0.75rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.privacy-modal-close:hover {
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--color-text-heading);
+}
+
+.privacy-modal-body {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--color-text-body);
+  margin: 0;
+  text-align: left;
+}
+
+.privacy-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+.privacy-modal-btn {
+  background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+  color: #fff;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.privacy-modal-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}

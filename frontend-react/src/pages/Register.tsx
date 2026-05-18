@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck } from 'lucide-react';
@@ -21,9 +22,17 @@ const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [usernameWarning, setUsernameWarning] = useState('');
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const { axiosInstance } = useAuth();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!privacyOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPrivacyOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [privacyOpen]);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -128,15 +137,19 @@ const Register: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-4 flex items-start gap-2 text-xs text-gray-500 leading-relaxed">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-gray-400" />
-          <p>
-            {t('auth.disclaimer')}{' '}
-            <a href="#" className="underline hover:text-gray-700 transition-colors">
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+          <ShieldCheck size={12} className="shrink-0 text-gray-400" />
+          <span>
+            {t('auth.disclaimer_short')}{' '}
+            <button
+              type="button"
+              onClick={() => setPrivacyOpen(true)}
+              className="underline hover:text-gray-300 transition-colors cursor-pointer"
+            >
               {t('auth.privacy_policy')}
-            </a>
+            </button>
             .
-          </p>
+          </span>
         </div>
 
         <div className="auth-footer">
@@ -146,6 +159,53 @@ const Register: React.FC = () => {
         </div>
       </div>
     </div>
+
+      <AnimatePresence>
+        {privacyOpen && (
+          <motion.div
+            className="privacy-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setPrivacyOpen(false)}
+          >
+            <motion.div
+              className="privacy-modal-card"
+              initial={{ opacity: 0, y: 32, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 32, scale: 0.97 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              onClick={e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="privacy-modal-title"
+            >
+              <div className="privacy-modal-header">
+                <div className="privacy-modal-icon">
+                  <ShieldCheck size={16} />
+                </div>
+                <h2 id="privacy-modal-title" className="privacy-modal-title">
+                  {t('auth.privacy_modal_title')}
+                </h2>
+                <button
+                  className="privacy-modal-close"
+                  onClick={() => setPrivacyOpen(false)}
+                  aria-label="Close"
+                >✕</button>
+              </div>
+
+              <p className="privacy-modal-body">{t('auth.disclaimer_full')}</p>
+
+              <div className="privacy-modal-footer">
+                <button className="privacy-modal-btn" onClick={() => setPrivacyOpen(false)}>
+                  {t('auth.privacy_close')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
   );
 };
 

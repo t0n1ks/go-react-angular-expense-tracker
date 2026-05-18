@@ -33,8 +33,11 @@
     "register_error_generic": "Something went wrong. Please try again later.",
     "help_rule_explain_title": "What is the 50/30/20 rule?",
     "help_rule_explain_text": "A simple budget formula: 50% of income for Needs (housing, food), 30% for Wants (hobbies, entertainment), 20% for Savings. The button above automatically sets your savings goal based on your salary.",
-    "disclaimer": "By registering, you agree that this service is in beta. To ensure system stability and optimize our AI algorithms, the development team may perform technical diagnostics and data processing within the platform. We commit to never sharing your data with third parties. Read our",
-    "privacy_policy": "Privacy Policy"
+    "disclaimer_short": "By registering, you agree to our Terms and",
+    "privacy_policy": "Privacy Policy",
+    "privacy_modal_title": "Terms & Privacy Policy",
+    "disclaimer_full": "This service is currently in beta testing. To ensure system stability and optimize our AI algorithms, the development team may perform technical diagnostics and data processing within the platform. We strictly commit to never sharing your user data with third parties.",
+    "privacy_close": "Close"
   },
   "dashboard": {
     "title": "Financial Overview",
