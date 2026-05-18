@@ -104,6 +104,8 @@ const Dashboard: React.FC = () => {
     monthlySpendingGoal,
     currencySymbol,
     axiosInstance,
+    language: analyzeLang,
+    aiServiceMode,
   });
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;

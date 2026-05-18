@@ -50,12 +50,17 @@ interface Options {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     post: (url: string, data?: unknown) => Promise<{ data: any }>;
   };
+  language: string;
+  aiServiceMode: 'online' | 'autonomous' | 'initializing';
 }
 
 export function useAIAssistant({
   transactions,
   aiAdviceEnabled,
   monthlySpendingGoal,
+  axiosInstance,
+  language,
+  aiServiceMode,
 }: Options) {
   const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -85,9 +90,30 @@ export function useAIAssistant({
     return percent !== undefined ? raw.replace(/\{\{percent\}\}/g, String(percent)) : raw;
   }, [t]);
 
-  // ── Weekly pacing analysis ────────────────────────────────────────────────
+  // ── Brain fetch (primary source when service is online) ──────────────────
+  useEffect(() => {
+    if (!aiAdviceEnabled || aiServiceMode !== 'online') return;
+    const fetch = () => {
+      axiosInstance.get(`/ai/next-action?language=${language}`)
+        .then(res => {
+          const { type, content, animation_hint } = res.data as {
+            type: string; content: string | null; animation_hint: string | null;
+          };
+          if (type && type !== 'NONE' && content) {
+            enqueue({ text: content, hint: animation_hint ?? null });
+          }
+        })
+        .catch(() => { /* silent — autonomous fallback handles proactive messages */ });
+    };
+    fetch();
+    const id = setInterval(fetch, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [aiAdviceEnabled, aiServiceMode, language, axiosInstance, enqueue]);
+
+  // ── Weekly pacing analysis (autonomous fallback only) ────────────────────
   useEffect(() => {
     if (!aiAdviceEnabled || transactions.length === 0) return;
+    if (aiServiceMode === 'online') return; // Brain handles proactive content when service is reachable
 
     const now = new Date();
     const monday = getMonday(now);
@@ -154,7 +180,7 @@ export function useAIAssistant({
     }
 
     if (msg) enqueue({ text: msg });
-  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, enqueue, pickFromKey]);
+  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {
