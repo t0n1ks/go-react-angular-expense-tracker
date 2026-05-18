@@ -18,6 +18,12 @@
     text-align: center;
 }
 
+@media (max-width: 430px) {
+    .auth-card-reg {
+        padding: 28px 20px;
+    }
+}
+
 .auth-title-reg {
     font-size: 28px;
     font-weight: 800;
