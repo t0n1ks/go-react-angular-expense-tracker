@@ -133,24 +133,25 @@ const Register: React.FC = () => {
             />
           </div>
 
-          <button type="submit" className="auth-submit-button-reg">
-            {t('auth.register_btn')}
-          </button>
+          <div className="flex flex-col gap-8 w-full">
+            <button type="submit" className="auth-submit-button-reg">
+              {t('auth.register_btn')}
+            </button>
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 whitespace-nowrap">
+              <ShieldCheck size={12} className="shrink-0 text-gray-400" />
+              <span className="whitespace-nowrap">
+                {t('auth.disclaimer_short')}{' '}
+                <button
+                  type="button"
+                  onClick={() => setPrivacyOpen(true)}
+                  className="privacy-policy-link"
+                >
+                  {t('auth.privacy_policy')}
+                </button>.
+              </span>
+            </div>
+          </div>
         </form>
-
-        <div className="mt-8 flex items-center justify-center gap-1.5 text-[11px] text-gray-400 whitespace-nowrap">
-          <ShieldCheck size={12} className="shrink-0 text-gray-400" />
-          <span className="whitespace-nowrap">
-            {t('auth.disclaimer_short')}{' '}
-            <button
-              type="button"
-              onClick={() => setPrivacyOpen(true)}
-              className="privacy-policy-link"
-            >
-              {t('auth.privacy_policy')}
-            </button>.
-          </span>
-        </div>
 
         <div className="auth-footer">
           <Link to="/login" className="auth-link" style={{ color: '#00b09b' }}>

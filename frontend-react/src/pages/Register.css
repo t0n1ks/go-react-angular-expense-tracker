@@ -71,7 +71,6 @@
     font-weight: 700;
     cursor: pointer;
     transition: transform 0.2s ease;
-    margin-top: 10px;
 }
 
 .auth-submit-button-reg:hover {
