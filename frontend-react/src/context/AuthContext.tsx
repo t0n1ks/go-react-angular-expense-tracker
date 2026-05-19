@@ -3,6 +3,15 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:8080/api';
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 interface User {
   id: number;
   username: string;
@@ -81,9 +90,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const storedUserId = localStorage.getItem('userId');
 
     if (storedToken && storedUser && storedUserId) {
-      setToken(storedToken);
-      setUser({ id: parseInt(storedUserId, 10), username: storedUser });
-      setIsAuthenticated(true);
+      if (isTokenExpired(storedToken)) {
+        // Token is in localStorage but already expired — clean up silently
+        // so the user lands on /login instead of a broken dashboard.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userId');
+      } else {
+        setToken(storedToken);
+        setUser({ id: parseInt(storedUserId, 10), username: storedUser });
+        setIsAuthenticated(true);
+      }
     }
     setIsLoading(false);
   }, []);
