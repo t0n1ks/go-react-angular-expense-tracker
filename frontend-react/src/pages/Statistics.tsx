@@ -169,14 +169,17 @@ const Statistics: React.FC = () => {
   const periodLabel = nextPayday !== null ? 'payday' : 'month';
 
   const displayedPredictedBalance = useMemo(() => {
-    if (analysis?.predicted_end_of_month_balance == null) return null;
-    if (!nextPayday) return analysis.predicted_end_of_month_balance;
-    const now = new Date();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const daysAfterPayday = Math.max(0,
-      Math.ceil((endOfMonth.getTime() - nextPayday.getTime()) / 86_400_000));
-    return analysis.predicted_end_of_month_balance + dailySpendingRate * daysAfterPayday;
-  }, [analysis, nextPayday, dailySpendingRate]);
+    if (nextPayday) {
+      // Project current balance forward at the same daily rate used everywhere else.
+      // Mixing Python's ML prediction with the frontend average rate produced values
+      // that could exceed the actual current balance (incoherent).
+      const currentBalance =
+        transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0) -
+        transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+      return currentBalance - daysRemaining * dailySpendingRate;
+    }
+    return analysis?.predicted_end_of_month_balance ?? null;
+  }, [analysis, nextPayday, transactions, daysRemaining, dailySpendingRate]);
 
   const BRUSH_WINDOW = 14;
   const needsBrush = timelineData.length > 7;
