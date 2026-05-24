@@ -211,7 +211,8 @@ const Transactions: React.FC = () => {
     if (isPDFLoading) return;
     setIsPDFLoading(true);
     try {
-      const response = await axiosInstance.get('/transactions/export/pdf', {
+      const lang = (i18n.resolvedLanguage ?? 'en').split('-')[0];
+      const response = await axiosInstance.get(`/transactions/export/pdf?language=${lang}`, {
         responseType: 'blob',
       });
       const blob = new Blob([response.data], { type: 'application/pdf' });
