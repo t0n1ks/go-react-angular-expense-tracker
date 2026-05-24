@@ -3,8 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, Download } from 'lucide-react';
-import { exportTransactionsCSV } from '../utils/exportTransactionsCSV';
+import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } from 'lucide-react';
+import { exportTransactionsPDF } from '../utils/exportTransactionsPDF';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 import {
@@ -207,10 +207,11 @@ const Transactions: React.FC = () => {
 
   const handleCancelEdit = () => setEditingId(null);
 
-  const handleExportCSV = useCallback(() => {
-    exportTransactionsCSV(
+  const handleExportPDF = useCallback(() => {
+    exportTransactionsPDF(
       transactions,
       {
+        title: t('transactions.history'),
         date: t('transactions.col_date'),
         category: t('transactions.col_category'),
         amount: t('transactions.col_amount'),
@@ -218,10 +219,11 @@ const Transactions: React.FC = () => {
         description: t('transactions.col_description'),
         expense: t('transactions.type_expense'),
         income: t('transactions.type_income'),
+        generatedOn: t('transactions.pdf_generated_on'),
       },
-      'transactions.csv',
+      formatAmount,
     );
-  }, [transactions, t]);
+  }, [transactions, t, formatAmount]);
 
   if (loading) return <div className="transactions-wrapper">{t('common.loading')}</div>;
 
@@ -308,13 +310,13 @@ const Transactions: React.FC = () => {
         <div className="card-header">
           <div className="card-title"><ReceiptText size={20} style={{marginRight: '8px'}}/> {t('transactions.history')}</div>
           <button
-            className="btn-export-csv"
-            onClick={handleExportCSV}
+            className="btn-export-pdf"
+            onClick={handleExportPDF}
             disabled={transactions.length === 0}
-            title={t('transactions.export_csv')}
+            title={t('transactions.export_pdf')}
           >
-            <Download size={16} style={{marginRight: '6px'}}/>
-            {t('transactions.export_csv')}
+            <FileDown size={16}/>
+            <span className="btn-export-label">{t('transactions.export_pdf')}</span>
           </button>
         </div>
 

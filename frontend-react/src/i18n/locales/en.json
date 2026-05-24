@@ -131,7 +131,9 @@
     "detail_date": "Date",
     "detail_added_at": "Added at",
     "detail_note": "Note",
-    "export_csv": "Export CSV"
+    "export_csv": "Export CSV",
+    "export_pdf": "Export PDF",
+    "pdf_generated_on": "Generated on"
   },
   "categories": {
     "title": "Manage Categories",

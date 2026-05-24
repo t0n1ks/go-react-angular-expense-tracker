@@ -131,7 +131,9 @@
     "detail_date": "Дата",
     "detail_added_at": "Додано о",
     "detail_note": "Нотатка",
-    "export_csv": "Експорт CSV"
+    "export_csv": "Експорт CSV",
+    "export_pdf": "Експорт PDF",
+    "pdf_generated_on": "Сформовано"
   },
   "categories": {
     "title": "Управління категоріями",

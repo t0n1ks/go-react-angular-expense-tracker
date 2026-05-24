@@ -90,9 +90,10 @@
     background-color: var(--color-btn-primary-hover);
 }
 
-.btn-export-csv {
+.btn-export-pdf {
     display: inline-flex;
     align-items: center;
+    gap: 0.375rem;
     padding: 0.45rem 1rem;
     border-radius: 0.5rem;
     font-size: 0.875rem;
@@ -103,15 +104,16 @@
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.btn-export-csv:hover:not(:disabled) {
+.btn-export-pdf:hover:not(:disabled) {
     background: var(--color-category-tag-bg);
     color: var(--color-text-heading);
     border-color: var(--color-input-focus);
 }
 
-.btn-export-csv:disabled {
+.btn-export-pdf:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
@@ -286,6 +288,12 @@
   .table-container { display: none; }
 
   .btn-add-transaction { width: 100%; align-self: auto; }
+
+  /* Compact export button on mobile */
+  .btn-export-pdf {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+  }
 
   .tx-cards-mobile {
     display: flex;
@@ -588,4 +596,10 @@
     gap: 0.5rem;
     padding-bottom: 0.25rem;
   }
+}
+
+/* On very narrow screens, collapse export button to icon-only */
+@media (max-width: 480px) {
+  .btn-export-label { display: none; }
+  .btn-export-pdf { padding: 0.4rem 0.55rem; }
 }

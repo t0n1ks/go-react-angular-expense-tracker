@@ -131,7 +131,9 @@
     "detail_date": "Datum",
     "detail_added_at": "Erfasst um",
     "detail_note": "Notiz",
-    "export_csv": "Als CSV exportieren"
+    "export_csv": "Als CSV exportieren",
+    "export_pdf": "Als PDF exportieren",
+    "pdf_generated_on": "Erstellt am"
   },
   "categories": {
     "title": "Kategorien verwalten",
