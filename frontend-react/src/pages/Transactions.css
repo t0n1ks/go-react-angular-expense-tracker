@@ -415,3 +415,151 @@
 .tx-row-clickable:hover {
     background: var(--color-bg-input, rgba(148, 163, 184, 0.07));
 }
+
+/* ── Chevron (shared desktop + mobile) ────────────────────────────────────── */
+.month-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.month-chevron--open {
+    transform: rotate(180deg);
+}
+
+/* ── Desktop month accordion ──────────────────────────────────────────────── */
+.month-header-tbody .month-header-row {
+    cursor: pointer;
+    background: var(--color-table-header-bg);
+    border-top: 1px solid var(--color-border-card);
+    user-select: none;
+}
+
+.month-header-tbody .month-header-row:hover {
+    background: var(--color-table-hover);
+}
+
+.month-header-tbody .month-header-row td {
+    padding: 0.6rem 1rem !important;
+    border-bottom: 1px solid var(--color-table-border);
+}
+
+.month-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.month-header-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    letter-spacing: -0.01em;
+    flex: 1;
+}
+
+.month-header-count {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    background: var(--color-category-tag-bg);
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    font-weight: 600;
+}
+
+.month-header-net {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.month-header-net--pos { color: var(--color-income-text); }
+.month-header-net--neg { color: var(--color-expense-text); }
+
+.month-txns-tbody--hidden {
+    display: none;
+}
+
+/* ── Mobile month accordion ───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .tx-cards-mobile {
+    gap: 0.75rem;
+  }
+
+  .month-accordion {
+    /* No outer border — individual tx-card-items have their own */
+  }
+
+  .month-accordion-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.7rem 0.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    /* 48px minimum touch target (Apple HIG / Material Design) */
+    min-height: 48px;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .month-accordion-btn:active {
+    background: var(--color-bg-input, rgba(148, 163, 184, 0.1));
+  }
+
+  .month-accordion-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .month-accordion-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text-heading);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .month-accordion-right {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+  }
+
+  .month-accordion-count {
+    font-size: 0.7rem;
+    background: var(--color-category-tag-bg);
+    color: var(--color-category-tag-text);
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .month-accordion-net {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .month-accordion-net--pos { color: var(--color-income-text); }
+  .month-accordion-net--neg { color: var(--color-expense-text); }
+
+  .month-accordion-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 0.25rem;
+  }
+}

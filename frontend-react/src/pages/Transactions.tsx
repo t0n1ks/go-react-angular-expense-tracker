@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, ReceiptText, Pencil, X, Check } from 'lucide-react';
+import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
+import {
+  groupTransactionsByMonth,
+  currentMonthKey,
+  formatMonthLabel,
+} from '../utils/groupTransactionsByMonth';
 import './Transactions.css';
 
 interface Category { id: number; name: string; }
@@ -22,7 +28,7 @@ interface Transaction {
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { formatAmount } = useSettings();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +54,11 @@ const Transactions: React.FC = () => {
     income_type: 'one_time',
   });
 
+  // Accordion state — current month starts expanded, all historical months collapsed
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(
+    () => new Set([currentMonthKey()]),
+  );
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -69,6 +80,33 @@ const Transactions: React.FC = () => {
   }, [axiosInstance, formState.category_id, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // When an edit begins, ensure the month containing that transaction is expanded
+  // so the inline edit form is always visible.
+  useEffect(() => {
+    if (editingId === null) return;
+    const tx = transactions.find(t => t.id === editingId);
+    if (!tx) return;
+    const [year, month] = tx.date.split('T')[0].split('-').map(Number);
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    setExpandedMonths(prev => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, [editingId, transactions]);
+
+  const toggleMonth = useCallback((key: string) => {
+    setExpandedMonths(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }, []);
+
+  const locale = i18n.resolvedLanguage ?? 'en';
+  const groups = useMemo(() => groupTransactionsByMonth(transactions), [transactions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,7 +291,8 @@ const Transactions: React.FC = () => {
         <div className="card-header">
           <div className="card-title"><ReceiptText size={20} style={{marginRight: '8px'}}/> {t('transactions.history')}</div>
         </div>
-        {/* Desktop table */}
+
+        {/* ── Desktop table ──────────────────────────────────────────────────── */}
         <div className="table-container">
           <table className="styled-table">
             <thead>
@@ -266,192 +305,278 @@ const Transactions: React.FC = () => {
                 <th>{t('transactions.col_actions')}</th>
               </tr>
             </thead>
-            <tbody>
-              {transactions.length === 0 ? (
+
+            {groups.length === 0 ? (
+              <tbody>
                 <tr>
                   <td colSpan={6} style={{textAlign: 'center', padding: '2rem', color: '#94a3b8'}}>
                     {t('transactions.no_transactions')}
                   </td>
                 </tr>
-              ) : (
-                transactions.map(tr => (
-                  editingId === tr.id ? (
-                    <tr key={tr.id} className="edit-row">
-                      <td>
-                        <input type="date" className="form-input edit-input" value={editState.date}
-                          onChange={e => setEditState({...editState, date: e.target.value})}/>
-                      </td>
-                      <td>
-                        <select className="form-input edit-input" value={editState.category_id}
-                          onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                          {categories.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input type="text" className="form-input edit-input" value={editState.description}
-                          onChange={e => setEditState({...editState, description: e.target.value})}
-                          placeholder={t('transactions.description')}/>
-                      </td>
-                      <td>
-                        <select className="form-input edit-input" value={editState.type}
-                          onChange={e => {
-                            const v = e.target.value;
-                            if (v === 'expense' || v === 'income') setEditState({...editState, type: v});
-                          }}>
-                          <option value="expense">{t('transactions.type_expense')}</option>
-                          <option value="income">{t('transactions.type_income')}</option>
-                        </select>
-                        {editState.type === 'income' && (
-                          <div className="edit-income-type">
-                            <button type="button"
-                              className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
-                              onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
-                              {t('transactions.income_type_full')}
-                            </button>
-                            <button type="button"
-                              className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
-                              onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
-                              {t('transactions.income_type_part')}
-                            </button>
+              </tbody>
+            ) : (
+              groups.map(group => {
+                const isExpanded = expandedMonths.has(group.key);
+                const monthNet =
+                  group.transactions.reduce((s, t) =>
+                    s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+                const label = formatMonthLabel(group.year, group.month, locale);
+
+                return (
+                  <React.Fragment key={group.key}>
+                    {/* Month separator / accordion trigger */}
+                    <tbody className="month-header-tbody">
+                      <tr
+                        className="month-header-row"
+                        onClick={() => toggleMonth(group.key)}
+                        aria-expanded={isExpanded}
+                      >
+                        <td colSpan={6}>
+                          <div className="month-header-inner">
+                            <ChevronDown
+                              size={15}
+                              className={`month-chevron${isExpanded ? ' month-chevron--open' : ''}`}
+                            />
+                            <span className="month-header-label">{label}</span>
+                            <span className="month-header-count">{group.transactions.length}</span>
+                            <span className={`month-header-net${monthNet >= 0 ? ' month-header-net--pos' : ' month-header-net--neg'}`}>
+                              {monthNet >= 0 ? '+' : '−'}{formatAmount(Math.abs(monthNet))}
+                            </span>
                           </div>
-                        )}
-                      </td>
-                      <td>
-                        <input type="number" className="form-input edit-input" value={editState.amount}
-                          onChange={e => setEditState({...editState, amount: e.target.value})}
-                          step="0.01" min="0.01"/>
-                      </td>
-                      <td className="edit-actions">
-                        <button onClick={() => handleUpdate(tr.id)} className="action-btn save" title={t('transactions.save_btn')}>
-                          <Check size={18}/>
-                        </button>
-                        <button onClick={handleCancelEdit} className="action-btn cancel" title={t('transactions.cancel_btn')}>
-                          <X size={18}/>
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr key={tr.id} className="tx-row-clickable" onClick={() => setSelectedTx(tr)}>
-                      <td>{new Date(tr.date).toLocaleDateString()}</td>
-                      <td><span className="category-tag">{tr.category?.name || t('transactions.no_category')}</span></td>
-                      <td>{tr.description || '—'}</td>
-                      <td>
-                        <span className={`type-badge ${tr.type === 'income' ? 'type-income' : 'type-expense'}`}>
-                          {tr.type === 'income' ? t('transactions.type_income') : t('transactions.type_expense')}
-                        </span>
-                      </td>
-                      <td className={tr.type === 'income' ? 'amount-income' : 'amount-expense'}>
-                        {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
-                      </td>
-                      <td>
-                        <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
-                          <Pencil size={18}/>
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
-                          <Trash2 size={18}/>
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                ))
-              )}
-            </tbody>
+                        </td>
+                      </tr>
+                    </tbody>
+
+                    {/* Transaction rows — hidden when collapsed */}
+                    <tbody className={`month-txns-tbody${isExpanded ? '' : ' month-txns-tbody--hidden'}`}>
+                      {group.transactions.map(tr => (
+                        editingId === tr.id ? (
+                          <tr key={tr.id} className="edit-row">
+                            <td>
+                              <input type="date" className="form-input edit-input" value={editState.date}
+                                onChange={e => setEditState({...editState, date: e.target.value})}/>
+                            </td>
+                            <td>
+                              <select className="form-input edit-input" value={editState.category_id}
+                                onChange={e => setEditState({...editState, category_id: e.target.value})}>
+                                {categories.map(c => (
+                                  <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>
+                              <input type="text" className="form-input edit-input" value={editState.description}
+                                onChange={e => setEditState({...editState, description: e.target.value})}
+                                placeholder={t('transactions.description')}/>
+                            </td>
+                            <td>
+                              <select className="form-input edit-input" value={editState.type}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  if (v === 'expense' || v === 'income') setEditState({...editState, type: v});
+                                }}>
+                                <option value="expense">{t('transactions.type_expense')}</option>
+                                <option value="income">{t('transactions.type_income')}</option>
+                              </select>
+                              {editState.type === 'income' && (
+                                <div className="edit-income-type">
+                                  <button type="button"
+                                    className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
+                                    onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
+                                    {t('transactions.income_type_full')}
+                                  </button>
+                                  <button type="button"
+                                    className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
+                                    onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
+                                    {t('transactions.income_type_part')}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <input type="number" className="form-input edit-input" value={editState.amount}
+                                onChange={e => setEditState({...editState, amount: e.target.value})}
+                                step="0.01" min="0.01"/>
+                            </td>
+                            <td className="edit-actions">
+                              <button onClick={() => handleUpdate(tr.id)} className="action-btn save" title={t('transactions.save_btn')}>
+                                <Check size={18}/>
+                              </button>
+                              <button onClick={handleCancelEdit} className="action-btn cancel" title={t('transactions.cancel_btn')}>
+                                <X size={18}/>
+                              </button>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={tr.id} className="tx-row-clickable" onClick={() => setSelectedTx(tr)}>
+                            <td>{new Date(tr.date).toLocaleDateString()}</td>
+                            <td><span className="category-tag">{tr.category?.name || t('transactions.no_category')}</span></td>
+                            <td>{tr.description || '—'}</td>
+                            <td>
+                              <span className={`type-badge ${tr.type === 'income' ? 'type-income' : 'type-expense'}`}>
+                                {tr.type === 'income' ? t('transactions.type_income') : t('transactions.type_expense')}
+                              </span>
+                            </td>
+                            <td className={tr.type === 'income' ? 'amount-income' : 'amount-expense'}>
+                              {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                            </td>
+                            <td>
+                              <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
+                                <Pencil size={18}/>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
+                                <Trash2 size={18}/>
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      ))}
+                    </tbody>
+                  </React.Fragment>
+                );
+              })
+            )}
           </table>
         </div>
 
-        {/* Mobile card list */}
+        {/* ── Mobile accordion list ───────────────────────────────────────── */}
         <div className="tx-cards-mobile">
-          {transactions.length === 0 ? (
+          {groups.length === 0 ? (
             <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
           ) : (
-            transactions.map(tr => (
-              <div
-                key={tr.id}
-                className="tx-card-item"
-                onClick={() => { if (editingId !== tr.id) setSelectedTx(tr); }}
-                style={{ cursor: editingId === tr.id ? 'default' : 'pointer' }}
-              >
-                {editingId === tr.id ? (
-                  <div className="tx-card-edit">
-                    <div className="tx-card-edit-field">
-                      <label className="tx-card-edit-label">{t('transactions.date')}</label>
-                      <input type="date" className="form-input tx-card-edit-input" value={editState.date}
-                        onChange={e => setEditState({...editState, date: e.target.value})}/>
+            groups.map(group => {
+              const isExpanded = expandedMonths.has(group.key);
+              const monthNet =
+                group.transactions.reduce((s, t) =>
+                  s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+              const label = formatMonthLabel(group.year, group.month, locale);
+
+              return (
+                <div key={group.key} className="month-accordion">
+                  <button
+                    className="month-accordion-btn"
+                    onClick={() => toggleMonth(group.key)}
+                    aria-expanded={isExpanded}
+                    aria-controls={`month-content-${group.key}`}
+                  >
+                    <div className="month-accordion-left">
+                      <ChevronDown
+                        size={18}
+                        className={`month-chevron${isExpanded ? ' month-chevron--open' : ''}`}
+                      />
+                      <span className="month-accordion-label">{label}</span>
                     </div>
-                    <div className="tx-card-edit-field">
-                      <label className="tx-card-edit-label">{t('transactions.amount')}</label>
-                      <input type="number" className="form-input tx-card-edit-input" value={editState.amount}
-                        onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01" min="0.01"/>
-                    </div>
-                    <div className="tx-card-edit-field">
-                      <label className="tx-card-edit-label">{t('transactions.type')}</label>
-                      <select className="form-input tx-card-edit-input" value={editState.type}
-                        onChange={e => { const v = e.target.value; if (v === 'expense' || v === 'income') setEditState({...editState, type: v}); }}>
-                        <option value="expense">{t('transactions.type_expense')}</option>
-                        <option value="income">{t('transactions.type_income')}</option>
-                      </select>
-                      {editState.type === 'income' && (
-                        <div className="edit-income-type">
-                          <button type="button"
-                            className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
-                            onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
-                            {t('transactions.income_type_full')}
-                          </button>
-                          <button type="button"
-                            className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
-                            onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
-                            {t('transactions.income_type_part')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="tx-card-edit-field">
-                      <label className="tx-card-edit-label">{t('transactions.category')}</label>
-                      <select className="form-input tx-card-edit-input" value={editState.category_id}
-                        onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="tx-card-edit-field">
-                      <label className="tx-card-edit-label">{t('transactions.description')}</label>
-                      <input type="text" className="form-input tx-card-edit-input" value={editState.description}
-                        onChange={e => setEditState({...editState, description: e.target.value})}
-                        placeholder={t('transactions.desc_ph')}/>
-                    </div>
-                    <div className="tx-card-edit-actions">
-                      <button onClick={() => handleUpdate(tr.id)} className="tx-card-edit-btn tx-card-edit-btn--save">
-                        <Check size={16}/>{t('transactions.save_btn')}
-                      </button>
-                      <button onClick={handleCancelEdit} className="tx-card-edit-btn tx-card-edit-btn--cancel">
-                        <X size={16}/>{t('transactions.cancel_btn')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="tx-card-top">
-                      <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
-                      <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
-                        {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                    <div className="month-accordion-right">
+                      <span className="month-accordion-count">{group.transactions.length}</span>
+                      <span className={`month-accordion-net${monthNet >= 0 ? ' month-accordion-net--pos' : ' month-accordion-net--neg'}`}>
+                        {monthNet >= 0 ? '+' : '−'}{formatAmount(Math.abs(monthNet))}
                       </span>
                     </div>
-                    <div className="tx-card-meta">
-                      <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
-                      {tr.description && <span className="tx-card-desc">{tr.description}</span>}
-                    </div>
-                    <div className="tx-card-actions">
-                      <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit"><Pencil size={16}/></button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete"><Trash2 size={16}/></button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        key="content"
+                        id={`month-content-${group.key}`}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                        style={{ overflow: 'hidden' }}
+                      >
+                        <div className="month-accordion-body">
+                          {group.transactions.map(tr => (
+                            <div
+                              key={tr.id}
+                              className="tx-card-item"
+                              onClick={() => { if (editingId !== tr.id) setSelectedTx(tr); }}
+                              style={{ cursor: editingId === tr.id ? 'default' : 'pointer' }}
+                            >
+                              {editingId === tr.id ? (
+                                <div className="tx-card-edit">
+                                  <div className="tx-card-edit-field">
+                                    <label className="tx-card-edit-label">{t('transactions.date')}</label>
+                                    <input type="date" className="form-input tx-card-edit-input" value={editState.date}
+                                      onChange={e => setEditState({...editState, date: e.target.value})}/>
+                                  </div>
+                                  <div className="tx-card-edit-field">
+                                    <label className="tx-card-edit-label">{t('transactions.amount')}</label>
+                                    <input type="number" className="form-input tx-card-edit-input" value={editState.amount}
+                                      onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01" min="0.01"/>
+                                  </div>
+                                  <div className="tx-card-edit-field">
+                                    <label className="tx-card-edit-label">{t('transactions.type')}</label>
+                                    <select className="form-input tx-card-edit-input" value={editState.type}
+                                      onChange={e => { const v = e.target.value; if (v === 'expense' || v === 'income') setEditState({...editState, type: v}); }}>
+                                      <option value="expense">{t('transactions.type_expense')}</option>
+                                      <option value="income">{t('transactions.type_income')}</option>
+                                    </select>
+                                    {editState.type === 'income' && (
+                                      <div className="edit-income-type">
+                                        <button type="button"
+                                          className={`edit-income-pill${editState.income_type === 'one_time' ? ' edit-income-pill--active' : ''}`}
+                                          onClick={() => setEditState(prev => ({ ...prev, income_type: 'one_time' }))}>
+                                          {t('transactions.income_type_full')}
+                                        </button>
+                                        <button type="button"
+                                          className={`edit-income-pill${editState.income_type === 'part' ? ' edit-income-pill--active' : ''}`}
+                                          onClick={() => setEditState(prev => ({ ...prev, income_type: 'part' }))}>
+                                          {t('transactions.income_type_part')}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="tx-card-edit-field">
+                                    <label className="tx-card-edit-label">{t('transactions.category')}</label>
+                                    <select className="form-input tx-card-edit-input" value={editState.category_id}
+                                      onChange={e => setEditState({...editState, category_id: e.target.value})}>
+                                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="tx-card-edit-field">
+                                    <label className="tx-card-edit-label">{t('transactions.description')}</label>
+                                    <input type="text" className="form-input tx-card-edit-input" value={editState.description}
+                                      onChange={e => setEditState({...editState, description: e.target.value})}
+                                      placeholder={t('transactions.desc_ph')}/>
+                                  </div>
+                                  <div className="tx-card-edit-actions">
+                                    <button onClick={() => handleUpdate(tr.id)} className="tx-card-edit-btn tx-card-edit-btn--save">
+                                      <Check size={16}/>{t('transactions.save_btn')}
+                                    </button>
+                                    <button onClick={handleCancelEdit} className="tx-card-edit-btn tx-card-edit-btn--cancel">
+                                      <X size={16}/>{t('transactions.cancel_btn')}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="tx-card-top">
+                                    <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
+                                    <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
+                                      {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                                    </span>
+                                  </div>
+                                  <div className="tx-card-meta">
+                                    <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
+                                    {tr.description && <span className="tx-card-desc">{tr.description}</span>}
+                                  </div>
+                                  <div className="tx-card-actions">
+                                    <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit"><Pencil size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete"><Trash2 size={16}/></button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })
           )}
-
-
         </div>
       </div>
 
