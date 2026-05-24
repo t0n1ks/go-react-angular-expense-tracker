@@ -26,6 +26,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     margin-bottom: 1.5rem;
 }
 
@@ -36,6 +37,9 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    /* Prevent the title from squeezing the export button off-screen */
+    flex: 1;
+    min-width: 0;
 }
 
 .transaction-form-grid {
@@ -289,7 +293,11 @@
 
   .btn-add-transaction { width: 100%; align-self: auto; }
 
-  /* Compact export button on mobile */
+  /* Shrink the history card title and export button on mobile */
+  .card-header .card-title {
+    font-size: 1rem;
+  }
+
   .btn-export-pdf {
     padding: 0.35rem 0.65rem;
     font-size: 0.78rem;

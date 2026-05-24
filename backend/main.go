@@ -43,7 +43,7 @@ func main() {
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
@@ -102,6 +102,8 @@ func main() {
 		)
 		protected.POST("/ai/feedback", handlers.SendFeedback)
 		protected.GET("/ai/status", handlers.GetAIServiceStatus)
+
+		protected.GET("/transactions/export/pdf", handlers.ExportTransactionsPDF)
 	}
 
 	port := os.Getenv("PORT")

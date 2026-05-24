@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } from 'lucide-react';
-import { exportTransactionsPDF } from '../utils/exportTransactionsPDF';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 import {
@@ -33,6 +32,7 @@ const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [formState, setFormState] = useState({
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -207,23 +207,28 @@ const Transactions: React.FC = () => {
 
   const handleCancelEdit = () => setEditingId(null);
 
-  const handleExportPDF = useCallback(() => {
-    exportTransactionsPDF(
-      transactions,
-      {
-        title: t('transactions.history'),
-        date: t('transactions.col_date'),
-        category: t('transactions.col_category'),
-        amount: t('transactions.col_amount'),
-        type: t('transactions.col_type'),
-        description: t('transactions.col_description'),
-        expense: t('transactions.type_expense'),
-        income: t('transactions.type_income'),
-        generatedOn: t('transactions.pdf_generated_on'),
-      },
-      formatAmount,
-    );
-  }, [transactions, t, formatAmount]);
+  const handleExportPDF = useCallback(async () => {
+    if (isPDFLoading) return;
+    setIsPDFLoading(true);
+    try {
+      const response = await axiosInstance.get('/transactions/export/pdf', {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'transactions.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      setFormError(t('transactions.error_load'));
+    } finally {
+      setIsPDFLoading(false);
+    }
+  }, [axiosInstance, t, isPDFLoading]);
 
   if (loading) return <div className="transactions-wrapper">{t('common.loading')}</div>;
 
@@ -312,11 +317,13 @@ const Transactions: React.FC = () => {
           <button
             className="btn-export-pdf"
             onClick={handleExportPDF}
-            disabled={transactions.length === 0}
+            disabled={transactions.length === 0 || isPDFLoading}
             title={t('transactions.export_pdf')}
           >
             <FileDown size={16}/>
-            <span className="btn-export-label">{t('transactions.export_pdf')}</span>
+            <span className="btn-export-label">
+              {isPDFLoading ? '…' : t('transactions.export_pdf')}
+            </span>
           </button>
         </div>
 
