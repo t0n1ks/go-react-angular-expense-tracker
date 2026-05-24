@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,7 +47,8 @@ func CreateCategory(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&category).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category: " + err.Error()})
+		log.Printf("create category: user=%v err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category"})
 		return
 	}
 
@@ -62,7 +64,8 @@ func GetCategories(c *gin.Context) {
 
 	var categories []models.Category
 	if err := database.DB.Where("user_id = ?", userID).Find(&categories).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories: " + err.Error()})
+		log.Printf("get categories: user=%v err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
 		return
 	}
 
@@ -83,7 +86,8 @@ func UpdateCategory(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found or does not belong to you"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch category: " + err.Error()})
+			log.Printf("update category fetch: user=%v cat=%v err=%v", userID, categoryID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch category"})
 		}
 		return
 	}
@@ -110,7 +114,8 @@ func UpdateCategory(c *gin.Context) {
 	category.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&category).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category: " + err.Error()})
+		log.Printf("update category save: user=%v cat=%v err=%v", userID, categoryID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update category"})
 		return
 	}
 
@@ -140,7 +145,8 @@ func DeleteCategory(c *gin.Context) {
 
 	result := database.DB.Where("id = ? AND user_id = ?", uint(categoryID), userID).Delete(&models.Category{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category: " + result.Error.Error()})
+		log.Printf("delete category: user=%v cat=%v err=%v", userID, categoryID, result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete category"})
 		return
 	}
 	if result.RowsAffected == 0 {

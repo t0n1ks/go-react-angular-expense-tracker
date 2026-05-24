@@ -52,6 +52,14 @@ func RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username cannot be empty"})
 		return
 	}
+	if len(req.Password) < 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters"})
+		return
+	}
+	if len(req.Password) > 128 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be 128 characters or fewer"})
+		return
+	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -73,7 +81,7 @@ func RegisterUser(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "username_already_exists"})
 			return
 		}
-		log.Printf("failed to create user: %v", result.Error)
+		log.Printf("register: create user err=%v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}

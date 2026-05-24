@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,7 +45,8 @@ func CreateTransaction(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Category not found or does not belong to you"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify category: " + err.Error()})
+			log.Printf("create transaction: category verify user=%v cat=%v err=%v", userID, input.CategoryID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify category"})
 		}
 		return
 	}
@@ -73,7 +75,8 @@ func CreateTransaction(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&transaction).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction: " + err.Error()})
+		log.Printf("create transaction: user=%v err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
 		return
 	}
 
@@ -87,7 +90,6 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
-	var transactions []models.Transaction
 	query := database.DB.Where("user_id = ?", userID)
 
 	if categoryIDStr := c.Query("category_id"); categoryIDStr != "" {
@@ -116,8 +118,10 @@ func GetTransactions(c *gin.Context) {
 		query = query.Where("date <= ?", parsedEndDate.Add(24*time.Hour-time.Second))
 	}
 
+	var transactions []models.Transaction
 	if err := query.Preload("Category").Order("date desc").Find(&transactions).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions: " + err.Error()})
+		log.Printf("get transactions: user=%v err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
 	}
 
@@ -142,7 +146,8 @@ func GetTransactionByID(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found or does not belong to you"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transaction: " + err.Error()})
+			log.Printf("get transaction by id: user=%v tx=%v err=%v", userID, transactionID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transaction"})
 		}
 		return
 	}
@@ -202,7 +207,8 @@ func UpdateTransaction(c *gin.Context) {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"error": "New category not found or does not belong to you"})
 			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify new category: " + err.Error()})
+				log.Printf("update transaction: category verify user=%v tx=%v err=%v", userID, transactionID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify new category"})
 			}
 			return
 		}
@@ -234,7 +240,8 @@ func UpdateTransaction(c *gin.Context) {
 	transaction.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&transaction).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction: " + err.Error()})
+		log.Printf("update transaction: user=%v tx=%v err=%v", userID, transactionID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
 		return
 	}
 
@@ -256,7 +263,8 @@ func DeleteTransaction(c *gin.Context) {
 
 	result := database.DB.Where("id = ? AND user_id = ?", uint(transactionID), userID).Delete(&models.Transaction{})
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete transaction: " + result.Error.Error()})
+		log.Printf("delete transaction: user=%v tx=%v err=%v", userID, transactionID, result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete transaction"})
 		return
 	}
 	if result.RowsAffected == 0 {
@@ -306,7 +314,8 @@ func GetDailySummary(c *gin.Context) {
 		Scan(&summaries)
 
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch daily summary: " + result.Error.Error()})
+		log.Printf("get daily summary: user=%v date=%v err=%v", userID, dateStr, result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch daily summary"})
 		return
 	}
 
@@ -359,7 +368,8 @@ func GetPeriodSummary(c *gin.Context) {
 		Scan(&summaries)
 
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch period summary: " + result.Error.Error()})
+		log.Printf("get period summary: user=%v begin=%v end=%v err=%v", userID, beginDateStr, endDateStr, result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch period summary"})
 		return
 	}
 
