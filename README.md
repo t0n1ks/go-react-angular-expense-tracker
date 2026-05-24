@@ -33,6 +33,9 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 - **In-widget guided tour:** highlights sidebar nav items via `classList.add('tour-highlight-active')` without leaving the widget; first-login greeting persisted in `localStorage`
 - **128+ localised content entries** — humor, financial facts, actionable tips, and hungry messages
 
+### Transaction History — Month Accordion
+The Transactions page groups history by calendar month behind collapsible accordion headers. Each header shows the localized month name (`Intl.DateTimeFormat`), transaction count, and net balance (income − expenses) so users get an at-a-glance summary without expanding. Current month starts expanded; all past months start collapsed. Timezone-safe date parsing prevents UTC-offset shifts from misassigning transactions to the wrong month.
+
 ### ML-Powered End-of-Month Forecast
 The Statistics page shows a **live end-of-month balance projection** computed by the Python AI brain using `scikit-learn` LinearRegression on cumulative daily expense data. The forecast card displays:
 - Projected surplus or deficit (green / red with trend icon)
@@ -40,7 +43,7 @@ The Statistics page shows a **live end-of-month balance projection** computed by
 - Financial health score bar (0–100) with colour-coded fill
 - Spending tier badge ("on track", "over budget", etc.)
 
-Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining and the raw health score. Degrades gracefully to hidden state when the AI service is offline.
+Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining and the raw health score. When payday is configured the card switches to a "balance at payday" projection. Degrades gracefully to hidden state when the AI service is offline.
 
 ### Transaction Detail Modal (Mini-Receipt)
 Clicking any transaction row or mobile card opens a **receipt-style overlay** showing the full timestamp (date + `HH:mm:ss` from GORM's `created_at`), category, formatted amount, transaction type, and the user's original description. Uses Framer Motion spring animation — slide-up on mobile, fade-scale on desktop.
@@ -76,12 +79,12 @@ Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial t
 
 | Layer | Technology |
 |---|---|
-| Backend language | Go 1.21 |
+| Backend language | Go 1.24 |
 | HTTP framework | Gin |
 | ORM | GORM |
 | Database (local) | SQLite (`glebarez/sqlite`, zero config) |
 | Database (production) | PostgreSQL via `DATABASE_URL` env var (Neon.tech) |
-| Auth | JWT · 24 h expiry · `golang-jwt/jwt` |
+| Auth | JWT · 7-day expiry · `golang-jwt/jwt/v5` |
 | Frontend framework | React 19 + TypeScript |
 | Build tool | Vite 7 |
 | Animations | Framer Motion |
@@ -102,40 +105,42 @@ Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial t
 ### Backend (`backend/`)
 
 ```
-main.go                — Gin router, CORS config, route registration
+main.go                — Gin router, global middleware (rate limiting, security headers, body size cap)
 database/database.go   — GORM Open (SQLite or Postgres), AutoMigrate, username normalisation
 models/                — User, Category, Transaction structs
 handlers/user.go       — Register, Login, GetProfile, UpdateProfile, DeleteAccount; owns jwtSecret
 handlers/category.go   — Full CRUD for categories
 handlers/transaction.go — Full CRUD + daily/period summary endpoints
-handlers/ai.go         — Proxy for all /api/ai/* routes → fin-guard-ai-service; handles language normalisation
+handlers/ai.go         — Proxy for all /api/ai/* routes → fin-guard-ai-service; language normalisation
 middleware/auth.go     — JWT validation; injects userID into Gin context
+middleware/ratelimit.go — Token-bucket rate limiter (per-IP for auth, per-user for AI endpoints)
+middleware/security.go — Security response headers + request body size cap
 ```
 
 **Route map:**
 
-| Visibility | Method | Path | Handler |
-|---|---|---|---|
-| Public | POST | `/api/register` | `RegisterUser` |
-| Public | POST | `/api/login` | `LoginUser` |
-| Public | GET | `/api/health` | health check |
-| Protected | GET/POST | `/api/categories` | list / create |
-| Protected | PUT/DELETE | `/api/categories/:id` | update / delete |
-| Protected | GET/POST | `/api/transactions` | list / create |
-| Protected | GET/PUT/DELETE | `/api/transactions/:id` | get / update / delete |
-| Protected | GET | `/api/profile` | user profile |
-| Protected | PUT | `/api/profile` | update profile & settings |
-| Protected | DELETE | `/api/user` | delete account + all data |
-| Protected | GET | `/api/summary/daily` | daily totals |
-| Protected | GET | `/api/summary/period` | period aggregation |
-| Protected | GET | `/api/stats` | per-category breakdown |
-| Protected | POST | `/api/ai/analyze` | full behavior analysis via AI brain (scores, mood, nudge, ML forecast) |
-| Protected | GET | `/api/ai/next-action` | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
-| Protected | POST | `/api/ai/feedback` | accept / reject signal for AI apology-mode tracking |
+| Visibility | Method | Path | Rate limit | Handler |
+|---|---|---|---|---|
+| Public | POST | `/api/register` | 5 / min per IP | `RegisterUser` |
+| Public | POST | `/api/login` | 10 / min per IP | `LoginUser` |
+| Public | GET | `/api/health` | — | health check |
+| Protected | GET/POST | `/api/categories` | — | list / create |
+| Protected | PUT/DELETE | `/api/categories/:id` | — | update / delete |
+| Protected | GET/POST | `/api/transactions` | — | list / create |
+| Protected | GET/PUT/DELETE | `/api/transactions/:id` | — | get / update / delete |
+| Protected | GET | `/api/profile` | — | user profile |
+| Protected | PUT | `/api/profile` | — | update profile & settings |
+| Protected | DELETE | `/api/user` | — | delete account + all data |
+| Protected | GET | `/api/summary/daily` | — | daily totals |
+| Protected | GET | `/api/summary/period` | — | period aggregation |
+| Protected | GET | `/api/stats` | — | per-category breakdown |
+| Protected | POST | `/api/ai/analyze` | 20 / min per user | full behavior analysis — scores, mood, nudge, ML forecast |
+| Protected | GET | `/api/ai/next-action` | 20 / min per user | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
+| Protected | POST | `/api/ai/feedback` | — | accept / reject signal for AI apology-mode tracking |
 
 ### AI Brain (`fin-guard-ai-service`)
 
-The Go backend proxies all `/api/ai/*` requests to a separate Python FastAPI microservice. This keeps the heavy ML work (scikit-learn forecasting, multilingual content generation) decoupled from the Go API.
+The Go backend proxies all `/api/ai/*` requests to a separate Python FastAPI microservice. The Go layer sends only the last **90 days** of transactions to keep the payload bounded regardless of how long the user has been active.
 
 ```
 Go backend ──POST /v1/analyze-behavior──► fin-guard-ai-service
@@ -146,7 +151,7 @@ Go backend ──GET /v1/tamagotchi/next-action──► fin-guard-ai-service
            ◄── { type: "JOKE"|"FACT"|"ADVICE"|"GREETING", content, animation_hint } ──
 ```
 
-Language is passed explicitly via query param (`?language=uk`) so the UFO always speaks in the UI's selected language, independent of browser locale or server defaults. The Go layer normalises ISO 639-1 `uk` → internal code `UA` before forwarding.
+Language is passed explicitly via query param (`?language=uk`) so the UFO always speaks in the UI's selected language, independent of browser locale or server defaults.
 
 See the [fin-guard-ai-service README](https://github.com/t0n1ks/fin-guard-ai-service) for its own deployment guide and API contract.
 
@@ -159,20 +164,21 @@ context/
   ThemeContext.tsx     — Light/dark toggle, persisted to localStorage
 pages/
   Dashboard.tsx        — Stat cards + TamagotchiWidget + hasTxToday computation
-  Transactions.tsx     — Full CRUD · desktop table · mobile cards · undo-delete · detail modal
+  Transactions.tsx     — Full CRUD · month accordion grouping · desktop table · mobile cards · undo-delete
   Categories.tsx       — Grid CRUD · smart word-wrap · undo-delete
   Statistics.tsx       — Recharts pie + balance timeline + ML forecast card
   Settings.tsx         — Currency, language, 50/30/20 rule explainer, goals, delete account
 components/
   TamagotchiWidget.tsx     — UFO state machine, ResizeObserver positioning, in-widget tour
-  TamagotchiWidget.css     — Pixel-grid dark screen, CSS animations, responsive sizing
   ForecastCard.tsx         — Clickable ML forecast summary card with health bar
-  ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left, health score, context sentence
+  ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left, health score
   TransactionDetailModal.tsx — Mini-receipt modal: full timestamp, description, category, amount
   Layout.tsx           — Sidebar (desktop) + bottom nav (mobile), theme toggle
   DeleteSnackbar.tsx   — Framer Motion toast with undo + dismiss
 hooks/
   useAIAssistant.ts    — Weekly pacing tiers, idle humor queue, session fingerprint dedup
+utils/
+  groupTransactionsByMonth.ts — Timezone-safe grouping utility (used by Transactions page)
 i18n/locales/          — en.json · de.json · ru.json · uk.json (128+ entries each)
 ```
 
@@ -189,15 +195,18 @@ i18n/locales/          — en.json · de.json · ru.json · uk.json (128+ entrie
 ### Quick start with Docker
 
 ```bash
+# 1. Copy env template and set the required secret
+cp .env.example .env
+# Edit .env and set JWT_SECRET (and optionally AI_SERVICE_KEY)
+# Generate a strong secret:  openssl rand -hex 32
+
+# 2. Start all services
 docker compose up --build
 ```
 
-App available at `http://localhost`. The SQLite database is persisted in a named Docker volume.
+App available at `http://localhost`.
 
-```bash
-# Set a real JWT secret
-JWT_SECRET=my-secure-secret docker compose up --build
-```
+> **JWT_SECRET is mandatory.** `docker compose up` will exit immediately with a helpful error message if it is not set in `.env`.
 
 ### Backend (no Docker)
 
@@ -206,6 +215,10 @@ cd backend
 
 # Install Air for hot reload (one-time)
 go install github.com/air-verse/air@latest
+
+# Copy and fill in env vars
+cp ../.env.example ../.env   # or backend/.env
+# Set JWT_SECRET in .env — the server refuses to start without it
 
 air          # hot reload
 # or
@@ -224,23 +237,59 @@ npm run build    # TypeScript check + Vite production build
 npm run lint     # ESLint
 ```
 
-Create `frontend-react/.env.local`:
+`frontend-react/.env` is already configured for local development:
 
 ```env
 VITE_API_URL=http://localhost:8080/api
 ```
 
-### Environment Variables — Full Reference
+### Python AI Service (optional)
 
-| Service | Variable | Notes |
+```bash
+cd ../fin-guard-ai-service
+
+# One-time: install dependencies
+pip install -r requirements.txt
+
+# Start the service
+python -m app.main    # http://localhost:8001
+```
+
+The Go backend degrades gracefully when the AI service is unreachable — it returns empty 200 responses with fallback content, so the Tamagotchi stays functional but silent.
+
+---
+
+## Environment Variables — Full Reference
+
+### Backend (`.env` in repo root or `backend/`)
+
+| Variable | Required | Notes |
 |---|---|---|
-| Backend | `DATABASE_URL` | Postgres connection string; omit for SQLite |
-| Backend | `JWT_SECRET` | **Required.** Random 64-char string — generate with `openssl rand -hex 32` |
-| Backend | `PORT` | Default `8080`; injected automatically on Render |
-| Backend | `CORS_ORIGINS` | Comma-separated allowed origins, e.g. `https://myapp.vercel.app` |
-| Backend | `AI_SERVICE_URL` | URL of fin-guard-ai-service; default `http://localhost:8001` |
-| Backend | `AI_SERVICE_KEY` | Shared secret for Go↔Python auth; generate with `openssl rand -hex 32` |
-| Frontend | `VITE_API_URL` | Backend URL + `/api` suffix |
+| `JWT_SECRET` | **Yes** | Random 64-char string. Generate: `openssl rand -hex 32`. Server exits on startup if unset. |
+| `AI_SERVICE_URL` | No | URL of fin-guard-ai-service; default `http://localhost:8001` |
+| `AI_SERVICE_KEY` | No | Shared secret for Go↔Python auth; generate with `openssl rand -hex 32` |
+| `DATABASE_URL` | No | Postgres connection string (e.g. `postgres://user:pass@host/db?sslmode=require`). Omit for SQLite. |
+| `DB_PATH` | No | SQLite file path; default `expenses.db` (inside `backend/`) |
+| `PORT` | No | Default `8080`; injected automatically on Render — do not set manually |
+| `CORS_ORIGINS` | No | Comma-separated allowed origins, e.g. `https://myapp.vercel.app` |
+
+### Frontend (`frontend-react/.env`)
+
+| Variable | Required | Notes |
+|---|---|---|
+| `VITE_API_URL` | Yes | Backend URL + `/api` suffix, e.g. `https://your-app.onrender.com/api` |
+
+---
+
+## Security Notes
+
+- **JWT tokens** expire after **7 days**. The client validates expiry on startup and redirects to `/login` if the stored token is expired.
+- **Rate limiting** is applied at the application layer: 10 req/min per IP on `/login`, 5 req/min per IP on `/register`, and 20 req/min per authenticated user on AI endpoints.
+- **Request bodies** are capped at 512 KB globally.
+- **Internal error details** (database messages, stack traces) are logged server-side only and never forwarded to clients.
+- **Password hashing** uses bcrypt with the default cost factor (10). Minimum password length is 6 characters.
+- All database queries use GORM's parameterised queries — no raw SQL string concatenation.
+- IDOR is prevented by always scoping queries with `WHERE user_id = ?` alongside the resource ID.
 
 ---
 
@@ -259,6 +308,7 @@ The production stack runs on three free tiers: Vercel + Render + Neon.tech.
 1. New → Web Service → connect GitHub repo
 2. **Root Directory:** `backend`, **Runtime:** Docker
 3. Add environment variables: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`
+   - Optionally: `AI_SERVICE_URL`, `AI_SERVICE_KEY`
 4. Note your public URL: `https://your-app.onrender.com`
 
 > Do **not** set `PORT` — Render injects it automatically.
@@ -271,8 +321,6 @@ The production stack runs on three free tiers: Vercel + Render + Neon.tech.
 4. Deploy. `vercel.json` applies SPA rewrite rules so React Router routes load on direct access.
 
 ### 4 — fin-guard-ai-service (AI Brain, optional)
-
-The Go backend degrades gracefully when the AI service is unreachable — it returns empty 200 responses so the Tamagotchi simply stays silent. To enable full AI features:
 
 1. Deploy [fin-guard-ai-service](https://github.com/t0n1ks/fin-guard-ai-service) to Render (its own `render.yaml` is included)
 2. Set `AI_SERVICE_URL=https://your-brain.onrender.com` on the Go backend
@@ -294,8 +342,8 @@ The Go backend degrades gracefully when the AI service is unreachable — it ret
 - [ ] **Export** — download history as CSV or PDF report with chart screenshots
 - [ ] **Push notifications** — browser push for weekly budget summary and goal alerts
 - [ ] **More UFO events** — meteor showers, alien diplomats, financial horoscopes
-- [ ] **Additional UFO skins** — retro rocket, flying saucer variants, seasonal themes (Halloween accountant, Christmas budget elf)
-- [ ] **Collaborative budgets** — shared expense tracking for couples or flatmates with real-time sync
+- [ ] **Additional UFO skins** — retro rocket, flying saucer variants, seasonal themes
+- [ ] **Collaborative budgets** — shared expense tracking for couples or flatmates
 - [ ] **Recurring transactions** — auto-log monthly bills and subscriptions with skip/pause support
 - [ ] **Custom categories with icons** — emoji or icon picker; colour labels for chart clarity
 - [ ] **Mobile app** — React Native shell with native haptics and offline-first sync
