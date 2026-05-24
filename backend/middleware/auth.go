@@ -1,4 +1,3 @@
-// backend/middleware/auth.go
 package middleware
 
 import (
@@ -9,53 +8,51 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/handlers" // Для доступа к jwtSecret
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/handlers"
 )
 
-// AuthMiddleware проверяет JWT токен в заголовке Authorization
+// AuthMiddleware validates the Bearer JWT on every protected request.
+// It sets "userID" (uint) in the Gin context for downstream handlers.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется токен аутентификации"})
-			c.Abort() // Прерываем выполнение запроса
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication token required"})
 			return
 		}
 
-		// Токен должен быть в формате "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный формат токена"})
-			c.Abort()
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" || parts[1] == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
 			return
 		}
 
-		tokenString := parts[1]
-
-		// Парсим и валидируем токен
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Проверяем метод подписи
+		token, err := jwt.Parse(parts[1], func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("неожиданный метод подписи: %v", token.Header["alg"])
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			// Возвращаем секретный ключ для валидации
-			return handlers.GetJWTSecret(), nil // Используем функцию для получения секрета
+			return handlers.GetJWTSecret(), nil
 		})
 
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Недействительный токен: " + err.Error()})
-			c.Abort()
+		if err != nil || !token.Valid {
+			// Do NOT forward err.Error() — it can reveal token structure / expiry details.
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			// Сохраняем user_id в контексте Gin для дальнейшего использования в обработчиках
-			userID := uint(claims["user_id"].(float64)) // JWT парсит числа как float64
-			c.Set("userID", userID)
-			c.Next() // Продолжаем выполнение запроса
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Недействительный токен"})
-			c.Abort()
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
 		}
+
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token payload"})
+			return
+		}
+
+		c.Set("userID", uint(userIDFloat))
+		c.Next()
 	}
 }

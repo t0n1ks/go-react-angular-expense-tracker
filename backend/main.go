@@ -9,6 +9,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"golang.org/x/time/rate"
+
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/handlers"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/middleware"
@@ -25,11 +27,18 @@ func main() {
 
 	router := gin.Default()
 
+	// ── Global middleware ────────────────────────────────────────────────────
+	router.Use(middleware.SecurityHeaders())
+	// 512 KB body limit — generous for this API (no file uploads).
+	// The /ai/analyze endpoint can carry a few hundred transactions; 512 KB
+	// provides headroom while blocking oversized abuse payloads.
+	router.Use(middleware.MaxBodySize(512 * 1024))
+
+	// ── CORS ─────────────────────────────────────────────────────────────────
 	allowOrigins := []string{"http://localhost:5173", "http://localhost"}
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		allowOrigins = strings.Split(raw, ",")
 	}
-
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -39,13 +48,24 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// ── Public routes ─────────────────────────────────────────────────────────
 	router.GET("/api/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	router.POST("/api/register", handlers.RegisterUser)
-	router.POST("/api/login", handlers.LoginUser)
+	// Strict rate limits on auth endpoints to mitigate brute-force and account
+	// enumeration.  Token bucket: 10 req/min for login, 5 req/min for register,
+	// both with a burst of up to 5 to absorb brief legitimate bursts.
+	router.POST("/api/register",
+		middleware.PerIP(rate.Every(12*time.Second), 5),
+		handlers.RegisterUser,
+	)
+	router.POST("/api/login",
+		middleware.PerIP(rate.Every(6*time.Second), 5),
+		handlers.LoginUser,
+	)
 
+	// ── Protected routes ──────────────────────────────────────────────────────
 	protected := router.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
@@ -68,8 +88,18 @@ func main() {
 		protected.GET("/summary/period", handlers.GetPeriodSummary)
 		protected.GET("/stats", handlers.GetPeriodSummary)
 
-		protected.POST("/ai/analyze", handlers.AnalyzeBehavior)
-		protected.GET("/ai/next-action", handlers.GetNextAction)
+		// AI endpoints — per-user rate limit to protect the Python service.
+		// 20 calls per minute per user (burst of 5) is far more than any
+		// legitimate session needs; the frontend calls /analyze at most once per
+		// page load and /next-action every 15–20 seconds.
+		protected.POST("/ai/analyze",
+			middleware.PerUser(rate.Every(3*time.Second), 5),
+			handlers.AnalyzeBehavior,
+		)
+		protected.GET("/ai/next-action",
+			middleware.PerUser(rate.Every(3*time.Second), 5),
+			handlers.GetNextAction,
+		)
 		protected.POST("/ai/feedback", handlers.SendFeedback)
 		protected.GET("/ai/status", handlers.GetAIServiceStatus)
 	}
