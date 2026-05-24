@@ -20,9 +20,11 @@ services:
       - db-data:/app/data
     environment:
       - DB_PATH=/app/data/expenses.db
-      - JWT_SECRET=${JWT_SECRET:-supersecretkey_change_me_in_production}
+      # JWT_SECRET is mandatory — docker compose will exit with an error if unset.
+      # Generate one: openssl rand -hex 32
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate with: openssl rand -hex 32}
       - AI_SERVICE_URL=http://brain:8001
-      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-changeme_shared_secret}
+      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-changeme_ai_secret_replace_in_prod}
     expose:
       - "8080"
     depends_on:

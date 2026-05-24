@@ -255,8 +255,15 @@ func AnalyzeBehavior(c *gin.Context) {
 		return
 	}
 
+	// Limit to the last 90 days — enough history for ML forecasting and mood
+	// detection while preventing the payload from growing unbounded for users
+	// with years of data.  Income transactions from the last pay cycle are
+	// always within this window for any sane pay frequency.
+	since := time.Now().AddDate(0, 0, -90)
 	var txs []models.Transaction
-	if err := database.DB.Preload("Category").Where("user_id = ?", uid).Find(&txs).Error; err != nil {
+	if err := database.DB.Preload("Category").
+		Where("user_id = ? AND date >= ?", uid, since).
+		Find(&txs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
 	}
