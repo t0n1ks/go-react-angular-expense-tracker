@@ -62,8 +62,10 @@ yarn-error.log*
 backend/expenses.db
 backend/tmp/
 
-# Claude Code local session files
-.claude/settings.local.json
+# Claude Code — entire local context dir (settings, memory, session files).
+# CLAUDE.md in the repo root is intentionally tracked; this ignores the hidden
+# .claude/ subfolder that holds developer-specific state.
+.claude/
 
 # AI-generated project context (local reference only)
 PROJECT_CONTEXT.md
