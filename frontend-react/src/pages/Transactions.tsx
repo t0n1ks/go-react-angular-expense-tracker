@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, Download } from 'lucide-react';
+import { exportTransactionsCSV } from '../utils/exportTransactionsCSV';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 import {
@@ -206,6 +207,22 @@ const Transactions: React.FC = () => {
 
   const handleCancelEdit = () => setEditingId(null);
 
+  const handleExportCSV = useCallback(() => {
+    exportTransactionsCSV(
+      transactions,
+      {
+        date: t('transactions.col_date'),
+        category: t('transactions.col_category'),
+        amount: t('transactions.col_amount'),
+        type: t('transactions.col_type'),
+        description: t('transactions.col_description'),
+        expense: t('transactions.type_expense'),
+        income: t('transactions.type_income'),
+      },
+      'transactions.csv',
+    );
+  }, [transactions, t]);
+
   if (loading) return <div className="transactions-wrapper">{t('common.loading')}</div>;
 
   return (
@@ -290,6 +307,15 @@ const Transactions: React.FC = () => {
       <div className="transaction-card">
         <div className="card-header">
           <div className="card-title"><ReceiptText size={20} style={{marginRight: '8px'}}/> {t('transactions.history')}</div>
+          <button
+            className="btn-export-csv"
+            onClick={handleExportCSV}
+            disabled={transactions.length === 0}
+            title={t('transactions.export_csv')}
+          >
+            <Download size={16} style={{marginRight: '6px'}}/>
+            {t('transactions.export_csv')}
+          </button>
         </div>
 
         {/* ── Desktop table ──────────────────────────────────────────────────── */}

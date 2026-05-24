@@ -130,7 +130,8 @@
     "detail_category": "Категорія",
     "detail_date": "Дата",
     "detail_added_at": "Додано о",
-    "detail_note": "Нотатка"
+    "detail_note": "Нотатка",
+    "export_csv": "Експорт CSV"
   },
   "categories": {
     "title": "Управління категоріями",

@@ -90,6 +90,32 @@
     background-color: var(--color-btn-primary-hover);
 }
 
+.btn-export-csv {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid var(--color-border-card);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.btn-export-csv:hover:not(:disabled) {
+    background: var(--color-category-tag-bg);
+    color: var(--color-text-heading);
+    border-color: var(--color-input-focus);
+}
+
+.btn-export-csv:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .table-container {
     overflow-x: auto;
 }

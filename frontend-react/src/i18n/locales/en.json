@@ -130,7 +130,8 @@
     "detail_category": "Category",
     "detail_date": "Date",
     "detail_added_at": "Added at",
-    "detail_note": "Note"
+    "detail_note": "Note",
+    "export_csv": "Export CSV"
   },
   "categories": {
     "title": "Manage Categories",

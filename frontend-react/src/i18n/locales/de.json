@@ -130,7 +130,8 @@
     "detail_category": "Kategorie",
     "detail_date": "Datum",
     "detail_added_at": "Erfasst um",
-    "detail_note": "Notiz"
+    "detail_note": "Notiz",
+    "export_csv": "Als CSV exportieren"
   },
   "categories": {
     "title": "Kategorien verwalten",
