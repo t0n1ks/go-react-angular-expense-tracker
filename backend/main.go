@@ -107,6 +107,7 @@ func main() {
 
 		protected.POST("/salary-cycle", handlers.StartSalaryCycle)
 		protected.GET("/salary-cycle/current", handlers.GetCurrentSalaryCycle)
+		protected.PATCH("/salary-cycle/current", handlers.UpdateCycleNextPayday)
 		protected.GET("/salary-cycle/history", handlers.GetSalaryCycleHistory)
 	}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarDays, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { CalendarDays, TrendingUp, TrendingDown, Info, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -58,16 +58,18 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   onCycleReset,
 }) => {
   const { t } = useTranslation();
-  const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings } = useSettings();
-  const { user } = useAuth();
+  const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings, refreshCycle } = useSettings();
+  const { user, axiosInstance } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
+  const [paydayEditError, setPaydayEditError] = useState('');
   const [showInsight, setShowInsight] = useState(false);
   const insightRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalDateStr(today);
+  const tomorrowStr = (() => { const d = new Date(today); d.setDate(d.getDate() + 1); return toLocalDateStr(d); })();
 
   // ── Cycle boundaries ──────────────────────────────────────────────────────
   let lastPayday: Date | null = null;
@@ -211,7 +213,22 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     setEditingPayday(false);
   };
 
-  const handleCancel = () => { setEditingPayday(false); setPendingDate(''); };
+  // Cycle-path save: PATCH the active cycle then refresh global state
+  const handleCyclePaydaySave = async () => {
+    if (!pendingDate) return;
+    setPaydayEditError('');
+    try {
+      await axiosInstance.patch('/salary-cycle/current', { next_payday: pendingDate });
+      await refreshCycle();
+      setEditingPayday(false);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error ?? 'Failed to update payday';
+      setPaydayEditError(msg);
+    }
+  };
+
+  const handleCancel = () => { setEditingPayday(false); setPendingDate(''); setPaydayEditError(''); };
 
   useEffect(() => {
     if (!showInsight) return;
@@ -378,35 +395,69 @@ const WeeklyBudgetCard: React.FC<Props> = ({
 
       <div className="weekly-budget-footer">
         {editingPayday ? (
+          // ── Inline date editor (shared by both cycle and legacy paths) ────
           <div className="weekly-budget-payday-form">
             <input
               type="date"
               className="weekly-budget-date-input"
               value={pendingDate}
-              min={todayStr}
-              onChange={e => setPendingDate(e.target.value)}
+              min={tomorrowStr}
+              onChange={e => { setPendingDate(e.target.value); setPaydayEditError(''); }}
             />
-            <button className="weekly-budget-action-btn weekly-budget-action-btn--save" onClick={handleSave}>
+            <button
+              className="weekly-budget-action-btn weekly-budget-action-btn--save"
+              onClick={cycleStartAt ? handleCyclePaydaySave : handleSave}
+            >
               {t('dashboard.weekly_save')}
             </button>
             <button className="weekly-budget-action-btn weekly-budget-action-btn--cancel" onClick={handleCancel}>
               {t('dashboard.weekly_cancel')}
             </button>
-          </div>
-        ) : nextPayday && (
-          <div className="weekly-budget-payday-info">
-            <span className="weekly-budget-payday-label">{t('dashboard.weekly_next_payday_label')}:</span>
-            {paydayMode === 'smart' && !cycleStartAt ? (
-              <button className="weekly-budget-payday-btn" onClick={openPaydayPicker}>
-                {nextPaydayDisplay}
-              </button>
-            ) : (
-              <span className="weekly-budget-payday-date">{nextPaydayDisplay}</span>
+            {paydayEditError && (
+              <span className="wbc-payday-error">{paydayEditError}</span>
             )}
-            <span className="weekly-budget-days-left">
-              ({t('dashboard.weekly_days_left', { days: daysRemaining })})
-            </span>
           </div>
+        ) : cycleStartAt ? (
+          // ── Salary-cycle path: show date + pencil, or "set" prompt ────────
+          nextPayday ? (
+            <div className="weekly-budget-payday-info">
+              <span className="weekly-budget-payday-label">{t('dashboard.weekly_next_payday_label')}:</span>
+              <span className="weekly-budget-payday-date">{nextPaydayDisplay}</span>
+              <button
+                className="wbc-edit-payday-btn"
+                onClick={openPaydayPicker}
+                title={t('dashboard.weekly_edit_payday')}
+                type="button"
+                aria-label={t('dashboard.weekly_edit_payday')}
+              >
+                <Pencil size={12} />
+              </button>
+              <span className="weekly-budget-days-left">
+                ({t('dashboard.weekly_days_left', { days: daysRemaining })})
+              </span>
+            </div>
+          ) : (
+            <button className="wbc-set-payday-btn" onClick={openPaydayPicker} type="button">
+              + {t('dashboard.weekly_set_next_payday')}
+            </button>
+          )
+        ) : (
+          // ── Legacy path: smart = clickable date, fixed = static date ──────
+          nextPayday && (
+            <div className="weekly-budget-payday-info">
+              <span className="weekly-budget-payday-label">{t('dashboard.weekly_next_payday_label')}:</span>
+              {paydayMode === 'smart' ? (
+                <button className="weekly-budget-payday-btn" onClick={openPaydayPicker}>
+                  {nextPaydayDisplay}
+                </button>
+              ) : (
+                <span className="weekly-budget-payday-date">{nextPaydayDisplay}</span>
+              )}
+              <span className="weekly-budget-days-left">
+                ({t('dashboard.weekly_days_left', { days: daysRemaining })})
+              </span>
+            </div>
+          )
         )}
       </div>
     </div>

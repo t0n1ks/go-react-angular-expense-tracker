@@ -365,6 +365,73 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	})
 }
 
+// UpdateCycleNextPayday handles PATCH /api/salary-cycle/current.
+// Updates only the next_payday_at field on the active cycle and syncs
+// manual_next_payday on the user profile so all downstream components
+// (WeeklyBudgetCard, AI analyze) pick up the change immediately.
+func UpdateCycleNextPayday(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	var req struct {
+		NextPayday string `json:"next_payday" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	newDate, err := time.Parse("2006-01-02", req.NextPayday)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid next_payday format. Use YYYY-MM-DD"})
+		return
+	}
+
+	var cycle models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at DESC").
+		First(&cycle).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
+			return
+		}
+		log.Printf("patch cycle payday: find user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycle"})
+		return
+	}
+
+	// new date must be strictly after the cycle's start day
+	if !newDate.After(cycle.CycleStartAt.Truncate(24 * time.Hour)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "next_payday must be after the cycle start date"})
+		return
+	}
+
+	now := time.Now()
+	if err := database.DB.Model(&cycle).Updates(map[string]any{
+		"next_payday_at": newDate,
+		"updated_at":     now,
+	}).Error; err != nil {
+		log.Printf("patch cycle payday: update user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update next payday"})
+		return
+	}
+
+	// Keep User.manual_next_payday in sync
+	if err := database.DB.Model(&models.User{}).Where("id = ?", uid).
+		Update("manual_next_payday", req.NextPayday).Error; err != nil {
+		log.Printf("patch cycle payday: profile sync user=%v err=%v", uid, err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Next payday updated",
+		"next_payday_at": newDate.Format("2006-01-02"),
+	})
+}
+
 // GetSalaryCycleHistory returns the last 24 salary cycles for historical analysis.
 func GetSalaryCycleHistory(c *gin.Context) {
 	userID, exists := c.Get("userID")

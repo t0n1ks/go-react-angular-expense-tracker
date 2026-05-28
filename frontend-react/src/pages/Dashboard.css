@@ -435,6 +435,43 @@
 .budget-insight-cheer--up   { color: #10b981; }
 .budget-insight-cheer--down { color: #f87171; }
 
+/* ── Inline payday edit controls (new cycle path) ───────────────────────── */
+.wbc-edit-payday-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  opacity: 0.55;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 1;
+}
+.wbc-edit-payday-btn:hover { opacity: 1; color: #38bdf8; }
+
+.wbc-set-payday-btn {
+  background: none;
+  border: 1px dashed var(--color-border-card);
+  border-radius: 8px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  margin-top: 0.35rem;
+}
+.wbc-set-payday-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+
+.wbc-payday-error {
+  font-size: 0.72rem;
+  color: #f87171;
+  margin-top: 0.25rem;
+  display: block;
+}
+
 /* ── Mobile / Tablet responsive ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .dashboard-wrapper {

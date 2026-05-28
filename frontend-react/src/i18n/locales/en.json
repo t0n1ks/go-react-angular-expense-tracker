@@ -71,6 +71,8 @@
     "weekly_next_payday_label": "Next payday",
     "weekly_days_left": "{{days}} days",
     "weekly_no_cycle": "Set your payday to enable weekly tracking",
+    "weekly_edit_payday": "Edit next payday",
+    "weekly_set_next_payday": "Set next payday",
     "weekly_save": "Save",
     "weekly_cancel": "Cancel",
     "weekly_payday_today": "Payday! Set your next payday.",

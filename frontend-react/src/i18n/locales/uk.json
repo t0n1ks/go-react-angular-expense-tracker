@@ -71,6 +71,8 @@
     "weekly_next_payday_label": "Наступна виплата",
     "weekly_days_left": "{{days}} дн.",
     "weekly_no_cycle": "Встановіть день виплати для тижневого відстеження",
+    "weekly_edit_payday": "Змінити наступну виплату",
+    "weekly_set_next_payday": "Вказати наступну виплату",
     "weekly_save": "Зберегти",
     "weekly_cancel": "Скасувати",
     "weekly_payday_today": "День виплати! Встановіть наступний.",
