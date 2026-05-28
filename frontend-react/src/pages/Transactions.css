@@ -509,14 +509,26 @@
     font-weight: 600;
 }
 
-.month-header-net {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+.month-header-amounts {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
 }
 
-.month-header-net--pos { color: var(--color-income-text); }
-.month-header-net--neg { color: var(--color-expense-text); }
+.month-header-income {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-income-text);
+}
+
+.month-header-expense {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-expense-text);
+}
 
 .month-txns-tbody--hidden {
     display: none;
@@ -589,14 +601,25 @@
     line-height: 1.4;
   }
 
-  .month-accordion-net {
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+  .month-accordion-amounts {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
 
-  .month-accordion-net--pos { color: var(--color-income-text); }
-  .month-accordion-net--neg { color: var(--color-expense-text); }
+  .month-accordion-income {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-income-text);
+  }
+
+  .month-accordion-expense {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-expense-text);
+  }
 
   .month-accordion-body {
     display: flex;

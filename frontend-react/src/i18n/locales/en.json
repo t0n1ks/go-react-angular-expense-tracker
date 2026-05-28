@@ -77,6 +77,7 @@
     "weekly_budget_limit": "Monthly limit",
     "weekly_spent_since": "Spent since payday",
     "expenses_this_month": "this month",
+    "since_payday": "since last payday",
     "weekly_savings_bonus": "savings bonus",
     "budget_insight_title_up": "Saving Today",
     "budget_insight_title_down": "Over Daily Budget",
@@ -179,7 +180,13 @@
     "forecast_negative_payday": "Projected deficit by payday",
     "forecast_modal_days_until_payday": "Days until payday",
     "forecast_modal_days_payday_count": "{{count}} days until payday",
-    "forecast_modal_context_payday": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by payday."
+    "forecast_modal_context_payday": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by payday.",
+    "savings_forecast_title": "Savings Forecast",
+    "savings_forecast_this_cycle": "This cycle surplus",
+    "savings_forecast_annual": "Annual projection",
+    "savings_forecast_accumulated": "Accumulated balance",
+    "savings_forecast_tip_pos": "You're on a great savings trajectory! Consider building an investment portfolio.",
+    "savings_forecast_tip_neg": "Spending outpaces income this cycle. Review your top expense categories."
   },
   "settings": {
     "title": "Settings",

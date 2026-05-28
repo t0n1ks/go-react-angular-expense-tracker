@@ -14,16 +14,17 @@ interface Transaction {
   type: 'expense' | 'income';
   income_type?: string;
   date: string;
+  created_at?: string;
   category?: { name: string };
 }
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, currencySymbol, aiAdviceEnabled, monthlySpendingGoal, expectedSalary } = useSettings();
+  const { formatAmount, currencySymbol, aiAdviceEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aiData, setAIData] = useState<{ tamagotchi_mood: string } | null>(null);
+  const [aiData, setAIData] = useState<{ tamagotchi_mood: string; predicted_savings_balance?: number } | null>(null);
   const [aiServiceMode, setAIServiceMode] = useState<'online' | 'autonomous' | 'initializing'>('initializing');
 
   const fetchData = useCallback(async () => {
@@ -43,7 +44,7 @@ const Dashboard: React.FC = () => {
   const analyzeLang = i18n.resolvedLanguage ?? 'en';
   useEffect(() => {
     axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
-      .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
+      .then((res: { data: { tamagotchi_mood: string; predicted_savings_balance?: number } }) => setAIData(res.data))
       .catch(() => {});
   }, [axiosInstance, analyzeLang]);
 
@@ -72,7 +73,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (prevModeRef.current !== 'online' && aiServiceMode === 'online') {
       axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
-        .then((res: { data: { tamagotchi_mood: string } }) => setAIData(res.data))
+        .then((res: { data: { tamagotchi_mood: string; predicted_savings_balance?: number } }) => setAIData(res.data))
         .catch(() => {});
     }
     prevModeRef.current = aiServiceMode;
@@ -93,7 +94,41 @@ const Dashboard: React.FC = () => {
     ? (hasFull ? totalIncome - totalExpense : Math.max(totalIncome, expectedSalary) - totalExpense)
     : null;
 
-  const budgetPercent = monthlySpendingGoal > 0 ? (totalExpense / monthlySpendingGoal) * 100 : 0;
+  // Cycle-start for Budget Health card: respects payday mode so the card resets on salary
+  const cycleStart = (() => {
+    if (paydayMode === 'fixed' && fixedPayday > 0) {
+      const now = new Date();
+      const d = now.getDate(), m = now.getMonth(), y = now.getFullYear();
+      return d >= fixedPayday ? new Date(y, m, fixedPayday) : new Date(y, m - 1, fixedPayday);
+    }
+    // Smart mode: use created_at of last one_time income for sub-day precision
+    const lastSalary = transactions
+      .filter(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type))
+      .sort((a, b) => {
+        const aTs = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+        const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+        return bTs - aTs;
+      })[0];
+    if (lastSalary) {
+      return lastSalary.created_at
+        ? new Date(lastSalary.created_at)
+        : new Date(lastSalary.date + 'T00:00:00');
+    }
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  })();
+
+  const cycleExpenses = transactions
+    .filter(t => {
+      if (t.type !== 'expense') return false;
+      const txTs = t.created_at
+        ? new Date(t.created_at).getTime()
+        : new Date(t.date.slice(0, 10) + 'T23:59:59').getTime();
+      return txTs > cycleStart.getTime();
+    })
+    .reduce((acc, t) => acc + Number(t.amount), 0);
+
+  const budgetPercent = monthlySpendingGoal > 0 ? (cycleExpenses / monthlySpendingGoal) * 100 : 0;
   const budgetBarColor = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
 
   const { heartsCount } = useSettings();
@@ -153,10 +188,11 @@ const Dashboard: React.FC = () => {
             <div className="stat-icon budget-icon"><Target size={24}/></div>
             <div className="stat-content">
               <p className="label">{t('dashboard.budget_health')}</p>
-              <p className="value" style={{ color: budgetBarColor }}>{formatAmount(totalExpense)} / {formatAmount(monthlySpendingGoal)}</p>
+              <p className="value" style={{ color: budgetBarColor }}>{formatAmount(cycleExpenses)} / {formatAmount(monthlySpendingGoal)}</p>
               <div className="budget-health-bar-track">
                 <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
               </div>
+              <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
             </div>
           </div>
         )}
@@ -177,6 +213,7 @@ const Dashboard: React.FC = () => {
         animationHint={animationHint}
         heartsCount={heartsCount}
         aiServiceMode={aiServiceMode}
+        savingsBalance={aiData?.predicted_savings_balance}
       />
     </div>
   );

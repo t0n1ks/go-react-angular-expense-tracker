@@ -353,9 +353,12 @@ const Transactions: React.FC = () => {
             ) : (
               groups.map(group => {
                 const isExpanded = expandedMonths.has(group.key);
-                const monthNet =
-                  group.transactions.reduce((s, t) =>
-                    s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+                const monthIncome = group.transactions
+                  .filter(t => t.type === 'income')
+                  .reduce((s, t) => s + Number(t.amount), 0);
+                const monthExpense = group.transactions
+                  .filter(t => t.type === 'expense')
+                  .reduce((s, t) => s + Number(t.amount), 0);
                 const label = formatMonthLabel(group.year, group.month, locale);
 
                 return (
@@ -375,8 +378,13 @@ const Transactions: React.FC = () => {
                             />
                             <span className="month-header-label">{label}</span>
                             <span className="month-header-count">{group.transactions.length}</span>
-                            <span className={`month-header-net${monthNet >= 0 ? ' month-header-net--pos' : ' month-header-net--neg'}`}>
-                              {monthNet >= 0 ? '+' : '−'}{formatAmount(Math.abs(monthNet))}
+                            <span className="month-header-amounts">
+                              {monthIncome > 0 && (
+                                <span className="month-header-income">+{formatAmount(monthIncome)}</span>
+                              )}
+                              {monthExpense > 0 && (
+                                <span className="month-header-expense">−{formatAmount(monthExpense)}</span>
+                              )}
                             </span>
                           </div>
                         </td>
@@ -482,9 +490,12 @@ const Transactions: React.FC = () => {
           ) : (
             groups.map(group => {
               const isExpanded = expandedMonths.has(group.key);
-              const monthNet =
-                group.transactions.reduce((s, t) =>
-                  s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+              const monthIncomeM = group.transactions
+                .filter(t => t.type === 'income')
+                .reduce((s, t) => s + Number(t.amount), 0);
+              const monthExpenseM = group.transactions
+                .filter(t => t.type === 'expense')
+                .reduce((s, t) => s + Number(t.amount), 0);
               const label = formatMonthLabel(group.year, group.month, locale);
 
               return (
@@ -504,8 +515,13 @@ const Transactions: React.FC = () => {
                     </div>
                     <div className="month-accordion-right">
                       <span className="month-accordion-count">{group.transactions.length}</span>
-                      <span className={`month-accordion-net${monthNet >= 0 ? ' month-accordion-net--pos' : ' month-accordion-net--neg'}`}>
-                        {monthNet >= 0 ? '+' : '−'}{formatAmount(Math.abs(monthNet))}
+                      <span className="month-accordion-amounts">
+                        {monthIncomeM > 0 && (
+                          <span className="month-accordion-income">+{formatAmount(monthIncomeM)}</span>
+                        )}
+                        {monthExpenseM > 0 && (
+                          <span className="month-accordion-expense">−{formatAmount(monthExpenseM)}</span>
+                        )}
                       </span>
                     </div>
                   </button>

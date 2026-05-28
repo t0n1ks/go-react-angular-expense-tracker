@@ -77,6 +77,7 @@
     "weekly_budget_limit": "Месячный лимит",
     "weekly_spent_since": "Потрачено с дня выплаты",
     "expenses_this_month": "за этот месяц",
+    "since_payday": "с последней выплаты",
     "weekly_savings_bonus": "бонус экономии",
     "budget_insight_title_up": "Экономия сегодня",
     "budget_insight_title_down": "Дневной бюджет превышен",
@@ -179,7 +180,13 @@
     "forecast_negative_payday": "Прогнозируемый дефицит к зарплате",
     "forecast_modal_days_until_payday": "До зарплаты",
     "forecast_modal_days_payday_count": "{{count}} дн. до зарплаты",
-    "forecast_modal_context_payday": "При вашем темпе трат {{rate}}/день, к зарплате у вас будет {{balance}} {{direction}}."
+    "forecast_modal_context_payday": "При вашем темпе трат {{rate}}/день, к зарплате у вас будет {{balance}} {{direction}}.",
+    "savings_forecast_title": "Прогноз накоплений",
+    "savings_forecast_this_cycle": "Профицит цикла",
+    "savings_forecast_annual": "Годовой прогноз",
+    "savings_forecast_accumulated": "Накопленный баланс",
+    "savings_forecast_tip_pos": "Вы на отличной траектории накоплений! Подумайте об инвестиционном портфеле.",
+    "savings_forecast_tip_neg": "Расходы превышают доходы в этом цикле. Проверьте основные категории трат."
   },
   "settings": {
     "title": "Настройки",

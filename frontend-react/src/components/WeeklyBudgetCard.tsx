@@ -11,6 +11,7 @@ interface Transaction {
   type: 'expense' | 'income';
   income_type?: string;
   date: string;
+  created_at?: string;
 }
 
 interface Props {
@@ -77,16 +78,20 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     lastPayday = last;
     nextPayday = next;
   } else {
-    // Smart mode: find most recent valid one-time income transaction
-    const lastIncome = transactions
+    // Smart mode: find most recent one-time income, using created_at for sub-day precision
+    const lastIncomeTx = transactions
       .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
-      .map(tx => safeParseDate(tx.date))
-      .filter((d): d is Date => d !== null)
-      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+      .sort((a, b) => {
+        const aTs = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+        const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+        return bTs - aTs;
+      })[0] ?? null;
 
-    if (lastIncome) {
-      lastPayday = new Date(lastIncome);
-      lastPayday.setHours(0, 0, 0, 0);
+    if (lastIncomeTx) {
+      // Use created_at for precise cutoff — fixes same-day pre-salary expenses being counted
+      lastPayday = lastIncomeTx.created_at
+        ? new Date(lastIncomeTx.created_at)
+        : new Date(lastIncomeTx.date + 'T00:00:00');
     } else {
       // Fallback: start of current month
       lastPayday = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -101,13 +106,16 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const hasCycle = nextPayday !== null;
 
-  // --- Spending since last payday ---
-  const lastPaydayStr = lastPayday ? toLocalDateStr(lastPayday) : todayStr;
+  // --- Spending since last payday (timestamp-aware to exclude pre-salary same-day expenses) ---
+  const lastPaydayTs = lastPayday ? lastPayday.getTime() : 0;
   const spentSincePayday = transactions
     .filter(tx => {
       if (tx.type !== 'expense' || !tx.date) return false;
-      const d = tx.date.slice(0, 10);
-      return d >= lastPaydayStr && d <= todayStr;
+      // Use created_at if available for sub-day precision; otherwise include all same-day expenses
+      const txTs = tx.created_at
+        ? new Date(tx.created_at).getTime()
+        : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
+      return txTs > lastPaydayTs;
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 

@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext";
-import { PieChart as PieIcon, TrendingUp } from "lucide-react";
+import { PieChart as PieIcon, TrendingUp, PiggyBank } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -29,13 +29,14 @@ interface Transaction {
 
 interface AnalysisResult {
   predicted_end_of_month_balance: number | null;
+  predicted_savings_balance: number | null;
   financial_health_score: number | null;
   spending_tier: string;
 }
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, paydayMode, fixedPayday, manualNextPayday } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -64,6 +65,10 @@ const Statistics: React.FC = () => {
           predicted_end_of_month_balance:
             typeof data.predicted_end_of_month_balance === "number"
               ? data.predicted_end_of_month_balance
+              : null,
+          predicted_savings_balance:
+            typeof data.predicted_savings_balance === "number"
+              ? data.predicted_savings_balance
               : null,
           financial_health_score:
             typeof data.financial_health_score === "number"
@@ -181,6 +186,33 @@ const Statistics: React.FC = () => {
     return analysis?.predicted_end_of_month_balance ?? null;
   }, [analysis, nextPayday, transactions, daysRemaining, dailySpendingRate]);
 
+  // Savings forecast: cycle income vs projected expenses → monthly & annual rate
+  const cycleIncome = useMemo(() => {
+    return transactions
+      .filter(t => t.type === 'income' && new Date(t.date) >= lastPayday)
+      .reduce((s, t) => s + Number(t.amount), 0);
+  }, [transactions, lastPayday]);
+
+  const cycleExpensesActual = useMemo(() => {
+    return transactions
+      .filter(t => t.type === 'expense' && new Date(t.date) >= lastPayday)
+      .reduce((s, t) => s + Number(t.amount), 0);
+  }, [transactions, lastPayday]);
+
+  const projectedCycleExpenses = cycleExpensesActual + daysRemaining * dailySpendingRate;
+  const effectiveCycleIncome = cycleIncome > 0 ? cycleIncome : expectedSalary;
+  const projectedMonthlySavings = effectiveCycleIncome - projectedCycleExpenses;
+  const projectedAnnualSavings = projectedMonthlySavings * 12;
+
+  // Use AI-computed accumulated savings if available, else use current all-time balance
+  const accumulatedSavings = useMemo(() => {
+    if (analysis?.predicted_savings_balance !== null && analysis?.predicted_savings_balance !== undefined) {
+      return analysis.predicted_savings_balance;
+    }
+    return transactions.reduce((acc, t) =>
+      acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+  }, [analysis, transactions]);
+
   const BRUSH_WINDOW = 14;
   const needsBrush = timelineData.length > 7;
   const brushStart = Math.max(0, timelineData.length - BRUSH_WINDOW);
@@ -289,8 +321,8 @@ const Statistics: React.FC = () => {
         </div>
       </div>
 
-      {analysis && (
-        <div className="forecast-section">
+      <div className="forecast-row">
+        {analysis && (
           <ForecastCard
             predictedBalance={displayedPredictedBalance}
             healthScore={analysis.financial_health_score}
@@ -298,8 +330,53 @@ const Statistics: React.FC = () => {
             dailyRate={dailySpendingRate}
             onClick={() => setForecastOpen(true)}
           />
-        </div>
-      )}
+        )}
+
+        {(effectiveCycleIncome > 0 || monthlySpendingGoal > 0) && (
+          <div className={`savings-forecast-card ${projectedMonthlySavings >= 0 ? 'savings-forecast-card--pos' : 'savings-forecast-card--neg'}`}>
+            <div className="savings-forecast-header">
+              <div className="savings-forecast-icon">
+                <PiggyBank size={20} />
+              </div>
+              <span className="savings-forecast-title">{t('statistics.savings_forecast_title')}</span>
+            </div>
+            <div className="savings-forecast-body">
+              <div className="savings-forecast-stat">
+                <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_this_cycle')}</span>
+                <span
+                  className="savings-forecast-stat-value"
+                  style={{ color: projectedMonthlySavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                >
+                  {projectedMonthlySavings >= 0 ? '+' : ''}{formatAmount(projectedMonthlySavings)}
+                </span>
+              </div>
+              <div className="savings-forecast-stat">
+                <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_annual')}</span>
+                <span
+                  className="savings-forecast-stat-value"
+                  style={{ color: projectedAnnualSavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                >
+                  {projectedAnnualSavings >= 0 ? '~+' : '~'}{formatAmount(projectedAnnualSavings)}
+                </span>
+              </div>
+              <div className="savings-forecast-stat">
+                <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_accumulated')}</span>
+                <span
+                  className="savings-forecast-stat-value"
+                  style={{ color: accumulatedSavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                >
+                  {formatAmount(accumulatedSavings)}
+                </span>
+              </div>
+            </div>
+            <p className="savings-forecast-tip">
+              {projectedMonthlySavings >= 0
+                ? t('statistics.savings_forecast_tip_pos')
+                : t('statistics.savings_forecast_tip_neg')}
+            </p>
+          </div>
+        )}
+      </div>
 
       <ForecastDetailModal
         open={forecastOpen}

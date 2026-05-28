@@ -77,6 +77,7 @@
     "weekly_budget_limit": "Monatslimit",
     "weekly_spent_since": "Ausgegeben seit Zahltag",
     "expenses_this_month": "diesen Monat",
+    "since_payday": "seit letzter Zahlung",
     "weekly_savings_bonus": "Sparbonus",
     "budget_insight_title_up": "Heute im Plus",
     "budget_insight_title_down": "Tagesbudget überschritten",
@@ -179,7 +180,13 @@
     "forecast_negative_payday": "Prognostiziertes Defizit bis zum Zahltag",
     "forecast_modal_days_until_payday": "Tage bis zum Zahltag",
     "forecast_modal_days_payday_count": "Noch {{count}} Tage bis zum Zahltag",
-    "forecast_modal_context_payday": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du bis zum Zahltag {{balance}} {{direction}} haben."
+    "forecast_modal_context_payday": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du bis zum Zahltag {{balance}} {{direction}} haben.",
+    "savings_forecast_title": "Sparprognose",
+    "savings_forecast_this_cycle": "Zyklus-Überschuss",
+    "savings_forecast_annual": "Jahresprognose",
+    "savings_forecast_accumulated": "Angespartes Guthaben",
+    "savings_forecast_tip_pos": "Du bist auf einem guten Sparweg! Denke über ein Investmentportfolio nach.",
+    "savings_forecast_tip_neg": "Ausgaben übersteigen Einnahmen in diesem Zyklus. Überprüfe deine Hauptausgaben."
   },
   "settings": {
     "title": "Einstellungen",

@@ -152,6 +152,7 @@ interface Props {
   animationHint?: string | null;
   heartsCount?: number;
   aiServiceMode?: 'online' | 'autonomous' | 'initializing';
+  savingsBalance?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -162,6 +163,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   mood,
   heartsCount = 3,
   aiServiceMode,
+  savingsBalance,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -225,6 +227,53 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(t0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Proactive savings milestone tip ──────────────────────────────────────
+  useEffect(() => {
+    if (!savingsBalance || savingsBalance <= 0 || !user?.id) return;
+    const todayKey = getTodayKey();
+    const shownKey = `tama_savings_tip_${user.id}_${todayKey}`;
+    if (localStorage.getItem(shownKey)) return;
+
+    const SAVINGS_TIP_THRESHOLD = 300;
+    if (savingsBalance < SAVINGS_TIP_THRESHOLD) return;
+
+    const tips: Record<string, string[]> = {
+      en: [
+        `🚀 You've stacked ${savingsBalance.toFixed(0)}! Ever thought about investing? 📈`,
+        `💰 ${savingsBalance.toFixed(0)} saved! A solid emergency fund start!`,
+        `✨ ${savingsBalance.toFixed(0)} banked — maybe treat yourself to a trip? 🌍`,
+      ],
+      ru: [
+        `🚀 Накоплено ${savingsBalance.toFixed(0)}! Может, пора инвестировать? 📈`,
+        `💰 ${savingsBalance.toFixed(0)} в копилке! Хороший резервный фонд!`,
+        `✨ ${savingsBalance.toFixed(0)} отложено — может, в путешествие? 🌍`,
+      ],
+      de: [
+        `🚀 ${savingsBalance.toFixed(0)} angespart! Zeit zu investieren? 📈`,
+        `💰 ${savingsBalance.toFixed(0)} zurückgelegt! Super Notgroschen!`,
+        `✨ ${savingsBalance.toFixed(0)} gespart — wie wäre eine Reise? 🌍`,
+      ],
+      uk: [
+        `🚀 Накопичено ${savingsBalance.toFixed(0)}! Час інвестувати? 📈`,
+        `💰 ${savingsBalance.toFixed(0)} у скарбничці! Чудовий резервний фонд!`,
+        `✨ ${savingsBalance.toFixed(0)} відкладено — може, в подорож? 🌍`,
+      ],
+    };
+    const lang = (navigator.language || 'en').split('-')[0].toLowerCase();
+    const pool = tips[lang] || tips.en;
+    const tip = pool[Math.floor(Math.random() * pool.length)];
+
+    const t0 = setTimeout(() => {
+      if (modeRef.current !== 'idle') return;
+      setBubbleText(tip);
+      setFromHook(false);
+      setMode('ai_bubble');
+      try { localStorage.setItem(shownKey, '1'); } catch { /* ignore */ }
+    }, 8_000);
+    return () => clearTimeout(t0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savingsBalance, user?.id]);
 
   // ── Auto-dismiss non-hook bubbles ─────────────────────────────────────────
   useEffect(() => {

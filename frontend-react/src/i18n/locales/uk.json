@@ -77,6 +77,7 @@
     "weekly_budget_limit": "Місячний ліміт",
     "weekly_spent_since": "Витрачено з дня виплати",
     "expenses_this_month": "цього місяця",
+    "since_payday": "з останньої виплати",
     "weekly_savings_bonus": "бонус економії",
     "budget_insight_title_up": "Економія сьогодні",
     "budget_insight_title_down": "Денний бюджет перевищено",
@@ -179,7 +180,13 @@
     "forecast_negative_payday": "Прогнозований дефіцит до зарплати",
     "forecast_modal_days_until_payday": "До зарплати",
     "forecast_modal_days_payday_count": "{{count}} дн. до зарплати",
-    "forecast_modal_context_payday": "За темпу витрат {{rate}}/день, до зарплати у вас буде {{balance}} {{direction}}."
+    "forecast_modal_context_payday": "За темпу витрат {{rate}}/день, до зарплати у вас буде {{balance}} {{direction}}.",
+    "savings_forecast_title": "Прогноз заощаджень",
+    "savings_forecast_this_cycle": "Профіцит циклу",
+    "savings_forecast_annual": "Річний прогноз",
+    "savings_forecast_accumulated": "Накопичений баланс",
+    "savings_forecast_tip_pos": "Ви на чудовій траєкторії заощаджень! Розгляньте інвестиційний портфель.",
+    "savings_forecast_tip_neg": "Витрати перевищують доходи цього циклу. Перевірте основні категорії витрат."
   },
   "settings": {
     "title": "Налаштування",
