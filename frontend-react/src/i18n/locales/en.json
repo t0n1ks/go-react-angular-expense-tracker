@@ -587,6 +587,7 @@
     "base_salary": "Base Salary",
     "bonuses": "Bonuses",
     "bonuses_ph": "e.g. 300 (optional)",
+    "received_date": "Date Received",
     "next_payday": "Next Payday Date",
     "fixed_expenses": "Fixed / Committed Expenses",
     "fixed_expenses_hint": "Deducted from Needs/Wants ceilings. Savings pool is never touched.",

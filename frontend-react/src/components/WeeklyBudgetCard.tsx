@@ -18,8 +18,6 @@ interface Props {
   transactions: Transaction[];
   monthlyBudget: number;
   formatAmount: (n: number) => string;
-  // When a SalaryCycle exists, Dashboard passes the authoritative cycle start
-  // so spending resets happen at the exact salary-drop timestamp.
   cycleStartAt?: Date;
   onCycleReset?: () => void;
 }
@@ -46,17 +44,9 @@ function getWeekStart(d: Date): Date {
 function getFixedPaydayDates(fixedDay: number): { last: Date; next: Date } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const y = today.getFullYear();
-  const m = today.getMonth();
-  const d = today.getDate();
-
-  const lastDate = d >= fixedDay
-    ? new Date(y, m, fixedDay)
-    : new Date(y, m - 1, fixedDay);
-  const nextDate = d < fixedDay
-    ? new Date(y, m, fixedDay)
-    : new Date(y, m + 1, fixedDay);
-
+  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  const lastDate = d >= fixedDay ? new Date(y, m, fixedDay) : new Date(y, m - 1, fixedDay);
+  const nextDate = d < fixedDay ? new Date(y, m, fixedDay) : new Date(y, m + 1, fixedDay);
   return { last: lastDate, next: nextDate };
 }
 
@@ -79,25 +69,21 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalDateStr(today);
 
-  // ── Determine cycle boundaries ────────────────────────────────────────────
+  // ── Cycle boundaries ──────────────────────────────────────────────────────
   let lastPayday: Date | null = null;
   let nextPayday: Date | null = null;
 
   if (cycleStartAt) {
-    // Authoritative cycle start from SalaryCycle record
+    // SalaryCycle is active — use its authoritative start timestamp
     lastPayday = cycleStartAt;
-    // Next payday from settings manual_next_payday if available
     const parsedNext = safeParseDate(manualNextPayday);
-    if (parsedNext) {
-      nextPayday = parsedNext;
-      nextPayday.setHours(0, 0, 0, 0);
-    }
+    if (parsedNext) { nextPayday = parsedNext; nextPayday.setHours(0, 0, 0, 0); }
   } else if (paydayMode === 'fixed' && fixedPayday > 0) {
     const { last, next } = getFixedPaydayDates(fixedPayday);
     lastPayday = last;
     nextPayday = next;
   } else {
-    // Smart mode fallback: use most recent one-time income created_at
+    // Smart fallback: last one_time income
     const lastIncomeTx = transactions
       .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
       .sort((a, b) => {
@@ -105,7 +91,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({
         const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
         return bTs - aTs;
       })[0] ?? null;
-
     if (lastIncomeTx) {
       lastPayday = lastIncomeTx.created_at
         ? new Date(lastIncomeTx.created_at)
@@ -113,17 +98,17 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     } else {
       lastPayday = new Date(today.getFullYear(), today.getMonth(), 1);
     }
-
     const parsedNext = safeParseDate(manualNextPayday);
-    if (parsedNext) {
-      nextPayday = parsedNext;
-      nextPayday.setHours(0, 0, 0, 0);
-    }
+    if (parsedNext) { nextPayday = parsedNext; nextPayday.setHours(0, 0, 0, 0); }
   }
 
-  const hasCycle = nextPayday !== null;
+  // A cycle is "active" when either:
+  //  a) we have an explicit SalaryCycle (cycleStartAt prop), OR
+  //  b) a nextPayday has been set (legacy flow)
+  // Both paths have a valid lastPayday, so the spending calc is always safe.
+  const hasCycle = cycleStartAt !== undefined || nextPayday !== null;
 
-  // ── Spending since last payday ────────────────────────────────────────────
+  // ── Spending since cycle start ────────────────────────────────────────────
   const lastPaydayTs = lastPayday ? lastPayday.getTime() : 0;
   const spentSincePayday = transactions
     .filter(tx => {
@@ -135,14 +120,51 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  // ── Pacing formula ────────────────────────────────────────────────────────
+  // ── "Can spend" — the key number for this cycle ───────────────────────────
+  // When a SalaryCycle is active: total remaining variable budget for the cycle
+  // When legacy: payday-aware weekly pacing allowance
   const daysRemaining = nextPayday
     ? Math.max(1, Math.ceil((nextPayday.getTime() - today.getTime()) / 86_400_000))
-    : 0;
-  const weeklyAllowance = hasCycle
+    : 30;
+  const weeklyAllowancePacing = hasCycle && nextPayday
     ? Math.max(0, (monthlyBudget - spentSincePayday) / (daysRemaining / 7))
     : 0;
   const baseLimitPerWeek = monthlyBudget / 4.3;
+
+  // When SalaryCycle is active, show total remaining cycle budget
+  const cycleCanSpend = Math.max(0, monthlyBudget - spentSincePayday);
+
+  // ── Static weekly lock (legacy pacing path only) ──────────────────────────
+  const currentWeekStartStr = toLocalDateStr(getWeekStart(today));
+  const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
+  let lockedAllowance = 0;
+  if (hasCycle && !cycleStartAt) {
+    try {
+      const raw = localStorage.getItem(lockKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.weekStart === currentWeekStartStr && typeof parsed.lockedAllowance === 'number') {
+          lockedAllowance = parsed.lockedAllowance;
+        } else {
+          lockedAllowance = Math.max(0, weeklyAllowancePacing);
+          localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance }));
+        }
+      } else {
+        lockedAllowance = Math.max(0, weeklyAllowancePacing);
+        localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance }));
+      }
+    } catch {
+      lockedAllowance = Math.max(0, weeklyAllowancePacing);
+    }
+  }
+
+  const savingsBonus = Math.max(0, lockedAllowance - baseLimitPerWeek);
+
+  // ── The displayed "can spend" and over/bar state ──────────────────────────
+  const displayCanSpend = cycleStartAt ? cycleCanSpend : lockedAllowance;
+  const isOver = hasCycle && spentSincePayday > monthlyBudget;
+  const pct = monthlyBudget > 0 ? Math.min((spentSincePayday / monthlyBudget) * 100, 100) : 0;
+  const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
 
   // ── This week's spending (Mon–Sun) ────────────────────────────────────────
   const weekStart = getWeekStart(today);
@@ -157,55 +179,19 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
-
-  // ── Static weekly lock ────────────────────────────────────────────────────
-  const currentWeekStartStr = toLocalDateStr(getWeekStart(today));
-  const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
-
-  let lockedAllowance: number;
-  if (!hasCycle) {
-    lockedAllowance = 0;
-  } else {
-    try {
-      const raw = localStorage.getItem(lockKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.weekStart === currentWeekStartStr && typeof parsed.lockedAllowance === 'number') {
-          lockedAllowance = parsed.lockedAllowance;
-        } else {
-          const val = Math.max(0, weeklyAllowance);
-          localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance: val }));
-          lockedAllowance = val;
-        }
-      } else {
-        const val = Math.max(0, weeklyAllowance);
-        localStorage.setItem(lockKey, JSON.stringify({ weekStart: currentWeekStartStr, lockedAllowance: val }));
-        lockedAllowance = val;
-      }
-    } catch {
-      lockedAllowance = Math.max(0, weeklyAllowance);
-    }
-  }
-
-  const savingsBonus = Math.max(0, lockedAllowance - baseLimitPerWeek);
-  const isOver = hasCycle && weekSpent > lockedAllowance;
-  const pct = lockedAllowance > 0 ? Math.min((weekSpent / lockedAllowance) * 100, 100) : 0;
-  const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
-
+  // ── Delta indicator (today vs daily baseline) ─────────────────────────────
   const spentToday = transactions
     .filter(tx => tx.type === 'expense' && tx.date?.slice(0, 10) === todayStr)
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const lockedDailyBaseline = lockedAllowance / 7;
-  const todayDailyLimit = weeklyAllowance / 7;
-
+  const dailyBaseline = displayCanSpend / Math.max(1, daysRemaining);
   const deltaDirection: 'up' | 'down' | 'neutral' =
-    !hasCycle || lockedAllowance === 0 ? 'neutral'
-    : spentToday < lockedDailyBaseline - 0.01 ? 'up'
-    : spentToday > lockedDailyBaseline + 0.01 ? 'down'
+    !hasCycle || displayCanSpend === 0 ? 'neutral'
+    : spentToday < dailyBaseline - 0.01 ? 'up'
+    : spentToday > dailyBaseline + 0.01 ? 'down'
     : 'neutral';
 
+  const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
   const nextPaydayDisplay = nextPayday
     ? nextPayday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : '';
@@ -225,21 +211,14 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     setEditingPayday(false);
   };
 
-  const handleCancel = () => {
-    setEditingPayday(false);
-    setPendingDate('');
-  };
+  const handleCancel = () => { setEditingPayday(false); setPendingDate(''); };
 
   useEffect(() => {
     if (!showInsight) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (insightRef.current && !insightRef.current.contains(e.target as Node)) {
-        setShowInsight(false);
-      }
+      if (insightRef.current && !insightRef.current.contains(e.target as Node)) setShowInsight(false);
     };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowInsight(false);
-    };
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowInsight(false); };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -251,11 +230,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   return (
     <div className="weekly-budget-card">
       <div className="weekly-budget-header">
-        <div className="weekly-budget-icon">
-          <CalendarDays size={22} />
-        </div>
+        <div className="weekly-budget-icon"><CalendarDays size={22} /></div>
         <span className="weekly-budget-title">{t('dashboard.weekly_budget')}</span>
-        {/* "Received Salary" button removed — use SalaryCycleCard to start a new cycle */}
       </div>
 
       {isPaydayToday && (
@@ -265,17 +241,24 @@ const WeeklyBudgetCard: React.FC<Props> = ({
       {hasCycle ? (
         <>
           <div className="weekly-budget-body">
+            {/* Row 1: Monthly/Cycle limit */}
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_budget_limit')}</span>
               <span className="weekly-budget-stat-value">{formatAmount(monthlyBudget)}</span>
             </div>
+
+            {/* Row 2: Total spent since cycle start */}
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent_since')}</span>
-              <span className="weekly-budget-stat-value"
-                style={{ color: spentSincePayday > monthlyBudget ? '#ef4444' : 'var(--color-expense-text)' }}>
+              <span
+                className="weekly-budget-stat-value"
+                style={{ color: isOver ? '#ef4444' : 'var(--color-expense-text)' }}
+              >
                 {formatAmount(spentSincePayday)}
               </span>
             </div>
+
+            {/* Row 3: Remaining cycle budget (Можно потратить) */}
             <div className="weekly-budget-stat" style={{ position: 'relative' }}>
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_can_spend')}</span>
               <div className="budget-can-spend-row">
@@ -283,7 +266,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                   className="weekly-budget-stat-value"
                   style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}
                 >
-                  {formatAmount(lockedAllowance)}
+                  {formatAmount(displayCanSpend)}
                 </span>
 
                 <AnimatePresence>
@@ -314,7 +297,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                 </button>
               </div>
 
-              {savingsBonus > 0.01 && (
+              {/* Legacy savings bonus label (only shown in weekly-pacing path) */}
+              {!cycleStartAt && savingsBonus > 0.01 && (
                 <span className="weekly-budget-bonus-label">
                   +{formatAmount(savingsBonus)} ({t('dashboard.weekly_savings_bonus')})
                 </span>
@@ -353,7 +337,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                         {t('dashboard.budget_insight_example', {
                           remaining: formatAmount(monthlyBudget - spentSincePayday),
                           days: daysRemaining,
-                          daily: formatAmount(todayDailyLimit),
+                          daily: formatAmount(dailyBaseline),
                         })}
                       </span>
                     </div>
@@ -368,15 +352,20 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Row 4: This week's spending */}
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent')}</span>
-              <span className="weekly-budget-stat-value"
-                style={{ color: isOver ? '#ef4444' : 'var(--color-expense-text)' }}>
+              <span
+                className="weekly-budget-stat-value"
+                style={{ color: weekSpent > baseLimitPerWeek ? '#f59e0b' : 'var(--color-expense-text)' }}
+              >
                 {formatAmount(weekSpent)}
               </span>
             </div>
           </div>
 
+          {/* Progress bar: cycle spend / cycle budget */}
           <div className="weekly-budget-bar-track">
             <div className="weekly-budget-bar-fill" style={{ width: `${pct}%`, background: barColor }} />
           </div>

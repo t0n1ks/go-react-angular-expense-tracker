@@ -16,16 +16,16 @@ import (
 // BudgetFramework is the computed 50/30/20 (or custom ratio) allocation.
 // Exported so tests can call ComputeBudgetFramework directly.
 type BudgetFramework struct {
-	TotalIncome      float64  `json:"total_income"`
-	NeedsLimit       float64  `json:"needs_limit"`
-	WantsLimit       float64  `json:"wants_limit"`
-	SavingsLimit     float64  `json:"savings_limit"`
-	FixedNeedsTotal  float64  `json:"fixed_needs_total"`
-	FixedWantsTotal  float64  `json:"fixed_wants_total"`
-	VarNeedsBudget   float64  `json:"var_needs_budget"`
-	VarWantsBudget   float64  `json:"var_wants_budget"`
-	DeficitWarning   bool     `json:"deficit_warning"`
-	SuggestedProfile *string  `json:"suggested_profile"`
+	TotalIncome     float64 `json:"total_income"`
+	NeedsLimit      float64 `json:"needs_limit"`
+	WantsLimit      float64 `json:"wants_limit"`
+	SavingsLimit    float64 `json:"savings_limit"`
+	FixedNeedsTotal float64 `json:"fixed_needs_total"`
+	FixedWantsTotal float64 `json:"fixed_wants_total"`
+	VarNeedsBudget  float64 `json:"var_needs_budget"`
+	VarWantsBudget  float64 `json:"var_wants_budget"`
+	DeficitWarning  bool    `json:"deficit_warning"`
+	SuggestedProfile *string `json:"suggested_profile"`
 }
 
 type FixedExpenseInput struct {
@@ -71,17 +71,19 @@ func ComputeBudgetFramework(totalIncome, needsPct, wantsPct, savingsPct float64,
 	}
 
 	if deficitWarning {
-		// Suggest a 65/20/15 profile where the needs ceiling is expanded
 		s := "65/20/15"
 		fw.SuggestedProfile = &s
 	}
 	return fw
 }
 
-// StartSalaryCycle creates a new salary cycle, auto-creates the income
-// transaction, and resets monthly_spending_goal + manual_next_payday on the
-// user profile so existing components (WeeklyBudgetCard, hearts) continue to
-// work without modification.
+// StartSalaryCycle creates a new salary cycle, writes all money-movement
+// transactions to the database, and resets the relevant profile fields so
+// existing components (WeeklyBudgetCard, hearts check) keep working.
+//
+// Key invariant: cycle.CycleStartAt is set to receivedAt-1ms so that all
+// generated transactions (created_at == receivedAt) satisfy the strict
+// `created_at > cycle_start_at` filter used throughout the dashboards.
 func StartSalaryCycle(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -91,13 +93,14 @@ func StartSalaryCycle(c *gin.Context) {
 	uid := userID.(uint)
 
 	var req struct {
-		BaseSalary    float64             `json:"base_salary"`
-		Bonuses       float64             `json:"bonuses"`
-		NextPayday    string              `json:"next_payday_date"`
-		NeedsPct      float64             `json:"needs_pct"`
-		WantsPct      float64             `json:"wants_pct"`
-		SavingsPct    float64             `json:"savings_pct"`
-		FixedExpenses []FixedExpenseInput `json:"fixed_expenses"`
+		BaseSalary     float64             `json:"base_salary"`
+		Bonuses        float64             `json:"bonuses"`
+		NextPayday     string              `json:"next_payday_date"`
+		ReceivedAtDate string              `json:"received_at_date"` // YYYY-MM-DD; defaults to today
+		NeedsPct       float64             `json:"needs_pct"`
+		WantsPct       float64             `json:"wants_pct"`
+		SavingsPct     float64             `json:"savings_pct"`
+		FixedExpenses  []FixedExpenseInput `json:"fixed_expenses"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -109,21 +112,40 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	// Default to 50/30/20 when not provided
 	if req.NeedsPct == 0 && req.WantsPct == 0 && req.SavingsPct == 0 {
 		req.NeedsPct, req.WantsPct, req.SavingsPct = 50, 30, 20
 	}
-
 	total := req.NeedsPct + req.WantsPct + req.SavingsPct
 	if total < 99.9 || total > 100.1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "needs_pct + wants_pct + savings_pct must equal 100"})
 		return
 	}
 
+	// receivedAt is the authoritative moment the salary arrived.
+	// If the user specified a past date (e.g. salary came yesterday), parse it
+	// at noon local time so transactions land mid-day and timezone edge-cases are
+	// avoided. Default: now.
+	var receivedAt time.Time
+	if req.ReceivedAtDate != "" {
+		parsed, err := time.Parse("2006-01-02", req.ReceivedAtDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid received_at_date format. Use YYYY-MM-DD"})
+			return
+		}
+		y, m, d := parsed.Date()
+		receivedAt = time.Date(y, m, d, 12, 0, 0, 0, time.Local)
+	} else {
+		receivedAt = time.Now()
+	}
+
+	// cycle_start_at is 1 ms before receivedAt so the strict > filter in
+	// fetchCycleStats and the React dashboard correctly includes transactions
+	// whose created_at == receivedAt.
+	cycleStart := receivedAt.Add(-time.Millisecond)
+	txDate := receivedAt.Truncate(24 * time.Hour)
+
 	totalIncome := req.BaseSalary + req.Bonuses
 	fw := ComputeBudgetFramework(totalIncome, req.NeedsPct, req.WantsPct, req.SavingsPct, req.FixedExpenses)
-
-	now := time.Now()
 
 	cycle := models.SalaryCycle{
 		UserID:          uid,
@@ -140,9 +162,9 @@ func StartSalaryCycle(c *gin.Context) {
 		FixedWantsTotal: fw.FixedWantsTotal,
 		VarNeedsBudget:  fw.VarNeedsBudget,
 		VarWantsBudget:  fw.VarWantsBudget,
-		CycleStartAt:    now,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		CycleStartAt:    cycleStart,
+		CreatedAt:       receivedAt,
+		UpdatedAt:       receivedAt,
 	}
 
 	if req.NextPayday != "" {
@@ -161,61 +183,100 @@ func StartSalaryCycle(c *gin.Context) {
 			return err
 		}
 
+		// Persist fixed expense metadata
 		for _, fe := range req.FixedExpenses {
+			ct := strings.ToLower(strings.TrimSpace(fe.CategoryType))
+			if ct != "want" {
+				ct = "need"
+			}
 			fixedExp := models.FixedExpense{
 				SalaryCycleID: cycle.ID,
 				UserID:        uid,
 				Amount:        fe.Amount,
 				Description:   strings.TrimSpace(fe.Description),
-				CategoryType:  strings.ToLower(strings.TrimSpace(fe.CategoryType)),
-				CreatedAt:     now,
-				UpdatedAt:     now,
-			}
-			if strings.ToLower(fixedExp.CategoryType) != "want" {
-				fixedExp.CategoryType = "need"
+				CategoryType:  ct,
+				CreatedAt:     receivedAt,
+				UpdatedAt:     receivedAt,
 			}
 			if err := tx.Create(&fixedExp).Error; err != nil {
 				return err
 			}
 		}
 
-		// Find a suitable income category; create one if none exist
+		// ── Find categories for transaction records ────────────────────────
+		// Income category: prefer one named after income in any supported language
 		var incomeCat models.Category
 		if err := tx.Where("user_id = ?", uid).
 			Where("LOWER(name) IN ('income','доход','дохід','einkommen','salary')").
 			First(&incomeCat).Error; err != nil {
-			// Fallback: any category
 			if err2 := tx.Where("user_id = ?", uid).First(&incomeCat).Error; err2 != nil {
-				incomeCat = models.Category{
-					UserID: uid, Name: "Income", CreatedAt: now, UpdatedAt: now,
-				}
+				incomeCat = models.Category{UserID: uid, Name: "Income", CreatedAt: receivedAt, UpdatedAt: receivedAt}
 				if err3 := tx.Create(&incomeCat).Error; err3 != nil {
 					return err3
 				}
 			}
 		}
 
-		// Auto-create the one_time income transaction — this is what smart mode
-		// cycle detection latches onto (most recent one_time income created_at).
+		// Expense category: first category that is NOT the income category
+		var expenseCat models.Category
+		if err := tx.Where("user_id = ? AND id != ?", uid, incomeCat.ID).
+			Where("LOWER(name) NOT IN ('income','доход','дохід','einkommen','salary')").
+			First(&expenseCat).Error; err != nil {
+			// Fallback: any category (even the income one)
+			if err2 := tx.Where("user_id = ?", uid).First(&expenseCat).Error; err2 != nil {
+				expenseCat = incomeCat
+			}
+		}
+
+		// ── Income transaction ─────────────────────────────────────────────
+		// created_at = receivedAt > cycleStart = receivedAt-1ms ✓
 		incomeTx := models.Transaction{
 			UserID:      uid,
 			CategoryID:  incomeCat.ID,
 			Amount:      totalIncome,
 			Description: "Salary",
-			Date:        now,
+			Date:        txDate,
 			Type:        "income",
 			IncomeType:  "one_time",
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			CreatedAt:   receivedAt,
+			UpdatedAt:   receivedAt,
 		}
 		if err := tx.Create(&incomeTx).Error; err != nil {
 			return err
 		}
 		incomeTxID = incomeTx.ID
 
-		// Sync profile fields so WeeklyBudgetCard and hearts logic work unchanged:
-		// monthly_spending_goal = variable discretionary budget (needs + wants)
-		profileUpdates := map[string]interface{}{
+		// ── Fixed expense transactions ─────────────────────────────────────
+		// These are committed expenses (rent, subscriptions, etc.) and must appear
+		// in the transaction history so the cycle expenses sum is correct.
+		for _, fe := range req.FixedExpenses {
+			if fe.Amount <= 0 {
+				continue
+			}
+			desc := strings.TrimSpace(fe.Description)
+			if desc == "" {
+				desc = "Fixed expense"
+			}
+			expTx := models.Transaction{
+				UserID:      uid,
+				CategoryID:  expenseCat.ID,
+				Amount:      fe.Amount,
+				Description: desc,
+				Date:        txDate,
+				Type:        "expense",
+				IncomeType:  "one_time",
+				CreatedAt:   receivedAt,
+				UpdatedAt:   receivedAt,
+			}
+			if err := tx.Create(&expTx).Error; err != nil {
+				return err
+			}
+		}
+
+		// ── Sync user profile ─────────────────────────────────────────────
+		// monthly_spending_goal drives WeeklyBudgetCard and the hearts check;
+		// we set it to the discretionary (variable) budget for this cycle.
+		profileUpdates := map[string]any{
 			"monthly_spending_goal": fw.VarNeedsBudget + fw.VarWantsBudget,
 			"expected_salary":       totalIncome,
 			"payday_mode":           "smart",
@@ -327,6 +388,9 @@ func GetSalaryCycleHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cycles": cycles})
 }
 
+// fetchCycleStats sums income and expenses strictly after `since`.
+// Because cycle_start_at is set to receivedAt-1ms, all transactions created
+// at receivedAt satisfy `created_at > since` correctly.
 func fetchCycleStats(uid uint, since time.Time) (income, expenses float64) {
 	database.DB.Model(&models.Transaction{}).
 		Where("user_id = ? AND type = 'income' AND created_at > ?", uid, since).

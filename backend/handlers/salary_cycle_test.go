@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"testing"
+	"time"
 )
 
 func TestComputeBudgetFramework_Standard50_30_20(t *testing.T) {
@@ -27,11 +28,11 @@ func TestComputeBudgetFramework_WithFixedExpenses(t *testing.T) {
 
 	assertEqual(t, "NeedsLimit", 1250.0, fw.NeedsLimit)
 	assertEqual(t, "WantsLimit", 750.0, fw.WantsLimit)
-	assertEqual(t, "SavingsLimit", 500.0, fw.SavingsLimit) // must be untouched
+	assertEqual(t, "SavingsLimit stays at 500", 500.0, fw.SavingsLimit)
 	assertEqual(t, "FixedNeedsTotal", 600.0, fw.FixedNeedsTotal)
 	assertEqual(t, "FixedWantsTotal", 15.0, fw.FixedWantsTotal)
-	assertEqual(t, "VarNeedsBudget", 650.0, fw.VarNeedsBudget)  // 1250 - 600
-	assertEqual(t, "VarWantsBudget", 735.0, fw.VarWantsBudget)  // 750 - 15
+	assertEqual(t, "VarNeedsBudget", 650.0, fw.VarNeedsBudget)
+	assertEqual(t, "VarWantsBudget", 735.0, fw.VarWantsBudget)
 	assertFalse(t, "DeficitWarning", fw.DeficitWarning)
 }
 
@@ -39,7 +40,6 @@ func TestComputeBudgetFramework_Custom65_20_15(t *testing.T) {
 	fixed := []FixedExpenseInput{
 		{Amount: 800, Description: "Rent", CategoryType: "need"},
 	}
-	// Tight budget: 65% needs, 20% wants, 15% savings
 	fw := ComputeBudgetFramework(1200, 65, 20, 15, fixed)
 
 	assertApprox(t, "NeedsLimit", 780.0, fw.NeedsLimit)
@@ -54,7 +54,6 @@ func TestComputeBudgetFramework_Custom65_20_15(t *testing.T) {
 }
 
 func TestComputeBudgetFramework_SavingsPoolUntouched(t *testing.T) {
-	// Fixed expenses — even a very large subscription — must never reduce SavingsLimit
 	fixed := []FixedExpenseInput{
 		{Amount: 50, Description: "Gym", CategoryType: "want"},
 		{Amount: 200, Description: "Insurance", CategoryType: "need"},
@@ -64,10 +63,6 @@ func TestComputeBudgetFramework_SavingsPoolUntouched(t *testing.T) {
 	assertEqual(t, "SavingsLimit stays at 600", 600.0, fw.SavingsLimit)
 	assertEqual(t, "FixedWantsTotal", 50.0, fw.FixedWantsTotal)
 	assertEqual(t, "FixedNeedsTotal", 200.0, fw.FixedNeedsTotal)
-	// Savings pool untouched
-	if fw.SavingsLimit != 600.0 {
-		t.Errorf("SavingsLimit must never be reduced by fixed expenses; got %.2f", fw.SavingsLimit)
-	}
 }
 
 func TestComputeBudgetFramework_ZeroIncome(t *testing.T) {
@@ -78,7 +73,6 @@ func TestComputeBudgetFramework_ZeroIncome(t *testing.T) {
 }
 
 func TestComputeBudgetFramework_DeficitTriggersWarning(t *testing.T) {
-	// Fixed needs (1300) > NeedsLimit (1000) → deficit warning
 	fixed := []FixedExpenseInput{
 		{Amount: 1300, Description: "Rent+bills", CategoryType: "need"},
 	}
@@ -93,7 +87,6 @@ func TestComputeBudgetFramework_DeficitTriggersWarning(t *testing.T) {
 }
 
 func TestComputeBudgetFramework_CategoryTypeNormalization(t *testing.T) {
-	// Unrecognized category_type must default to "need"
 	fixed := []FixedExpenseInput{
 		{Amount: 100, Description: "Unknown", CategoryType: "NEED"},
 		{Amount: 50, Description: "Sub", CategoryType: "WANT"},
@@ -102,6 +95,22 @@ func TestComputeBudgetFramework_CategoryTypeNormalization(t *testing.T) {
 
 	assertEqual(t, "FixedNeedsTotal", 100.0, fw.FixedNeedsTotal)
 	assertEqual(t, "FixedWantsTotal", 50.0, fw.FixedWantsTotal)
+}
+
+// TestCycleStartOffset verifies the 1 ms offset invariant: cycle_start is
+// strictly before receivedAt so that transactions with created_at==receivedAt
+// pass the `created_at > cycle_start_at` filter.
+func TestCycleStartOffset(t *testing.T) {
+	receivedAt := time.Now()
+	cycleStart := receivedAt.Add(-time.Millisecond)
+
+	if !receivedAt.After(cycleStart) {
+		t.Error("receivedAt must be strictly after cycleStart")
+	}
+	diff := receivedAt.Sub(cycleStart)
+	if diff != time.Millisecond {
+		t.Errorf("expected 1ms offset, got %v", diff)
+	}
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

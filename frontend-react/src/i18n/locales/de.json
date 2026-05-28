@@ -527,6 +527,7 @@
     "base_salary": "Grundgehalt",
     "bonuses": "Boni",
     "bonuses_ph": "z.B. 300 (optional)",
+    "received_date": "Eingangsdatum",
     "next_payday": "Nächster Zahltag",
     "fixed_expenses": "Feste Ausgaben",
     "fixed_expenses_hint": "Von Bedürfnis-/Wunschlimits abgezogen. Ersparnisse unberührt.",

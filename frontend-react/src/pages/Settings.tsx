@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check, Info, LogOut, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, Check, LogOut, Trash2 } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import './Settings.css';
@@ -34,7 +34,6 @@ const Settings: React.FC = () => {
     manualNextPayday,
     heartsCount,
     reputationScore,
-    currencySymbol,
     saveSettings,
   } = useSettings();
 
@@ -51,31 +50,27 @@ const Settings: React.FC = () => {
     reputationScore,
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [ruleApplied, setRuleApplied] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [showRuleExplain, setShowRuleExplain] = useState(false);
-  const ruleExplainRef = useRef<HTMLDivElement>(null);
 
-  // Sync when context loads from backend
+  // Sync when context updates (e.g. after a salary cycle resets the goal)
   useEffect(() => {
-    setLocal({ currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday, manualNextPayday, heartsCount, reputationScore });
+    setLocal(prev => ({
+      ...prev,
+      currency,
+      aiAdviceEnabled,
+      aiHumorEnabled,
+      monthlySpendingGoal,
+      expectedSalary,
+      paydayMode,
+      fixedPayday,
+      manualNextPayday,
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency, aiAdviceEnabled, aiHumorEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday]);
-
-  useEffect(() => {
-    if (!showRuleExplain) return;
-    const handler = (e: MouseEvent) => {
-      if (ruleExplainRef.current && !ruleExplainRef.current.contains(e.target as Node)) {
-        setShowRuleExplain(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showRuleExplain]);
+  }, [currency, aiAdviceEnabled, aiHumorEnabled]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -87,12 +82,6 @@ const Settings: React.FC = () => {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
-  };
-
-  const applyRule = () => {
-    const goal = Math.round(local.expectedSalary * 0.8);
-    setLocal(prev => ({ ...prev, monthlySpendingGoal: goal }));
-    setRuleApplied(true);
   };
 
   const closeDeleteModal = () => {
@@ -118,7 +107,6 @@ const Settings: React.FC = () => {
   };
 
   const currentLang = i18n.language?.split('-')[0] ?? 'en';
-  const ruleGoalFormatted = `${currencySymbol}${Math.round(local.expectedSalary * 0.8).toLocaleString()}`;
 
   return (
     <div className="settings-wrapper">
@@ -160,7 +148,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* AI Assistant toggles */}
+      {/* AI Assistant */}
       <div className="settings-card">
         <h2 className="settings-card-title">{t('settings.ai_title')}</h2>
 
@@ -193,111 +181,6 @@ const Settings: React.FC = () => {
             <span className="toggle-slider" />
           </label>
         </div>
-      </div>
-
-      {/* Budget Planning */}
-      <div className="settings-card">
-        <h2 className="settings-card-title">{t('settings.goals_title')}</h2>
-
-        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-          <label className="settings-label">{t('settings.expected_salary')}</label>
-          <input
-            type="number"
-            className="settings-input"
-            value={local.expectedSalary || ''}
-            onChange={e => {
-              setLocal(prev => ({ ...prev, expectedSalary: Number(e.target.value) }));
-              setRuleApplied(false);
-            }}
-            placeholder={t('settings.expected_salary_ph')}
-            min="0"
-            step="1"
-          />
-        </div>
-
-        {local.expectedSalary > 0 && (
-          <div className="rule-row">
-            <button className="btn-rule" onClick={applyRule}>
-              {t('settings.apply_rule')}
-            </button>
-            <button
-              className="rule-info-icon"
-              onClick={() => setShowRuleExplain(v => !v)}
-              aria-label={t('settings.rule_tooltip')}
-              type="button"
-            >
-              <Info size={15} />
-            </button>
-            {showRuleExplain && (
-              <div className="rule-explain-popup" ref={ruleExplainRef}>
-                <p className="rule-explain-title">{t('auth.help_rule_explain_title')}</p>
-                <p className="rule-explain-text">{t('auth.help_rule_explain_text')}</p>
-                <button
-                  className="rule-explain-close"
-                  onClick={() => setShowRuleExplain(false)}
-                  type="button"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            {ruleApplied && (
-              <span className="rule-applied-msg">
-                {t('settings.rule_applied', { goal: ruleGoalFormatted })}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div className="form-group" style={{ marginTop: '1rem' }}>
-          <label className="settings-label">{t('settings.monthly_goal')}</label>
-          <input
-            type="number"
-            className="settings-input"
-            value={local.monthlySpendingGoal || ''}
-            onChange={e => setLocal(prev => ({ ...prev, monthlySpendingGoal: Number(e.target.value) }))}
-            placeholder={t('settings.monthly_goal_ph')}
-            min="0"
-            step="1"
-          />
-        </div>
-      </div>
-
-      {/* Payday Settings */}
-      <div className="settings-card">
-        <h2 className="settings-card-title">{t('settings.payday_title')}</h2>
-        <div className="payday-mode-selector">
-          <button
-            className={`payday-mode-btn${local.paydayMode !== 'fixed' ? ' payday-mode-btn--active' : ''}`}
-            onClick={() => setLocal(prev => ({ ...prev, paydayMode: 'smart' }))}
-          >
-            {t('settings.payday_mode_smart')}
-          </button>
-          <button
-            className={`payday-mode-btn${local.paydayMode === 'fixed' ? ' payday-mode-btn--active' : ''}`}
-            onClick={() => setLocal(prev => ({ ...prev, paydayMode: 'fixed' }))}
-          >
-            {t('settings.payday_mode_fixed')}
-          </button>
-        </div>
-        {local.paydayMode === 'fixed' && (
-          <div className="form-group" style={{ marginTop: '1rem' }}>
-            <label className="settings-label">{t('settings.payday_fixed_day')}</label>
-            <input
-              type="number"
-              className="settings-input"
-              value={local.fixedPayday || ''}
-              onChange={e => setLocal(prev => ({
-                ...prev,
-                fixedPayday: Math.max(1, Math.min(31, Number(e.target.value) || 0)),
-              }))}
-              placeholder="1–31"
-              min="1"
-              max="31"
-              step="1"
-            />
-          </div>
-        )}
       </div>
 
       {/* Save */}
@@ -336,7 +219,6 @@ const Settings: React.FC = () => {
         </button>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {deleteOpen && (
         <div className="delete-modal-overlay" onClick={closeDeleteModal}>
           <div className="delete-modal" onClick={e => e.stopPropagation()}>
@@ -369,7 +251,6 @@ const Settings: React.FC = () => {
         </div>
       )}
 
-      {/* Success toast */}
       {showSuccessToast && (
         <div className="delete-success-toast">
           {t('settings.delete_success')}

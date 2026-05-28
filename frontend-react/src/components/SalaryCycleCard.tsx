@@ -30,14 +30,19 @@ interface Props {
   onCycleStarted: (cycle: SalaryCycle) => void;
 }
 
+const todayDateStr = () => new Date().toISOString().slice(0, 10);
+
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const { t } = useTranslation();
   const { axiosInstance } = useAuth();
   const { currentCycle, refreshCycle, formatAmount } = useSettings();
 
+  const today = todayDateStr();
+
   const [expanded, setExpanded] = useState(!currentCycle);
   const [baseSalary, setBaseSalary] = useState('');
   const [bonuses, setBonuses] = useState('');
+  const [receivedAtDate, setReceivedAtDate] = useState(today);
   const [nextPayday, setNextPayday] = useState('');
   const [ratioProfile, setRatioProfile] = useState<RatioProfile>('50/30/20');
   const [customNeeds, setCustomNeeds] = useState('50');
@@ -47,8 +52,6 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-
-  const today = new Date().toISOString().slice(0, 10);
 
   const getRatioValues = (): [number, number, number] => {
     const preset = PROFILES[ratioProfile];
@@ -110,6 +113,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
       const payload = {
         base_salary: parseFloat(baseSalary),
         bonuses: parseFloat(bonuses) || 0,
+        received_at_date: receivedAtDate || undefined,
         next_payday_date: nextPayday || undefined,
         needs_pct: needsPct,
         wants_pct: wantsPct,
@@ -134,6 +138,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
       // Reset form
       setBaseSalary('');
       setBonuses('');
+      setReceivedAtDate(today);
       setNextPayday('');
       setFixedExpenses([]);
       setRatioProfile('50/30/20');
@@ -213,6 +218,16 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
                   placeholder={t('salary_cycle.bonuses_ph')}
                   value={bonuses}
                   onChange={e => setBonuses(e.target.value)}
+                />
+              </div>
+              <div className="sc-field">
+                <label className="sc-label">{t('salary_cycle.received_date')}</label>
+                <input
+                  className="sc-input"
+                  type="date"
+                  max={today}
+                  value={receivedAtDate}
+                  onChange={e => setReceivedAtDate(e.target.value)}
                 />
               </div>
               <div className="sc-field">
