@@ -104,6 +104,10 @@ func main() {
 		protected.GET("/ai/status", handlers.GetAIServiceStatus)
 
 		protected.GET("/transactions/export/pdf", handlers.ExportTransactionsPDF)
+
+		protected.POST("/salary-cycle", handlers.StartSalaryCycle)
+		protected.GET("/salary-cycle/current", handlers.GetCurrentSalaryCycle)
+		protected.GET("/salary-cycle/history", handlers.GetSalaryCycleHistory)
 	}
 
 	port := os.Getenv("PORT")

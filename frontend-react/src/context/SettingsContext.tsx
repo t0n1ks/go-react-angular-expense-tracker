@@ -1,7 +1,36 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
 export type Currency = 'USD' | 'EUR' | 'UAH';
+
+export interface FixedExpenseItem {
+  id: number;
+  salary_cycle_id: number;
+  amount: number;
+  description: string;
+  category_type: 'need' | 'want';
+}
+
+export interface SalaryCycle {
+  id: number;
+  user_id: number;
+  base_salary: number;
+  bonuses: number;
+  total_income: number;
+  needs_pct: number;
+  wants_pct: number;
+  savings_pct: number;
+  needs_limit: number;
+  wants_limit: number;
+  savings_limit: number;
+  fixed_needs_total: number;
+  fixed_wants_total: number;
+  var_needs_budget: number;
+  var_wants_budget: number;
+  cycle_start_at: string; // ISO timestamp
+  next_payday_at: string | null;
+  fixed_expenses: FixedExpenseItem[];
+}
 
 export interface UserSettings {
   currency: Currency;
@@ -22,6 +51,8 @@ interface SettingsContextType extends UserSettings {
   saveSettings: (s: UserSettings) => Promise<void>;
   formatAmount: (amount: number) => string;
   currencySymbol: string;
+  currentCycle: SalaryCycle | null;
+  refreshCycle: () => Promise<void>;
 }
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -31,6 +62,7 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
 };
 
 const SETTINGS_KEY = 'user_settings';
+const CYCLE_KEY = 'current_salary_cycle';
 
 const DEFAULT_SETTINGS: UserSettings = {
   currency: 'USD',
@@ -53,6 +85,14 @@ const loadFromStorage = (): UserSettings => {
   return DEFAULT_SETTINGS;
 };
 
+const loadCycleFromStorage = (): SalaryCycle | null => {
+  try {
+    const raw = localStorage.getItem(CYCLE_KEY);
+    if (raw) return JSON.parse(raw) as SalaryCycle;
+  } catch { /* ignore */ }
+  return null;
+};
+
 // eslint-disable-next-line react-refresh/only-export-components
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -67,19 +107,38 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const { axiosInstance, isAuthenticated } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(loadFromStorage);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
+
+  const refreshCycle = useCallback(async () => {
+    try {
+      const res = await axiosInstance.get('/salary-cycle/current');
+      const cycle: SalaryCycle | null = res.data.cycle ?? null;
+      setCurrentCycle(cycle);
+      if (cycle) {
+        localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
+      } else {
+        localStorage.removeItem(CYCLE_KEY);
+      }
+    } catch { /* keep cached */ }
+  }, [axiosInstance]);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setSettings(DEFAULT_SETTINGS);
+      setCurrentCycle(null);
+      localStorage.removeItem(CYCLE_KEY);
       return;
     }
     let cancelled = false;
     const fetchProfile = async () => {
       setIsLoading(true);
       try {
-        const res = await axiosInstance.get('/profile');
+        const [profileRes, cycleRes] = await Promise.all([
+          axiosInstance.get('/profile'),
+          axiosInstance.get('/salary-cycle/current'),
+        ]);
         if (cancelled) return;
-        const d = res.data;
+        const d = profileRes.data;
         const fetched: UserSettings = {
           currency: (d.currency as Currency) || 'USD',
           aiAdviceEnabled: d.ai_advice_enabled ?? true,
@@ -94,6 +153,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
+
+        const cycle: SalaryCycle | null = cycleRes.data.cycle ?? null;
+        setCurrentCycle(cycle);
+        if (cycle) {
+          localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
+        } else {
+          localStorage.removeItem(CYCLE_KEY);
+        }
       } catch { /* keep cached/default */ } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -129,6 +196,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     saveSettings,
     formatAmount,
     currencySymbol,
+    currentCycle,
+    refreshCycle,
   };
 
   return (

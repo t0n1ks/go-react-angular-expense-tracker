@@ -76,6 +76,21 @@
     color: #38bdf8;
 }
 
+/* Clickable stat card */
+.stat-card--clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.stat-card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+.stat-card--clickable:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 /* Income progress bar */
 .progress-track {
     height: 6px;

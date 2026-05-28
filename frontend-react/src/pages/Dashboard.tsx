@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
+import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp, Target } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
 import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
+import SalaryCycleCard from '../components/SalaryCycleCard';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import './Dashboard.css';
 
@@ -20,7 +22,18 @@ interface Transaction {
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, currencySymbol, aiAdviceEnabled, monthlySpendingGoal, expectedSalary, paydayMode, fixedPayday } = useSettings();
+  const navigate = useNavigate();
+  const {
+    formatAmount,
+    currencySymbol,
+    aiAdviceEnabled,
+    monthlySpendingGoal,
+    expectedSalary,
+    paydayMode,
+    fixedPayday,
+    currentCycle,
+    refreshCycle,
+  } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +46,7 @@ const Dashboard: React.FC = () => {
       const data = response.data.transactions || response.data;
       setTransactions(Array.isArray(data) ? data : []);
     } catch {
-      // silent — loading state reset in finally
+      // silent
     } finally {
       setLoading(false);
     }
@@ -79,54 +92,69 @@ const Dashboard: React.FC = () => {
     prevModeRef.current = aiServiceMode;
   }, [aiServiceMode, axiosInstance, analyzeLang]);
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
-
-  const hasFull = transactions.some(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type));
-
-  const incomePercent = expectedSalary > 0
-    ? (hasFull ? 100 : Math.min((totalIncome / expectedSalary) * 100, 100))
-    : 0;
-  const incomeOver = expectedSalary > 0 && (hasFull || totalIncome >= expectedSalary);
-
-  const forecast = expectedSalary > 0
-    ? (hasFull ? totalIncome - totalExpense : Math.max(totalIncome, expectedSalary) - totalExpense)
-    : null;
-
-  // Cycle-start for Budget Health card: respects payday mode so the card resets on salary
-  const cycleStart = (() => {
+  // ── Cycle start timestamp ─────────────────────────────────────────────────
+  // If a SalaryCycle exists, use its precise cycle_start_at as the cutoff.
+  // Fall back to the legacy smart/fixed payday logic so old users see no change.
+  const cycleStart: Date = (() => {
+    if (currentCycle?.cycle_start_at) {
+      return new Date(currentCycle.cycle_start_at);
+    }
     if (paydayMode === 'fixed' && fixedPayday > 0) {
       const now = new Date();
       const d = now.getDate(), m = now.getMonth(), y = now.getFullYear();
       return d >= fixedPayday ? new Date(y, m, fixedPayday) : new Date(y, m - 1, fixedPayday);
     }
-    // Smart mode: use created_at of last one_time income for sub-day precision
     const lastSalary = transactions
-      .filter(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type))
+      .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
       .sort((a, b) => {
         const aTs = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
         const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
         return bTs - aTs;
       })[0];
     if (lastSalary) {
-      return lastSalary.created_at
-        ? new Date(lastSalary.created_at)
-        : new Date(lastSalary.date + 'T00:00:00');
+      return lastSalary.created_at ? new Date(lastSalary.created_at) : new Date(lastSalary.date + 'T00:00:00');
     }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   })();
 
-  const cycleExpenses = transactions
-    .filter(t => {
-      if (t.type !== 'expense') return false;
-      const txTs = t.created_at
-        ? new Date(t.created_at).getTime()
-        : new Date(t.date.slice(0, 10) + 'T23:59:59').getTime();
-      return txTs > cycleStart.getTime();
+  const cycleStartTs = cycleStart.getTime();
+
+  // ── Cycle-filtered income (ONLY current cycle) ────────────────────────────
+  // This fixes the "shows 800+" bug: we now filter strictly by cycle_start_at
+  const cycleIncome = transactions
+    .filter(tx => {
+      if (tx.type !== 'income') return false;
+      const ts = tx.created_at ? new Date(tx.created_at).getTime() : new Date(tx.date + 'T00:00:00').getTime();
+      return ts > cycleStartTs;
     })
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+    .reduce((acc, tx) => acc + Number(tx.amount), 0);
+
+  // ── Cycle-filtered expenses ───────────────────────────────────────────────
+  const cycleExpenses = transactions
+    .filter(tx => {
+      if (tx.type !== 'expense') return false;
+      const ts = tx.created_at ? new Date(tx.created_at).getTime() : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
+      return ts > cycleStartTs;
+    })
+    .reduce((acc, tx) => acc + Number(tx.amount), 0);
+
+  // ── All-time totals for balance card ─────────────────────────────────────
+  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+  const balance = totalIncome - totalExpense;
+
+  // Income progress bar (vs expected salary)
+  const hasFull = transactions.some(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type) &&
+    (t.created_at ? new Date(t.created_at).getTime() : 0) > cycleStartTs);
+  const incomePercent = expectedSalary > 0
+    ? (hasFull ? 100 : Math.min((cycleIncome / expectedSalary) * 100, 100))
+    : 0;
+  const incomeOver = expectedSalary > 0 && (hasFull || cycleIncome >= expectedSalary);
+
+  const forecast = expectedSalary > 0
+    ? (hasFull ? cycleIncome - cycleExpenses : Math.max(cycleIncome, expectedSalary) - cycleExpenses)
+    : null;
 
   const budgetPercent = monthlySpendingGoal > 0 ? (cycleExpenses / monthlySpendingGoal) * 100 : 0;
   const budgetBarColor = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
@@ -143,13 +171,23 @@ const Dashboard: React.FC = () => {
     aiServiceMode,
   });
 
+  const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
+    fetchData();
+  }, [fetchData]);
+
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
   return (
     <div className="dashboard-wrapper">
       <h1 className="dashboard-title">{t('dashboard.title')}</h1>
 
+      {/* ── Salary Cycle Setup Widget ─────────────────────────────────────── */}
+      <SalaryCycleCard onCycleStarted={handleCycleStarted} />
+
+      {/* ── Stats grid ───────────────────────────────────────────────────── */}
       <div className="stats-grid">
+
+        {/* Balance (all-time: previous savings + current cycle net) */}
         <div className="stat-card">
           <div className="stat-icon wallet"><Wallet size={24}/></div>
           <div className="stat-content">
@@ -160,11 +198,20 @@ const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
-        <div className="stat-card">
+
+        {/* Income — current cycle only; clickable → statistics */}
+        <div
+          className="stat-card stat-card--clickable"
+          onClick={() => navigate('/statistics')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && navigate('/statistics')}
+          title={t('dashboard.income')}
+        >
           <div className="stat-icon income"><TrendingUp size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.income')}</p>
-            <p className="value-plus">+{formatAmount(totalIncome)}</p>
+            <p className="value-plus">+{formatAmount(cycleIncome)}</p>
             {expectedSalary > 0 && (
               <>
                 <div className={`progress-track${incomeOver ? ' progress-track--glow' : ''}`}>
@@ -173,22 +220,36 @@ const Dashboard: React.FC = () => {
                 <p className="progress-label">{t('dashboard.income_of_expected', { expected: formatAmount(expectedSalary) })}</p>
               </>
             )}
+            <p className="stat-sublabel">{t('salary_cycle.income_this_cycle')}</p>
           </div>
         </div>
-        <div className="stat-card">
+
+        {/* Expenses — current cycle only; clickable → statistics */}
+        <div
+          className="stat-card stat-card--clickable"
+          onClick={() => navigate('/statistics')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && navigate('/statistics')}
+          title={t('dashboard.expenses')}
+        >
           <div className="stat-icon expense"><TrendingDown size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.expenses')}</p>
-            <p className="value-minus">-{formatAmount(totalExpense)}</p>
-            <p className="stat-sublabel">{t('dashboard.expenses_this_month')}</p>
+            <p className="value-minus">-{formatAmount(cycleExpenses)}</p>
+            <p className="stat-sublabel">{t('salary_cycle.expenses_this_cycle')}</p>
           </div>
         </div>
+
+        {/* Budget Health */}
         {monthlySpendingGoal > 0 && (
           <div className="stat-card">
             <div className="stat-icon budget-icon"><Target size={24}/></div>
             <div className="stat-content">
               <p className="label">{t('dashboard.budget_health')}</p>
-              <p className="value" style={{ color: budgetBarColor }}>{formatAmount(cycleExpenses)} / {formatAmount(monthlySpendingGoal)}</p>
+              <p className="value" style={{ color: budgetBarColor }}>
+                {formatAmount(cycleExpenses)} / {formatAmount(monthlySpendingGoal)}
+              </p>
               <div className="budget-health-bar-track">
                 <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
               </div>
@@ -203,6 +264,8 @@ const Dashboard: React.FC = () => {
           transactions={transactions}
           monthlyBudget={monthlySpendingGoal}
           formatAmount={formatAmount}
+          cycleStartAt={cycleStart}
+          onCycleReset={refreshCycle}
         />
       )}
 

@@ -18,6 +18,10 @@ interface Props {
   transactions: Transaction[];
   monthlyBudget: number;
   formatAmount: (n: number) => string;
+  // When a SalaryCycle exists, Dashboard passes the authoritative cycle start
+  // so spending resets happen at the exact salary-drop timestamp.
+  cycleStartAt?: Date;
+  onCycleReset?: () => void;
 }
 
 function safeParseDate(value: string | null | undefined): Date | null {
@@ -56,7 +60,13 @@ function getFixedPaydayDates(fixedDay: number): { last: Date; next: Date } {
   return { last: lastDate, next: nextDate };
 }
 
-const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, formatAmount }) => {
+const WeeklyBudgetCard: React.FC<Props> = ({
+  transactions,
+  monthlyBudget,
+  formatAmount,
+  cycleStartAt,
+  onCycleReset,
+}) => {
   const { t } = useTranslation();
   const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings } = useSettings();
   const { user } = useAuth();
@@ -69,16 +79,25 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   today.setHours(0, 0, 0, 0);
   const todayStr = toLocalDateStr(today);
 
-  // --- Determine cycle boundaries ---
+  // ── Determine cycle boundaries ────────────────────────────────────────────
   let lastPayday: Date | null = null;
   let nextPayday: Date | null = null;
 
-  if (paydayMode === 'fixed' && fixedPayday > 0) {
+  if (cycleStartAt) {
+    // Authoritative cycle start from SalaryCycle record
+    lastPayday = cycleStartAt;
+    // Next payday from settings manual_next_payday if available
+    const parsedNext = safeParseDate(manualNextPayday);
+    if (parsedNext) {
+      nextPayday = parsedNext;
+      nextPayday.setHours(0, 0, 0, 0);
+    }
+  } else if (paydayMode === 'fixed' && fixedPayday > 0) {
     const { last, next } = getFixedPaydayDates(fixedPayday);
     lastPayday = last;
     nextPayday = next;
   } else {
-    // Smart mode: find most recent one-time income, using created_at for sub-day precision
+    // Smart mode fallback: use most recent one-time income created_at
     const lastIncomeTx = transactions
       .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
       .sort((a, b) => {
@@ -88,12 +107,10 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
       })[0] ?? null;
 
     if (lastIncomeTx) {
-      // Use created_at for precise cutoff — fixes same-day pre-salary expenses being counted
       lastPayday = lastIncomeTx.created_at
         ? new Date(lastIncomeTx.created_at)
         : new Date(lastIncomeTx.date + 'T00:00:00');
     } else {
-      // Fallback: start of current month
       lastPayday = new Date(today.getFullYear(), today.getMonth(), 1);
     }
 
@@ -106,12 +123,11 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const hasCycle = nextPayday !== null;
 
-  // --- Spending since last payday (timestamp-aware to exclude pre-salary same-day expenses) ---
+  // ── Spending since last payday ────────────────────────────────────────────
   const lastPaydayTs = lastPayday ? lastPayday.getTime() : 0;
   const spentSincePayday = transactions
     .filter(tx => {
       if (tx.type !== 'expense' || !tx.date) return false;
-      // Use created_at if available for sub-day precision; otherwise include all same-day expenses
       const txTs = tx.created_at
         ? new Date(tx.created_at).getTime()
         : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
@@ -119,7 +135,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  // --- Pacing formula ---
+  // ── Pacing formula ────────────────────────────────────────────────────────
   const daysRemaining = nextPayday
     ? Math.max(1, Math.ceil((nextPayday.getTime() - today.getTime()) / 86_400_000))
     : 0;
@@ -128,7 +144,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     : 0;
   const baseLimitPerWeek = monthlyBudget / 4.3;
 
-  // --- This week's spending (Mon–Sun) ---
+  // ── This week's spending (Mon–Sun) ────────────────────────────────────────
   const weekStart = getWeekStart(today);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
@@ -143,7 +159,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
 
-  // --- Static weekly lock ---
+  // ── Static weekly lock ────────────────────────────────────────────────────
   const currentWeekStartStr = toLocalDateStr(getWeekStart(today));
   const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
 
@@ -177,13 +193,12 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const pct = lockedAllowance > 0 ? Math.min((weekSpent / lockedAllowance) * 100, 100) : 0;
   const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
 
-  // --- Delta: today's spending vs locked daily baseline ---
   const spentToday = transactions
     .filter(tx => tx.type === 'expense' && tx.date?.slice(0, 10) === todayStr)
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
   const lockedDailyBaseline = lockedAllowance / 7;
-  const todayDailyLimit = weeklyAllowance / 7; // live rate, used in popover formula
+  const todayDailyLimit = weeklyAllowance / 7;
 
   const deltaDirection: 'up' | 'down' | 'neutral' =
     !hasCycle || lockedAllowance === 0 ? 'neutral'
@@ -196,7 +211,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     : '';
   const nextPaydayStr = nextPayday ? nextPayday.toISOString().slice(0, 10) : '';
 
-  // --- Handlers ---
   const openPaydayPicker = () => {
     const defaultNext = new Date(today);
     defaultNext.setMonth(defaultNext.getMonth() + 1);
@@ -207,6 +221,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const handleSave = async () => {
     if (!pendingDate) return;
     await saveSettings({ ...settings, manualNextPayday: pendingDate });
+    if (onCycleReset) onCycleReset();
     setEditingPayday(false);
   };
 
@@ -240,11 +255,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
           <CalendarDays size={22} />
         </div>
         <span className="weekly-budget-title">{t('dashboard.weekly_budget')}</span>
-        {paydayMode === 'smart' && !editingPayday && (
-          <button className="weekly-budget-salary-btn" onClick={openPaydayPicker}>
-            {t('dashboard.weekly_received_salary')}
-          </button>
-        )}
+        {/* "Received Salary" button removed — use SalaryCycleCard to start a new cycle */}
       </div>
 
       {isPaydayToday && (
@@ -396,7 +407,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
         ) : nextPayday && (
           <div className="weekly-budget-payday-info">
             <span className="weekly-budget-payday-label">{t('dashboard.weekly_next_payday_label')}:</span>
-            {paydayMode === 'smart' ? (
+            {paydayMode === 'smart' && !cycleStartAt ? (
               <button className="weekly-budget-payday-btn" onClick={openPaydayPicker}>
                 {nextPaydayDisplay}
               </button>

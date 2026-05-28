@@ -265,8 +265,14 @@ func DeleteAccount(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	// Manual cascade: transactions → categories → user (no ON DELETE CASCADE in schema)
+	// Manual cascade: fixed_expenses → salary_cycles → transactions → categories → user
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.FixedExpense{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.SalaryCycle{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.Transaction{}).Error; err != nil {
 			return err
 		}
