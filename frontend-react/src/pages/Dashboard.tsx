@@ -319,6 +319,10 @@ const Dashboard: React.FC = () => {
           formatAmount={formatAmount}
           savedMoneyBalance={savedMoneyBalance}
           onClose={() => setShowSavingsModal(false)}
+          onSaved={stats => {
+            setLocalCycleStats(stats);
+            refreshCycle().then(() => setLocalCycleStats(null));
+          }}
         />
       )}
       {showAddIncomeModal && (

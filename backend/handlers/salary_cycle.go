@@ -365,16 +365,53 @@ func StartSalaryCycle(c *gin.Context) {
 		cycle.NextPaydayAt = &parsed
 	}
 
-	// Query the PREVIOUS cycle outside the transaction so we can compute its
-	// end-of-cycle surplus/deficit and create the savings transfer inside.
-	var prevCycle *models.SalaryCycle
-	{
-		var pc models.SalaryCycle
-		if err := database.DB.Where("user_id = ?", uid).
-			Order("cycle_start_at DESC").
-			First(&pc).Error; err == nil {
-			prevCycle = &pc
+	// ── Overlap guard ────────────────────────────────────────────────────────
+	// Load every existing cycle for this user (ASC). If receivedAt — normalised
+	// to midnight UTC so timezone offsets can never shift the calendar day —
+	// falls within any existing cycle's [start, end] window, that cycle IS the
+	// current period. Return it directly instead of inserting a new row and
+	// fragmenting the timeline.
+	targetDate := toDateOnly(cycleStart)
+	var allUserCycles []models.SalaryCycle
+	database.DB.Preload("FixedExpenses").
+		Where("user_id = ?", uid).
+		Order("cycle_start_at ASC").
+		Find(&allUserCycles)
+
+	for i := range allUserCycles {
+		if isDateInCycleWindow(targetDate, allUserCycles[i]) {
+			existing := allUserCycles[i]
+			log.Printf("start salary cycle: user=%v date=%v already covered by cycle id=%v (start=%v) — returning existing",
+				uid, targetDate.Format("2006-01-02"), existing.ID,
+				toDateOnly(existing.CycleStartAt).Format("2006-01-02"))
+			stats := computeCycleStats(uid, existing)
+			fw := BudgetFramework{
+				TotalIncome:     existing.TotalIncome,
+				NeedsLimit:      existing.NeedsLimit,
+				WantsLimit:      existing.WantsLimit,
+				SavingsLimit:    existing.SavingsLimit,
+				FixedNeedsTotal: existing.FixedNeedsTotal,
+				FixedWantsTotal: existing.FixedWantsTotal,
+				VarNeedsBudget:  existing.VarNeedsBudget,
+				VarWantsBudget:  existing.VarWantsBudget,
+				DeficitWarning:  existing.VarNeedsBudget < 0,
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"cycle":            existing,
+				"budget_framework": fw,
+				"cycle_stats":      stats,
+			})
+			return
 		}
+	}
+
+	// No overlap — safe to create a new cycle.
+	// The most-recent existing cycle (last in ASC slice) is the "previous" one
+	// for end-of-cycle surplus/deficit resolution.
+	var prevCycle *models.SalaryCycle
+	if len(allUserCycles) > 0 {
+		prev := allUserCycles[len(allUserCycles)-1]
+		prevCycle = &prev
 	}
 
 	var incomeTxID uint
@@ -597,21 +634,35 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	var cycle models.SalaryCycle
-	err := database.DB.Preload("FixedExpenses").
+	// Load cycles ASC, then find the one whose date window covers today.
+	// This prevents empty "fragment" cycles (created by backdated inserts)
+	// from being returned as the active cycle instead of the canonical earlier one.
+	var allCycles []models.SalaryCycle
+	if dbErr := database.DB.Preload("FixedExpenses").
 		Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").
-		First(&cycle).Error
-
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusOK, gin.H{"cycle": nil, "budget_framework": nil, "cycle_stats": nil})
-			return
-		}
-		log.Printf("get current cycle: user=%v err=%v", uid, err)
+		Order("cycle_start_at ASC").
+		Find(&allCycles).Error; dbErr != nil {
+		log.Printf("get current cycle: user=%v err=%v", uid, dbErr)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch salary cycle"})
 		return
 	}
+	if len(allCycles) == 0 {
+		c.JSON(http.StatusOK, gin.H{"cycle": nil, "budget_framework": nil, "cycle_stats": nil})
+		return
+	}
+
+	today := toDateOnly(time.Now())
+	var activeCycle *models.SalaryCycle
+	for i := range allCycles {
+		if isDateInCycleWindow(today, allCycles[i]) {
+			activeCycle = &allCycles[i]
+			break // ASC order → first match is the earliest (canonical) covering cycle
+		}
+	}
+	if activeCycle == nil {
+		activeCycle = &allCycles[len(allCycles)-1] // all ended — show most recent
+	}
+	cycle := *activeCycle
 
 	stats := computeCycleStats(uid, cycle)
 
@@ -747,10 +798,8 @@ func AddCycleIncome(c *gin.Context) {
 		return
 	}
 
-	var cycle models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").
-		First(&cycle).Error; err != nil {
+	cycle := findActiveCycle(uid)
+	if cycle == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
 		return
 	}
@@ -799,7 +848,7 @@ func AddCycleIncome(c *gin.Context) {
 		return
 	}
 
-	stats := computeCycleStats(uid, cycle)
+	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{
 		"transaction": newTx,
 		"cycle_stats": stats,
@@ -819,16 +868,9 @@ func GetSavingsHistory(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	var cycle models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").
-		First(&cycle).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"transactions": []interface{}{}, "balance": 0.0, "savings_category_id": 0})
-		return
-	}
-
-	if cycle.SavedMoneyCategoryID == 0 {
-		c.JSON(http.StatusOK, gin.H{"transactions": []interface{}{}, "balance": 0.0, "savings_category_id": 0})
+	cycle := findActiveCycle(uid)
+	if cycle == nil || cycle.SavedMoneyCategoryID == 0 {
+		c.JSON(http.StatusOK, gin.H{"transactions": []any{}, "balance": 0.0, "savings_category_id": 0})
 		return
 	}
 
@@ -862,4 +904,128 @@ func normalizeLang(raw string) string {
 		lang = "en"
 	}
 	return lang
+}
+
+// toDateOnly normalises t to midnight UTC so that timezone offsets or
+// time-of-day differences can never make the same calendar day appear to be
+// in a different cycle window.
+func toDateOnly(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+// isDateInCycleWindow reports whether date (should already be midnight UTC via
+// toDateOnly) falls in the inclusive range [CycleStartAt, NextPaydayAt].
+// An open-ended cycle (NextPaydayAt == nil) covers every date ≥ start.
+func isDateInCycleWindow(date time.Time, cycle models.SalaryCycle) bool {
+	start := toDateOnly(cycle.CycleStartAt)
+	if date.Before(start) {
+		return false
+	}
+	if cycle.NextPaydayAt == nil {
+		return true
+	}
+	end := toDateOnly(*cycle.NextPaydayAt)
+	return !date.After(end)
+}
+
+// findActiveCycle returns the salary cycle whose window covers today, falling
+// back to the most recently started cycle when none is currently active.
+// Returns nil when the user has no cycles at all.
+func findActiveCycle(uid uint) *models.SalaryCycle {
+	var cycles []models.SalaryCycle
+	database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at ASC").
+		Find(&cycles)
+	if len(cycles) == 0 {
+		return nil
+	}
+	today := toDateOnly(time.Now())
+	for i := range cycles {
+		if isDateInCycleWindow(today, cycles[i]) {
+			return &cycles[i]
+		}
+	}
+	return &cycles[len(cycles)-1]
+}
+
+// ── AddSavingsManual ──────────────────────────────────────────────────────────
+// POST /api/salary-cycle/savings
+// Creates a manual entry in the savings pool:
+//
+//	amount > 0  →  deposit  (income transaction)
+//	amount < 0  →  withdrawal (expense transaction)
+//
+// Returns fresh CycleStats so the dashboard updates without a full page reload.
+func AddSavingsManual(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	var req struct {
+		Amount      float64 `json:"amount" binding:"required"`
+		Description string  `json:"description"`
+		Date        string  `json:"date"` // YYYY-MM-DD; optional
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Amount == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "amount must be non-zero"})
+		return
+	}
+
+	cycle := findActiveCycle(uid)
+	if cycle == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
+		return
+	}
+	if cycle.SavedMoneyCategoryID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Savings category not configured — start a new cycle first"})
+		return
+	}
+
+	txType := "income"
+	txAmount := req.Amount
+	if txAmount < 0 {
+		txType = "expense"
+		txAmount = -txAmount
+	}
+
+	now := time.Now()
+	txDate := now.Truncate(24 * time.Hour)
+	if req.Date != "" {
+		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
+			txDate = parsed
+		}
+	}
+
+	desc := strings.TrimSpace(req.Description)
+	if desc == "" {
+		desc = "Manual savings transfer"
+	}
+
+	newTx := models.Transaction{
+		UserID:      uid,
+		CategoryID:  cycle.SavedMoneyCategoryID,
+		Amount:      txAmount,
+		Description: desc,
+		Date:        txDate,
+		Type:        txType,
+		IncomeType:  "one_time",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := database.DB.Create(&newTx).Error; err != nil {
+		log.Printf("add savings manual: user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add savings entry"})
+		return
+	}
+
+	stats := computeCycleStats(uid, *cycle)
+	c.JSON(http.StatusCreated, gin.H{"transaction": newTx, "cycle_stats": stats})
 }

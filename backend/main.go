@@ -111,6 +111,7 @@ func main() {
 		protected.GET("/salary-cycle/history", handlers.GetSalaryCycleHistory)
 		protected.POST("/salary-cycle/income", handlers.AddCycleIncome)
 		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
+		protected.POST("/salary-cycle/savings", handlers.AddSavingsManual)
 	}
 
 	port := os.Getenv("PORT")
