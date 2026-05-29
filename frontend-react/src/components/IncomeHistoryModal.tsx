@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp } from 'lucide-react';
+import { X, TrendingUp, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { type SalaryCycle } from '../context/SettingsContext';
@@ -20,6 +20,7 @@ interface Props {
   currentCycle: SalaryCycle | null;
   formatAmount: (n: number) => string;
   onClose: () => void;
+  onCycleDeleted?: () => void;
 }
 
 interface CycleGroup {
@@ -46,10 +47,29 @@ function cycleDateLabel(
   return `${fromStr} – …`;
 }
 
-const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, formatAmount, onClose }) => {
+const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, formatAmount, onClose, onCycleDeleted }) => {
   const { t, i18n } = useTranslation();
   const { axiosInstance } = useAuth();
   const [cycles, setCycles] = useState<SalaryCycle[]>(currentCycle ? [currentCycle] : []);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await axiosInstance.delete(`/salary-cycle/${pendingDeleteId}`);
+      setCycles(prev => prev.filter(c => c.id !== pendingDeleteId));
+      setPendingDeleteId(null);
+      onCycleDeleted?.();
+    } catch {
+      setDeleteError(t('dashboard.delete_cycle_error'));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     axiosInstance.get('/salary-cycle/history')
@@ -163,6 +183,20 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
         </div>
 
         <div className="hist-modal-body">
+          {/* Inline delete confirmation */}
+          {pendingDeleteId !== null && (
+            <div className="hist-delete-confirm">
+              <span>{t('dashboard.delete_cycle_confirm')}</span>
+              <button className="hist-delete-ok" onClick={handleDeleteConfirm} disabled={deleting} type="button">
+                {deleting ? '…' : t('common.delete')}
+              </button>
+              <button className="hist-delete-cancel" onClick={() => { setPendingDeleteId(null); setDeleteError(''); }} type="button">
+                {t('transactions.cancel_btn')}
+              </button>
+              {deleteError && <span className="hist-delete-error">{deleteError}</span>}
+            </div>
+          )}
+
           {groups.length === 0 ? (
             <p className="hist-modal-empty">{t('transactions.no_transactions')}</p>
           ) : (
@@ -184,7 +218,20 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
                     </span>
                   )}
                 </div>
-                <span className="hist-row-amount income-amount">+{formatAmount(g.total)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="hist-row-amount income-amount">+{formatAmount(g.total)}</span>
+                  {g.key !== '__pre_cycle__' && (
+                    <button
+                      className="hist-row-delete-btn"
+                      onClick={e => { e.stopPropagation(); setPendingDeleteId(Number(g.key)); setDeleteError(''); }}
+                      title={t('dashboard.delete_cycle_btn')}
+                      type="button"
+                      aria-label={t('dashboard.delete_cycle_btn')}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}

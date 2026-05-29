@@ -65,6 +65,10 @@ func Connect() {
 	// (pre-guard) StartSalaryCycle logic when users submitted backdated dates.
 	// This is idempotent and safe to run on every start.
 	deduplicateSalaryCycles()
+
+	// Remove any salary cycles that have absolutely zero income transactions in
+	// their window — these are ghost placeholders that were never properly funded.
+	deleteZeroTransactionCycles()
 }
 
 // backfillFixedExpCategory sets salary_cycles.fixed_exp_category_id for rows
@@ -115,6 +119,41 @@ func backfillSavedMoneyCategory() {
 		log.Printf("Warning: saved_money_category_id backfill failed: %v", res.Error)
 	} else if res.RowsAffected > 0 {
 		log.Printf("saved_money_category_id backfill: updated %d cycle(s)", res.RowsAffected)
+	}
+}
+
+// deleteZeroTransactionCycles removes any SalaryCycle row that has no income
+// transaction within its window. These are "ghost" placeholders — the cycle
+// form was submitted but no salary money was ever actually recorded.
+// Runs once on startup; idempotent.
+func deleteZeroTransactionCycles() {
+	var cycles []models.SalaryCycle
+	if err := DB.Order("user_id ASC, cycle_start_at ASC").Find(&cycles).Error; err != nil {
+		log.Printf("deleteZeroTransactionCycles: load error: %v", err)
+		return
+	}
+
+	var toDelete []uint
+	for _, cycle := range cycles {
+		var count int64
+		q := DB.Model(&models.Transaction{}).
+			Where("user_id = ? AND created_at >= ? AND type = 'income'", cycle.UserID, cycle.CycleStartAt)
+		if cycle.NextPaydayAt != nil {
+			q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
+		}
+		q.Count(&count)
+
+		if count == 0 {
+			log.Printf("deleteZeroTransactionCycles: user=%d cycle id=%d (start=%s) has 0 income txs — deleting ghost",
+				cycle.UserID, cycle.ID, cycle.CycleStartAt.Format("2006-01-02"))
+			DB.Where("salary_cycle_id = ?", cycle.ID).Delete(&models.FixedExpense{})
+			toDelete = append(toDelete, cycle.ID)
+		}
+	}
+
+	if len(toDelete) > 0 {
+		DB.Where("id IN ?", toDelete).Delete(&models.SalaryCycle{})
+		log.Printf("deleteZeroTransactionCycles: removed %d ghost cycle(s)", len(toDelete))
 	}
 }
 

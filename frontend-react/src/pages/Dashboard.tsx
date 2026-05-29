@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle, type CycleStats } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus, Banknote } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
 import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
 import SalaryCycleCard from '../components/SalaryCycleCard';
@@ -142,6 +142,14 @@ const Dashboard: React.FC = () => {
     refreshCycle();
   }, [fetchData, refreshCycle]);
 
+  const handleCycleDeleted = useCallback(() => {
+    setShowIncomeModal(false);
+    setShowExpensesModal(false);
+    setLocalCycleStats(null);
+    fetchData();
+    refreshCycle();
+  }, [fetchData, refreshCycle]);
+
   const handleIncomeAdded = useCallback((updatedStats: CycleStats) => {
     setLocalCycleStats(updatedStats);
     // Full refresh in background to sync all data
@@ -157,8 +165,19 @@ const Dashboard: React.FC = () => {
 
       <SalaryCycleCard onCycleStarted={handleCycleStarted} />
 
-      {/* ── Stats grid ───────────────────────────────────────────────────── */}
-      <div className="stats-grid">
+      {/* ── No-active-cycle fallback ─────────────────────────────────────── */}
+      {!loading && currentCycle === null && (
+        <div className="no-cycle-card">
+          <div className="no-cycle-icon-wrap">
+            <Banknote size={36} />
+          </div>
+          <h2 className="no-cycle-title">{t('dashboard.no_cycle_title')}</h2>
+          <p className="no-cycle-desc">{t('dashboard.no_cycle_desc')}</p>
+        </div>
+      )}
+
+      {/* ── Stats grid — only when a cycle exists ────────────────────────── */}
+      {currentCycle !== null && <div className="stats-grid">
 
         {/* Card 1: Variable Allowance (formerly "Current Balance") */}
         <div className="stat-card">
@@ -286,7 +305,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {(monthlySpendingGoal > 0 || currentCycle) && (
         <WeeklyBudgetCard
@@ -302,6 +321,7 @@ const Dashboard: React.FC = () => {
           currentCycle={currentCycle}
           formatAmount={formatAmount}
           onClose={() => setShowIncomeModal(false)}
+          onCycleDeleted={handleCycleDeleted}
         />
       )}
       {showExpensesModal && (
@@ -311,6 +331,7 @@ const Dashboard: React.FC = () => {
           fixedExpCatID={fixedExpCatID}
           formatAmount={formatAmount}
           onClose={() => setShowExpensesModal(false)}
+          onCycleDeleted={handleCycleDeleted}
         />
       )}
       {showSavingsModal && (

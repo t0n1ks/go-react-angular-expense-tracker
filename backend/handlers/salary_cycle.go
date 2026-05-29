@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -647,20 +648,28 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		return
 	}
 	if len(allCycles) == 0 {
-		c.JSON(http.StatusOK, gin.H{"cycle": nil, "budget_framework": nil, "cycle_stats": nil})
+		// User has never started a cycle — clean no-cycle state, no INSERT.
+		c.JSON(http.StatusOK, gin.H{
+			"cycle":            nil,
+			"budget_framework": nil,
+			"cycle_stats":      nil,
+			"has_active_cycle": false,
+		})
 		return
 	}
 
 	today := toDateOnly(time.Now())
 	var activeCycle *models.SalaryCycle
+	hasActive := false
 	for i := range allCycles {
 		if isDateInCycleWindow(today, allCycles[i]) {
 			activeCycle = &allCycles[i]
+			hasActive = true
 			break // ASC order → first match is the earliest (canonical) covering cycle
 		}
 	}
 	if activeCycle == nil {
-		activeCycle = &allCycles[len(allCycles)-1] // all ended — show most recent
+		activeCycle = &allCycles[len(allCycles)-1] // all ended — show most recent for reference
 	}
 	cycle := *activeCycle
 
@@ -682,6 +691,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		"cycle":            cycle,
 		"budget_framework": fw,
 		"cycle_stats":      stats,
+		"has_active_cycle": hasActive,
 	})
 }
 
@@ -894,6 +904,81 @@ func GetSavingsHistory(c *gin.Context) {
 		"balance":             balance,
 		"savings_category_id": cycle.SavedMoneyCategoryID,
 	})
+}
+
+// ── DeleteSalaryCycle ─────────────────────────────────────────────────────────
+// DELETE /api/salary-cycle/:id
+// Hard-deletes the SalaryCycle row and soft-deletes the auto-generated
+// transactions that were created when that specific cycle was provisioned
+// (Salary income, fixed expenses, savings transfers — all within 60 s of
+// cycle_start_at). User-entered transactions are NOT touched.
+
+func DeleteSalaryCycle(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	cycleIDRaw, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cycle ID"})
+		return
+	}
+	cycleID := uint(cycleIDRaw)
+
+	var cycle models.SalaryCycle
+	if err := database.DB.Where("id = ? AND user_id = ?", cycleID, uid).
+		First(&cycle).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cycle not found or access denied"})
+			return
+		}
+		log.Printf("delete cycle: find user=%v cycle=%v err=%v", uid, cycleID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycle"})
+		return
+	}
+
+	// 60-second window captures all auto-provisioned transactions (they all
+	// receive CreatedAt == cycleStart during the single atomic write).
+	winEnd := cycle.CycleStartAt.Add(60 * time.Second)
+
+	// Soft-delete the auto-generated Salary income transaction.
+	database.DB.Where(
+		"user_id = ? AND created_at >= ? AND created_at <= ? AND type = 'income' AND description = 'Salary'",
+		uid, cycle.CycleStartAt, winEnd,
+	).Delete(&models.Transaction{})
+
+	// Soft-delete auto-generated fixed-expense transactions.
+	if cycle.FixedExpCategoryID > 0 {
+		database.DB.Where(
+			"user_id = ? AND created_at >= ? AND created_at <= ? AND category_id = ?",
+			uid, cycle.CycleStartAt, winEnd, cycle.FixedExpCategoryID,
+		).Delete(&models.Transaction{})
+	}
+
+	// Soft-delete auto-generated savings-transfer transactions.
+	if cycle.SavedMoneyCategoryID > 0 {
+		database.DB.Where(
+			"user_id = ? AND created_at >= ? AND created_at <= ? AND category_id = ?",
+			uid, cycle.CycleStartAt, winEnd, cycle.SavedMoneyCategoryID,
+		).Delete(&models.Transaction{})
+	}
+
+	// Hard-delete the FixedExpense metadata rows (no DeletedAt column).
+	database.DB.Where("salary_cycle_id = ?", cycle.ID).Delete(&models.FixedExpense{})
+
+	// Hard-delete the SalaryCycle row itself.
+	if err := database.DB.Delete(&cycle).Error; err != nil {
+		log.Printf("delete cycle: remove user=%v cycle=%v err=%v", uid, cycleID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cycle"})
+		return
+	}
+
+	log.Printf("delete cycle: user=%v deleted cycle id=%v (start=%v)",
+		uid, cycleID, cycle.CycleStartAt.Format("2006-01-02"))
+	c.JSON(http.StatusOK, gin.H{"message": "Cycle deleted", "id": cycleID})
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

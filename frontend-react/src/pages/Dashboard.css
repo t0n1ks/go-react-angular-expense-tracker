@@ -83,6 +83,46 @@
   margin: 3px 0 0;
 }
 
+/* ── No-active-cycle fallback card ──────────────────────────────────────── */
+.no-cycle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 2.5rem 2rem;
+  background: var(--color-bg-card);
+  border: 1.5px dashed var(--color-border-card);
+  border-radius: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.no-cycle-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(56,189,248,0.15), rgba(99,102,241,0.15));
+  color: #38bdf8;
+}
+
+.no-cycle-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 0;
+}
+
+.no-cycle-desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  max-width: 380px;
+  margin: 0;
+  line-height: 1.55;
+}
+
 /* "+ Add Income" floating button on Income card */
 .stat-card-add-btn {
   position: absolute;
@@ -590,6 +630,56 @@
 }
 .income-amount { color: var(--color-income-text, #10b981); }
 .expense-amount { color: var(--color-expense-text, #f87171); }
+
+/* ── History modal — delete button & confirmation ────────────────────────── */
+.hist-row-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+.hist-row-delete-btn:hover { opacity: 1; color: #f87171; }
+
+.hist-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.5rem;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--color-text-body);
+}
+.hist-delete-ok {
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hist-delete-ok:disabled { opacity: 0.55; cursor: not-allowed; }
+.hist-delete-cancel {
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-card);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.hist-delete-error { font-size: 0.75rem; color: #f87171; }
 
 /* ── Inline payday edit controls (new cycle path) ───────────────────────── */
 .wbc-edit-payday-btn {

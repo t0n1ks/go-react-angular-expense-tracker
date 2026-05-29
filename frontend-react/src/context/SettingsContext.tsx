@@ -81,6 +81,7 @@ interface SettingsContextType extends UserSettings {
   currencySymbol: string;
   currentCycle: SalaryCycle | null;
   cycleStats: CycleStats | null;
+  hasActiveCycle: boolean;
   refreshCycle: () => Promise<void>;
 }
 
@@ -138,6 +139,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isLoading, setIsLoading] = useState(false);
   const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
   const [cycleStats, setCycleStats] = useState<CycleStats | null>(null);
+  const [hasActiveCycle, setHasActiveCycle] = useState<boolean>(false);
 
   const refreshCycle = useCallback(async () => {
     try {
@@ -145,6 +147,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       const cycle: SalaryCycle | null = res.data.cycle ?? null;
       setCurrentCycle(cycle);
       setCycleStats(res.data.cycle_stats ?? null);
+      setHasActiveCycle(res.data.has_active_cycle ?? false);
       if (cycle) {
         localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
       } else {
@@ -189,6 +192,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         const cycle: SalaryCycle | null = cycleRes.data.cycle ?? null;
         setCurrentCycle(cycle);
         setCycleStats(cycleRes.data.cycle_stats ?? null);
+        setHasActiveCycle(cycleRes.data.has_active_cycle ?? false);
         if (cycle) {
           localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
         } else {
@@ -231,6 +235,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     currencySymbol,
     currentCycle,
     cycleStats,
+    hasActiveCycle,
     refreshCycle,
   };
 
