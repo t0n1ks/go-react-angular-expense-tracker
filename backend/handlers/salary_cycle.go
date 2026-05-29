@@ -418,8 +418,12 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		return
 	}
 
-	// new date must be strictly after the cycle's start day
-	if !newDate.After(cycle.CycleStartAt.Truncate(24 * time.Hour)) {
+	// Compare as date-only strings to avoid UTC Truncate vs. local date mismatch.
+	// Both sides become YYYY-MM-DD at UTC midnight, so timezone arithmetic cannot
+	// silently shift the start day by one.
+	cycleStartDateStr := cycle.CycleStartAt.UTC().Format("2006-01-02")
+	startDateOnly, _ := time.Parse("2006-01-02", cycleStartDateStr)
+	if !newDate.After(startDateOnly) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "next_payday must be after the cycle start date"})
 		return
 	}

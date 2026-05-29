@@ -46,6 +46,8 @@
     "income": "Доходы",
     "income_salary": "Зарплата",
     "income_bonuses": "Бонусы",
+    "income_other": "Прочее",
+    "pre_cycle_label": "До первого цикла",
     "expenses": "Расходы",
     "expenses_fixed": "Фиксированные",
     "expenses_variable": "Переменные",
@@ -567,7 +569,8 @@
     "cycle_since": "С {{date}}",
     "income_this_cycle": "за цикл",
     "expenses_this_cycle": "за цикл",
-    "fixed_payments_category": "Базовые затраты"
+    "fixed_payments_category": "Базовые затраты",
+    "info_label": "Инфо"
   },
   "tour": {
     "home_title": "Панель управления",

@@ -1,18 +1,22 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info } from 'lucide-react';
+import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import './SalaryCycleCard.css';
 
-// Lightweight hover/focus tooltip — no state, positioned via CSS so it never
-// clips. Used to explain the 50/30/20 rule and what counts as a fixed expense.
-const InfoTip: React.FC<{ text: string }> = ({ text }) => (
-  <span className="sc-infotip" tabIndex={0} role="note">
+// Clickable info icon — opens a dismissible modal with the full explanation.
+// This replaces CSS-only hover tooltips that overflow on mobile.
+const InfoTip: React.FC<{ text: string; onOpen: (text: string) => void }> = ({ text, onOpen }) => (
+  <button
+    type="button"
+    className="sc-infotip"
+    onClick={e => { e.stopPropagation(); onOpen(text); }}
+    aria-label="More information"
+  >
     <Info size={13} />
-    <span className="sc-infotip-bubble">{text}</span>
-  </span>
+  </button>
 );
 
 interface FixedExpenseRow {
@@ -61,6 +65,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [tipContent, setTipContent] = useState<string | null>(null);
 
   const getRatioValues = (): [number, number, number] => {
     const preset = PROFILES[ratioProfile];
@@ -164,6 +169,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
     : null;
 
   return (
+    <>
     <div className="sc-card">
       <button
         className="sc-header"
@@ -256,7 +262,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
             <div className="sc-section">
               <label className="sc-section-label">
                 {t('salary_cycle.ratio_title')}
-                <InfoTip text={t('salary_cycle.ratio_tooltip')} />
+                <InfoTip text={t('salary_cycle.ratio_tooltip')} onOpen={setTipContent} />
               </label>
               <div className="sc-ratio-tabs">
                 {(['50/30/20', '65/20/15', '50/20/30', 'custom'] as RatioProfile[]).map(p => (
@@ -301,7 +307,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
               <div className="sc-section-header">
                 <label className="sc-section-label">
                   {t('salary_cycle.fixed_expenses')}
-                  <InfoTip text={t('salary_cycle.fixed_tooltip')} />
+                  <InfoTip text={t('salary_cycle.fixed_tooltip')} onOpen={setTipContent} />
                 </label>
                 <span className="sc-section-hint">{t('salary_cycle.fixed_expenses_hint')}</span>
               </div>
@@ -413,6 +419,33 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
         )}
       </AnimatePresence>
     </div>
+
+    {/* ── Info tooltip modal ───────────────────────────────────────────── */}
+    {tipContent !== null && (
+      <div
+        className="sc-tip-overlay"
+        onClick={() => setTipContent(null)}
+        role="dialog"
+        aria-modal
+      >
+        <div className="sc-tip-modal" onClick={e => e.stopPropagation()}>
+          <div className="sc-tip-modal-header">
+            <Info size={16} className="sc-tip-modal-icon" />
+            <span className="sc-tip-modal-title">{t('salary_cycle.info_label')}</span>
+            <button
+              type="button"
+              className="sc-tip-modal-close"
+              onClick={() => setTipContent(null)}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="sc-tip-modal-body">{tipContent}</p>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

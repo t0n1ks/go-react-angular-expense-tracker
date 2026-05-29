@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { X, TrendingDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { type SalaryCycle } from '../context/SettingsContext';
 
 interface Transaction {
@@ -21,7 +22,7 @@ interface Props {
   onClose: () => void;
 }
 
-interface MonthGroup {
+interface CycleGroup {
   key: string;
   label: string;
   total: number;
@@ -30,43 +31,121 @@ interface MonthGroup {
   isCurrentCycle: boolean;
 }
 
+function cycleDateLabel(
+  cycleStartAt: string,
+  nextPaydayAt: string | null,
+  lang: string,
+): string {
+  const from = new Date(cycleStartAt);
+  const fromStr = from.toLocaleDateString(lang, { month: 'short', day: 'numeric' });
+  if (nextPaydayAt) {
+    const to = new Date(nextPaydayAt);
+    const toStr = to.toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${fromStr} – ${toStr}`;
+  }
+  return `${fromStr} – …`;
+}
+
 const ExpensesHistoryModal: React.FC<Props> = ({
   transactions, currentCycle, fixedExpCatID, formatAmount, onClose,
 }) => {
   const { t, i18n } = useTranslation();
+  const { axiosInstance } = useAuth();
+  const [cycles, setCycles] = useState<SalaryCycle[]>(currentCycle ? [currentCycle] : []);
 
-  const groups = useMemo<MonthGroup[]>(() => {
-    const totalMap = new Map<string, number>();
-    const fixedMap = new Map<string, number>();
+  useEffect(() => {
+    axiosInstance.get('/salary-cycle/history')
+      .then((res: { data: { cycles: SalaryCycle[] } }) => {
+        if (res.data.cycles?.length) setCycles(res.data.cycles);
+      })
+      .catch(() => { /* keep currentCycle fallback */ });
+  }, [axiosInstance]);
 
-    for (const tx of transactions) {
-      if (tx.type !== 'expense') continue;
-      const key = (tx.created_at ?? tx.date).slice(0, 7);
-      const amt = Number(tx.amount);
-      totalMap.set(key, (totalMap.get(key) ?? 0) + amt);
-      if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) {
-        fixedMap.set(key, (fixedMap.get(key) ?? 0) + amt);
+  const groups = useMemo<CycleGroup[]>(() => {
+    if (!cycles.length) {
+      // Legacy path: calendar-month grouping
+      const totalMap = new Map<string, number>();
+      const fixedMap = new Map<string, number>();
+      for (const tx of transactions) {
+        if (tx.type !== 'expense') continue;
+        const key = (tx.created_at ?? tx.date).slice(0, 7);
+        const amt = Number(tx.amount);
+        totalMap.set(key, (totalMap.get(key) ?? 0) + amt);
+        if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) {
+          fixedMap.set(key, (fixedMap.get(key) ?? 0) + amt);
+        }
+      }
+      return Array.from(totalMap.entries())
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([key, total]) => {
+          const [y, m] = key.split('-').map(Number);
+          const label = new Date(y, m - 1, 1).toLocaleDateString(i18n.language, {
+            month: 'long', year: 'numeric',
+          });
+          const fixed = fixedMap.get(key) ?? 0;
+          return { key, label, total, fixed, variable: Math.max(0, total - fixed), isCurrentCycle: false };
+        });
+    }
+
+    // Cycle-aware path: group strictly by salary cycle window.
+    const sorted = [...cycles].sort((a, b) => a.cycle_start_at.localeCompare(b.cycle_start_at));
+    const result: CycleGroup[] = [];
+
+    // Pre-cycle bucket
+    const firstStart = sorted[0]?.cycle_start_at.slice(0, 10) ?? '';
+    if (firstStart) {
+      let preTotal = 0, preFixed = 0;
+      for (const tx of transactions) {
+        if (tx.type !== 'expense') continue;
+        if ((tx.created_at ?? tx.date).slice(0, 10) >= firstStart) continue;
+        const amt = Number(tx.amount);
+        preTotal += amt;
+        if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) preFixed += amt;
+      }
+      if (preTotal > 0) {
+        result.push({
+          key: '__pre_cycle__',
+          label: t('dashboard.pre_cycle_label'),
+          total: preTotal,
+          fixed: preFixed,
+          variable: Math.max(0, preTotal - preFixed),
+          isCurrentCycle: false,
+        });
       }
     }
 
-    const cycleKey = currentCycle?.cycle_start_at?.slice(0, 7) ?? '';
+    sorted.forEach((cycle, idx) => {
+      const startDate = cycle.cycle_start_at.slice(0, 10);
+      const endDate = idx < sorted.length - 1
+        ? sorted[idx + 1].cycle_start_at.slice(0, 10)
+        : null;
 
-    return Array.from(totalMap.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, total]) => {
-        const [y, m] = key.split('-').map(Number);
-        const label = new Date(y, m - 1, 1).toLocaleDateString(i18n.language, {
-          month: 'long', year: 'numeric',
-        });
-        const fixed = fixedMap.get(key) ?? 0;
-        return {
-          key, label, total,
-          fixed,
-          variable: Math.max(0, total - fixed),
-          isCurrentCycle: key === cycleKey,
-        };
+      const isCurrentCycle = idx === sorted.length - 1;
+
+      let total = 0, fixed = 0;
+      for (const tx of transactions) {
+        if (tx.type !== 'expense') continue;
+        const d = (tx.created_at ?? tx.date).slice(0, 10);
+        if (d < startDate || (endDate !== null && d >= endDate)) continue;
+        const amt = Number(tx.amount);
+        total += amt;
+        if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) fixed += amt;
+      }
+
+      if (total === 0 && !isCurrentCycle) return;
+
+      result.push({
+        key: String(cycle.id),
+        label: cycleDateLabel(cycle.cycle_start_at, cycle.next_payday_at, i18n.language),
+        total,
+        fixed,
+        variable: Math.max(0, total - fixed),
+        isCurrentCycle,
       });
-  }, [transactions, currentCycle, fixedExpCatID, i18n.language]);
+    });
+
+    return result.reverse();
+  }, [transactions, cycles, fixedExpCatID, i18n.language, t]);
 
   return (
     <div className="hist-modal-overlay" onClick={onClose}>
@@ -94,7 +173,9 @@ const ExpensesHistoryModal: React.FC<Props> = ({
               <div key={g.key} className={`hist-row${g.isCurrentCycle ? ' hist-row--active' : ''}`}>
                 <div className="hist-row-left">
                   <span className="hist-row-label">{g.label}</span>
-                  {g.isCurrentCycle && <span className="hist-row-badge">{t('salary_cycle.active_cycle')}</span>}
+                  {g.isCurrentCycle && (
+                    <span className="hist-row-badge">{t('salary_cycle.active_cycle')}</span>
+                  )}
                   {g.fixed > 0 && (
                     <span className="hist-row-breakdown">
                       {t('dashboard.expenses_fixed')}: {formatAmount(g.fixed)}

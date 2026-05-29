@@ -183,6 +183,9 @@ const Dashboard: React.FC = () => {
                 {currentCycle.bonuses > 0 && (
                   <span> · {t('dashboard.income_bonuses')}: {formatAmount(currentCycle.bonuses)}</span>
                 )}
+                {cycleIncome - (currentCycle.base_salary + currentCycle.bonuses) > 0.01 && (
+                  <span> · {t('dashboard.income_other')}: {formatAmount(cycleIncome - currentCycle.base_salary - currentCycle.bonuses)}</span>
+                )}
               </p>
             )}
             {salaryRef > 0 && !currentCycle && (
