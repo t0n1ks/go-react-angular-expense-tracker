@@ -109,6 +109,8 @@ func main() {
 		protected.GET("/salary-cycle/current", handlers.GetCurrentSalaryCycle)
 		protected.PATCH("/salary-cycle/current", handlers.UpdateCycleNextPayday)
 		protected.GET("/salary-cycle/history", handlers.GetSalaryCycleHistory)
+		protected.POST("/salary-cycle/income", handlers.AddCycleIncome)
+		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
 	}
 
 	port := os.Getenv("PORT")

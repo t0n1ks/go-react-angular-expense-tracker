@@ -83,6 +83,25 @@
   margin: 3px 0 0;
 }
 
+/* "+ Add Income" floating button on Income card */
+.stat-card-add-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(56,189,248,0.15);
+  border: 1px solid rgba(56,189,248,0.4);
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+}
+.stat-card-add-btn:hover { background: rgba(56,189,248,0.28); transform: scale(1.1); }
+
 /* Clickable stat card */
 .stat-card--clickable {
   cursor: pointer;

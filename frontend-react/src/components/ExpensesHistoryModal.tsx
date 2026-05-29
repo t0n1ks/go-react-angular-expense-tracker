@@ -91,21 +91,30 @@ const ExpensesHistoryModal: React.FC<Props> = ({
     const sorted = [...cycles].sort((a, b) => a.cycle_start_at.localeCompare(b.cycle_start_at));
     const result: CycleGroup[] = [];
 
-    // Pre-cycle bucket
+    // Pre-cycle bucket — show actual date range instead of generic label.
     const firstStart = sorted[0]?.cycle_start_at.slice(0, 10) ?? '';
     if (firstStart) {
-      let preTotal = 0, preFixed = 0;
-      for (const tx of transactions) {
-        if (tx.type !== 'expense') continue;
-        if ((tx.created_at ?? tx.date).slice(0, 10) >= firstStart) continue;
-        const amt = Number(tx.amount);
-        preTotal += amt;
-        if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) preFixed += amt;
-      }
-      if (preTotal > 0) {
+      const preTxs = transactions.filter(
+        tx => tx.type === 'expense' && (tx.created_at ?? tx.date).slice(0, 10) < firstStart
+      );
+      if (preTxs.length > 0) {
+        let preTotal = 0, preFixed = 0;
+        const preDates: string[] = [];
+        for (const tx of preTxs) {
+          const amt = Number(tx.amount);
+          preTotal += amt;
+          if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) preFixed += amt;
+          preDates.push((tx.created_at ?? tx.date).slice(0, 10));
+        }
+        const minDate = [...preDates].sort()[0];
+        const maxDate = new Date(firstStart + 'T12:00:00');
+        maxDate.setDate(maxDate.getDate() - 1);
+        const fromStr = new Date(minDate + 'T12:00:00').toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+        const toStr   = maxDate.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' });
+
         result.push({
           key: '__pre_cycle__',
-          label: t('dashboard.pre_cycle_label'),
+          label: `${fromStr} – ${toStr}`,
           total: preTotal,
           fixed: preFixed,
           variable: Math.max(0, preTotal - preFixed),

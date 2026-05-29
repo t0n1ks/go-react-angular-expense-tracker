@@ -28,6 +28,7 @@ export interface SalaryCycle {
   var_needs_budget: number;
   var_wants_budget: number;
   fixed_exp_category_id: number;
+  saved_money_category_id: number;
   cycle_start_at: string; // ISO timestamp
   next_payday_at: string | null;
   fixed_expenses: FixedExpenseItem[];
@@ -54,8 +55,14 @@ export interface CycleStats {
   cycle_expenses: number;
   cycle_fixed_expenses: number;
   cycle_variable_expenses: number;
+  // Dynamic variable allowance = income − (income×savings_pct%) − fixed_expenses
+  variable_allowance: number;
+  // Portion of income earmarked for the savings pool this cycle
+  dynamic_savings: number;
+  // Cumulative all-time net balance of the savings pool
+  saved_money_balance: number;
   previous_savings: number;
-  net_discretionary_budget: number;
+  net_discretionary_budget: number; // equals variable_allowance (backward-compat)
   days_total: number;
   days_elapsed: number;
   days_remaining: number;

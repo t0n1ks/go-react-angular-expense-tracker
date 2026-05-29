@@ -21,7 +21,8 @@ type SalaryCycle struct {
 	FixedWantsTotal float64        `json:"fixed_wants_total"`
 	VarNeedsBudget  float64        `json:"var_needs_budget"`
 	VarWantsBudget  float64        `json:"var_wants_budget"`
-	FixedExpCategoryID uint         `json:"fixed_exp_category_id" gorm:"default:0"`
+	FixedExpCategoryID    uint         `json:"fixed_exp_category_id"    gorm:"default:0"`
+	SavedMoneyCategoryID  uint         `json:"saved_money_category_id"  gorm:"default:0"`
 	CycleStartAt    time.Time      `json:"cycle_start_at" gorm:"not null"`
 	NextPaydayAt    *time.Time     `json:"next_payday_at"`
 	CreatedAt       time.Time      `json:"created_at"`

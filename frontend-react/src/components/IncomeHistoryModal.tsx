@@ -84,17 +84,31 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
     const sorted = [...cycles].sort((a, b) => a.cycle_start_at.localeCompare(b.cycle_start_at));
     const result: CycleGroup[] = [];
 
-    // Pre-cycle bucket: income before the very first cycle started
+    // Pre-cycle bucket: income before the very first cycle started.
+    // Use actual min/max transaction dates for the label instead of a generic string.
     const firstStart = sorted[0]?.cycle_start_at.slice(0, 10) ?? '';
     if (firstStart) {
-      const preTotal = transactions
+      const preTxDates = transactions
         .filter(tx => tx.type === 'income')
         .filter(tx => (tx.created_at ?? tx.date).slice(0, 10) < firstStart)
-        .reduce((s, tx) => s + Number(tx.amount), 0);
-      if (preTotal > 0) {
+        .map(tx => (tx.created_at ?? tx.date).slice(0, 10));
+
+      if (preTxDates.length > 0) {
+        const preTotal = preTxDates.reduce((s, _, i) => {
+          const tx = transactions.filter(t => t.type === 'income')
+            .filter(t => (t.created_at ?? t.date).slice(0, 10) < firstStart)[i];
+          return s + Number(tx?.amount ?? 0);
+        }, 0);
+
+        const minDate = [...preTxDates].sort()[0];
+        const maxDate = new Date(firstStart + 'T12:00:00');
+        maxDate.setDate(maxDate.getDate() - 1);
+        const fromStr = new Date(minDate + 'T12:00:00').toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' });
+        const toStr   = maxDate.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' });
+
         result.push({
           key: '__pre_cycle__',
-          label: t('dashboard.pre_cycle_label'),
+          label: `${fromStr} – ${toStr}`,
           total: preTotal,
           isCurrentCycle: false,
         });

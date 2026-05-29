@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +15,6 @@ import (
 )
 
 // BudgetFramework is the computed 50/30/20 (or custom ratio) allocation.
-// Exported so tests can call ComputeBudgetFramework directly.
 type BudgetFramework struct {
 	TotalIncome     float64 `json:"total_income"`
 	NeedsLimit      float64 `json:"needs_limit"`
@@ -34,11 +34,6 @@ type FixedExpenseInput struct {
 	CategoryType string  `json:"category_type"` // need | want
 }
 
-// ComputeBudgetFramework applies strict top-down budgeting:
-//  1. Split TotalIncome by ratio → hard ceilings
-//  2. Subtract fixed costs from their respective ceilings → variable budgets
-//  3. Savings pool is NEVER touched by fixed expenses
-//  4. Return deficit_warning if variable needs go negative
 func ComputeBudgetFramework(totalIncome, needsPct, wantsPct, savingsPct float64, fixedExpenses []FixedExpenseInput) BudgetFramework {
 	needsLimit := totalIncome * needsPct / 100
 	wantsLimit := totalIncome * wantsPct / 100
@@ -69,7 +64,6 @@ func ComputeBudgetFramework(totalIncome, needsPct, wantsPct, savingsPct float64,
 		VarWantsBudget:  varWantsBudget,
 		DeficitWarning:  deficitWarning,
 	}
-
 	if deficitWarning {
 		s := "65/20/15"
 		fw.SuggestedProfile = &s
@@ -77,13 +71,214 @@ func ComputeBudgetFramework(totalIncome, needsPct, wantsPct, savingsPct float64,
 	return fw
 }
 
-// StartSalaryCycle creates a new salary cycle, writes all money-movement
-// transactions to the database, and resets the relevant profile fields so
-// existing components (WeeklyBudgetCard, hearts check) keep working.
-//
-// Key invariant: cycle.CycleStartAt is set to receivedAt-1ms so that all
-// generated transactions (created_at == receivedAt) satisfy the strict
-// `created_at > cycle_start_at` filter used throughout the dashboards.
+// ── Localized category name maps ─────────────────────────────────────────────
+
+var fixedCatByLang = map[string]string{
+	"en": "Fixed Payments",
+	"de": "Fixkosten",
+	"ru": "Базовые затраты",
+	"uk": "Базові витрати",
+}
+
+var savedMoneyCatByLang = map[string]string{
+	"en": "Saved Money",
+	"de": "Ersparnisse",
+	"ru": "Сбережения",
+	"uk": "Заощадження",
+}
+
+// ── CycleStats ───────────────────────────────────────────────────────────────
+
+// CycleStats is the server-authoritative aggregation for a salary cycle.
+// All numbers are derived from LIVE (non-deleted) transactions so that any
+// mutation (create / update / soft-delete) is immediately reflected.
+type CycleStats struct {
+	// Core cycle totals — exclude savings-pool category transactions
+	CycleIncome           float64 `json:"cycle_income"`
+	CycleExpenses         float64 `json:"cycle_expenses"`
+	CycleFixedExpenses    float64 `json:"cycle_fixed_expenses"`
+	CycleVariableExpenses float64 `json:"cycle_variable_expenses"`
+
+	// Dynamic Variable Allowance = income − (income×savings_pct%) − fixed_expenses
+	// This is the starting budget for discretionary (variable) spending.
+	VariableAllowance float64 `json:"variable_allowance"`
+	// DynamicSavings = income × savings_pct% — the portion earmarked for the pool.
+	DynamicSavings float64 `json:"dynamic_savings"`
+	// SavedMoneyBalance = cumulative all-time net balance of the savings pool.
+	SavedMoneyBalance float64 `json:"saved_money_balance"`
+
+	// Kept for backward-compat with components that already read this field.
+	// Equals VariableAllowance.
+	NetDiscretionaryBudget float64 `json:"net_discretionary_budget"`
+
+	PreviousSavings float64 `json:"previous_savings"`
+
+	// Cycle timing
+	DaysTotal    int `json:"days_total"`
+	DaysElapsed  int `json:"days_elapsed"`
+	DaysRemaining int `json:"days_remaining"`
+
+	// Rolling cycle-week engine (7-day chunks from cycle_start_at)
+	BaseWeeklyAllowance  float64 `json:"base_weekly_allowance"`
+	CurrentWeekIndex     int     `json:"current_week_index"`
+	CurrentWeekAllowance float64 `json:"current_week_allowance"`
+	CurrentWeekSpent     float64 `json:"current_week_spent"`
+	Rollover             float64 `json:"rollover"`
+}
+
+// computeCycleStats builds the full CycleStats for one salary cycle.
+// It reads ONLY live (soft-delete-safe) transactions from the DB and performs
+// all arithmetic here, so React never needs to do client-side date math.
+func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
+	since := cycle.CycleStartAt
+
+	// Load all live transactions in the cycle window.
+	// Upper bound = next_payday_at when set (inclusive) — prevents pre/post
+	// cycle data from polluting the rollover calculation.
+	var txs []models.Transaction
+	q := database.DB.Where("user_id = ? AND created_at >= ?", uid, since)
+	if cycle.NextPaydayAt != nil {
+		q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
+	}
+	q.Find(&txs) // GORM v2: deleted_at IS NULL added automatically
+
+	var income, expenses, fixedExp, variableExp float64
+	for _, tx := range txs {
+		// Savings-pool transactions are tracked separately, never mixed into
+		// cycle income / expense totals (they would double-count the pool).
+		if cycle.SavedMoneyCategoryID > 0 && tx.CategoryID == cycle.SavedMoneyCategoryID {
+			continue
+		}
+		switch tx.Type {
+		case "income":
+			income += tx.Amount
+		case "expense":
+			expenses += tx.Amount
+			if cycle.FixedExpCategoryID > 0 && tx.CategoryID == cycle.FixedExpCategoryID {
+				fixedExp += tx.Amount
+			} else {
+				variableExp += tx.Amount
+			}
+		}
+	}
+
+	// Dynamic savings allocation — scales with actual income so ghost data
+	// (snapshot values from a deleted salary tx) cannot persist.
+	dynamicSavings := income * cycle.SavingsPct / 100
+
+	// Variable Allowance = what's truly available for discretionary spending.
+	variableAllowance := math.Max(0, income-dynamicSavings-fixedExp)
+
+	// All-time savings pool balance (all users' transactions to the saved-money cat).
+	var savedMoneyBalance float64
+	if cycle.SavedMoneyCategoryID > 0 {
+		var pool []models.Transaction
+		database.DB.
+			Where("user_id = ? AND category_id = ?", uid, cycle.SavedMoneyCategoryID).
+			Find(&pool)
+		for _, p := range pool {
+			if p.Type == "income" {
+				savedMoneyBalance += p.Amount
+			} else {
+				savedMoneyBalance -= p.Amount
+			}
+		}
+	}
+
+	// Previous savings = net all-time minus net this cycle.
+	var allIncome, allExpense float64
+	database.DB.Model(&models.Transaction{}).
+		Where("user_id = ? AND type = 'income'", uid).
+		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
+	database.DB.Model(&models.Transaction{}).
+		Where("user_id = ? AND type = 'expense'", uid).
+		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
+	previousSavings := (allIncome - allExpense) - (income - expenses)
+
+	// Cycle timing
+	now := time.Now()
+	daysTotal := 30
+	if cycle.NextPaydayAt != nil {
+		d := int(cycle.NextPaydayAt.Sub(cycle.CycleStartAt).Hours() / 24)
+		if d >= 7 {
+			daysTotal = d
+		}
+	}
+	daysElapsed := int(now.Sub(cycle.CycleStartAt).Hours() / 24)
+	if daysElapsed < 0 {
+		daysElapsed = 0
+	}
+	daysRemaining := daysTotal - daysElapsed
+	if daysRemaining < 0 {
+		daysRemaining = 0
+	}
+
+	baseWeekly := 0.0
+	if daysTotal > 0 {
+		baseWeekly = variableAllowance / float64(daysTotal) * 7
+	}
+
+	// Rolling cycle-weeks: 7-day chunks from cycle_start_at.
+	// Surplus / deficit from completed weeks carry into the next week's limit.
+	currentWeekIndex := daysElapsed / 7
+	rollover := 0.0
+	for w := 0; w < currentWeekIndex; w++ {
+		wFrom := cycle.CycleStartAt.AddDate(0, 0, w*7)
+		wTo := cycle.CycleStartAt.AddDate(0, 0, (w+1)*7)
+		rollover += baseWeekly - sumVariableInRange(txs, cycle.FixedExpCategoryID, cycle.SavedMoneyCategoryID, wFrom, wTo)
+	}
+	currentWeekFrom := cycle.CycleStartAt.AddDate(0, 0, currentWeekIndex*7)
+	currentWeekTo := currentWeekFrom.AddDate(0, 0, 7)
+	currentWeekSpent := sumVariableInRange(txs, cycle.FixedExpCategoryID, cycle.SavedMoneyCategoryID, currentWeekFrom, currentWeekTo)
+	currentWeekAllowance := baseWeekly + rollover
+	if currentWeekAllowance < 0 {
+		currentWeekAllowance = 0
+	}
+
+	return CycleStats{
+		CycleIncome:            income,
+		CycleExpenses:          expenses,
+		CycleFixedExpenses:     fixedExp,
+		CycleVariableExpenses:  variableExp,
+		VariableAllowance:      variableAllowance,
+		DynamicSavings:         dynamicSavings,
+		SavedMoneyBalance:      savedMoneyBalance,
+		NetDiscretionaryBudget: variableAllowance,
+		PreviousSavings:        previousSavings,
+		DaysTotal:              daysTotal,
+		DaysElapsed:            daysElapsed,
+		DaysRemaining:          daysRemaining,
+		BaseWeeklyAllowance:    baseWeekly,
+		CurrentWeekIndex:       currentWeekIndex,
+		CurrentWeekAllowance:   currentWeekAllowance,
+		CurrentWeekSpent:       currentWeekSpent,
+		Rollover:               rollover,
+	}
+}
+
+// sumVariableInRange sums variable expenses in [from, to), excluding the
+// fixed-payments category AND the savings-pool category.
+func sumVariableInRange(txs []models.Transaction, fixedCatID uint, savedMoneyCatID uint, from, to time.Time) float64 {
+	var sum float64
+	for _, tx := range txs {
+		if tx.Type != "expense" {
+			continue
+		}
+		if fixedCatID > 0 && tx.CategoryID == fixedCatID {
+			continue
+		}
+		if savedMoneyCatID > 0 && tx.CategoryID == savedMoneyCatID {
+			continue
+		}
+		if !tx.CreatedAt.Before(from) && tx.CreatedAt.Before(to) {
+			sum += tx.Amount
+		}
+	}
+	return sum
+}
+
+// ── StartSalaryCycle ─────────────────────────────────────────────────────────
+
 func StartSalaryCycle(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -92,20 +287,12 @@ func StartSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	// localized names for the "Fixed Payments" category created when a cycle starts
-	var fixedCatByLang = map[string]string{
-		"en": "Fixed Payments",
-		"de": "Fixkosten",
-		"ru": "Базовые затраты",
-		"uk": "Базові витрати",
-	}
-
 	var req struct {
 		BaseSalary     float64             `json:"base_salary"`
 		Bonuses        float64             `json:"bonuses"`
 		NextPayday     string              `json:"next_payday_date"`
-		ReceivedAtDate string              `json:"received_at_date"` // YYYY-MM-DD; defaults to today
-		Language       string              `json:"language"`         // "en"|"ru"|"uk"|"de"
+		ReceivedAtDate string              `json:"received_at_date"`
+		Language       string              `json:"language"`
 		NeedsPct       float64             `json:"needs_pct"`
 		WantsPct       float64             `json:"wants_pct"`
 		SavingsPct     float64             `json:"savings_pct"`
@@ -120,7 +307,6 @@ func StartSalaryCycle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "base_salary must be greater than zero"})
 		return
 	}
-
 	if req.NeedsPct == 0 && req.WantsPct == 0 && req.SavingsPct == 0 {
 		req.NeedsPct, req.WantsPct, req.SavingsPct = 50, 30, 20
 	}
@@ -130,10 +316,6 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	// receivedAt is the authoritative moment the salary arrived.
-	// If the user specified a past date (e.g. salary came yesterday), parse it
-	// at noon local time so transactions land mid-day and timezone edge-cases are
-	// avoided. Default: now.
 	var receivedAt time.Time
 	if req.ReceivedAtDate != "" {
 		parsed, err := time.Parse("2006-01-02", req.ReceivedAtDate)
@@ -147,15 +329,13 @@ func StartSalaryCycle(c *gin.Context) {
 		receivedAt = time.Now()
 	}
 
-	// cycle_start_at is exactly receivedAt. All cycle aggregation uses an
-	// inclusive `created_at >= cycle_start_at` comparison, so the generated
-	// income/fixed transactions (created_at == receivedAt) are always counted —
-	// no arbitrary offset needed, and robust to sub-second truncation in SQLite.
 	cycleStart := receivedAt
 	txDate := receivedAt.Truncate(24 * time.Hour)
 
 	totalIncome := req.BaseSalary + req.Bonuses
 	fw := ComputeBudgetFramework(totalIncome, req.NeedsPct, req.WantsPct, req.SavingsPct, req.FixedExpenses)
+
+	lang := normalizeLang(req.Language)
 
 	cycle := models.SalaryCycle{
 		UserID:          uid,
@@ -176,7 +356,6 @@ func StartSalaryCycle(c *gin.Context) {
 		CreatedAt:       receivedAt,
 		UpdatedAt:       receivedAt,
 	}
-
 	if req.NextPayday != "" {
 		parsed, err := time.Parse("2006-01-02", req.NextPayday)
 		if err != nil {
@@ -186,6 +365,18 @@ func StartSalaryCycle(c *gin.Context) {
 		cycle.NextPaydayAt = &parsed
 	}
 
+	// Query the PREVIOUS cycle outside the transaction so we can compute its
+	// end-of-cycle surplus/deficit and create the savings transfer inside.
+	var prevCycle *models.SalaryCycle
+	{
+		var pc models.SalaryCycle
+		if err := database.DB.Where("user_id = ?", uid).
+			Order("cycle_start_at DESC").
+			First(&pc).Error; err == nil {
+			prevCycle = &pc
+		}
+	}
+
 	var incomeTxID uint
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
@@ -193,13 +384,13 @@ func StartSalaryCycle(c *gin.Context) {
 			return err
 		}
 
-		// Persist fixed expense metadata
+		// Fixed expense metadata
 		for _, fe := range req.FixedExpenses {
 			ct := strings.ToLower(strings.TrimSpace(fe.CategoryType))
 			if ct != "want" {
 				ct = "need"
 			}
-			fixedExp := models.FixedExpense{
+			fex := models.FixedExpense{
 				SalaryCycleID: cycle.ID,
 				UserID:        uid,
 				Amount:        fe.Amount,
@@ -208,7 +399,7 @@ func StartSalaryCycle(c *gin.Context) {
 				CreatedAt:     receivedAt,
 				UpdatedAt:     receivedAt,
 			}
-			if err := tx.Create(&fixedExp).Error; err != nil {
+			if err := tx.Create(&fex).Error; err != nil {
 				return err
 			}
 		}
@@ -227,16 +418,8 @@ func StartSalaryCycle(c *gin.Context) {
 		}
 
 		// ── "Fixed Payments" category (localized) ─────────────────────────
-		// All fixed expense transactions are tagged with this category so the
-		// React frontend can distinguish them from user-added variable expenses.
-		lang := strings.ToLower(strings.SplitN(strings.TrimSpace(req.Language), "-", 2)[0])
-		if _, ok := fixedCatByLang[lang]; !ok {
-			lang = "en"
-		}
 		fixedCatName := fixedCatByLang[lang]
-
 		var fixedCat models.Category
-		// Try to find an existing category by any of the localized names first
 		found := false
 		for _, name := range fixedCatByLang {
 			if err := tx.Where("user_id = ? AND name = ?", uid, name).First(&fixedCat).Error; err == nil {
@@ -250,15 +433,91 @@ func StartSalaryCycle(c *gin.Context) {
 				return err
 			}
 		}
-		// Persist the category ID — must UPDATE the already-created cycle row
-		// because cycle.FixedExpCategoryID was zero when tx.Create(&cycle) ran.
 		cycle.FixedExpCategoryID = fixedCat.ID
 		if err := tx.Model(&cycle).Update("fixed_exp_category_id", fixedCat.ID).Error; err != nil {
 			return err
 		}
 
+		// ── "Saved Money" category (localized) ────────────────────────────
+		savedCatName := savedMoneyCatByLang[lang]
+		var savedCat models.Category
+		savedFound := false
+		for _, name := range savedMoneyCatByLang {
+			if err := tx.Where("user_id = ? AND name = ?", uid, name).First(&savedCat).Error; err == nil {
+				savedFound = true
+				break
+			}
+		}
+		if !savedFound {
+			savedCat = models.Category{UserID: uid, Name: savedCatName, CreatedAt: receivedAt, UpdatedAt: receivedAt}
+			if err := tx.Create(&savedCat).Error; err != nil {
+				return err
+			}
+		}
+		cycle.SavedMoneyCategoryID = savedCat.ID
+		if err := tx.Model(&cycle).Update("saved_money_category_id", savedCat.ID).Error; err != nil {
+			return err
+		}
+
+		// ── Pillar 4: End-of-cycle surplus / deficit resolution ────────────
+		// When the user starts a new cycle, compute the previous cycle's
+		// remaining variable balance and inject a real transaction into the
+		// savings pool ("Pleasant bonus" or "Penalty from previous cycle").
+		if prevCycle != nil && savedCat.ID > 0 {
+			// Re-query previous cycle's transactions (closed window)
+			var prevTxs []models.Transaction
+			tx.Where("user_id = ? AND created_at >= ? AND created_at < ?",
+				uid, prevCycle.CycleStartAt, cycleStart).
+				Find(&prevTxs)
+
+			var prevIncome, prevFixed, prevVariable float64
+			for _, pt := range prevTxs {
+				if (cycle.SavedMoneyCategoryID > 0 && pt.CategoryID == cycle.SavedMoneyCategoryID) ||
+					(prevCycle.SavedMoneyCategoryID > 0 && pt.CategoryID == prevCycle.SavedMoneyCategoryID) {
+					continue
+				}
+				switch pt.Type {
+				case "income":
+					prevIncome += pt.Amount
+				case "expense":
+					if prevCycle.FixedExpCategoryID > 0 && pt.CategoryID == prevCycle.FixedExpCategoryID {
+						prevFixed += pt.Amount
+					} else {
+						prevVariable += pt.Amount
+					}
+				}
+			}
+
+			prevSavingsAlloc := prevIncome * prevCycle.SavingsPct / 100
+			prevVarAllowance := math.Max(0, prevIncome-prevSavingsAlloc-prevFixed)
+			remainingBalance := prevVarAllowance - prevVariable
+
+			if math.Abs(remainingBalance) > 0.01 {
+				transferType := "income"
+				transferDesc := "Pleasant bonus from the previous cycle"
+				if remainingBalance < 0 {
+					transferType = "expense"
+					transferDesc = "Penalty from previous cycle"
+				}
+				savingsTx := models.Transaction{
+					UserID:      uid,
+					CategoryID:  savedCat.ID,
+					Amount:      math.Abs(remainingBalance),
+					Description: transferDesc,
+					Date:        txDate,
+					Type:        transferType,
+					IncomeType:  "one_time",
+					CreatedAt:   receivedAt,
+					UpdatedAt:   receivedAt,
+				}
+				if err := tx.Create(&savingsTx).Error; err != nil {
+					return err
+				}
+			}
+		}
+
 		// ── Income transaction ─────────────────────────────────────────────
-		incomeTx := models.Transaction{
+		incomeTxn := models.Transaction{
 			UserID:      uid,
 			CategoryID:  incomeCat.ID,
 			Amount:      totalIncome,
@@ -269,14 +528,12 @@ func StartSalaryCycle(c *gin.Context) {
 			CreatedAt:   receivedAt,
 			UpdatedAt:   receivedAt,
 		}
-		if err := tx.Create(&incomeTx).Error; err != nil {
+		if err := tx.Create(&incomeTxn).Error; err != nil {
 			return err
 		}
-		incomeTxID = incomeTx.ID
+		incomeTxID = incomeTxn.ID
 
 		// ── Fixed expense transactions ─────────────────────────────────────
-		// Tagged with the dedicated "Fixed Payments" category so the frontend
-		// can filter them out of variable-expense calculations.
 		for _, fe := range req.FixedExpenses {
 			if fe.Amount <= 0 {
 				continue
@@ -302,8 +559,6 @@ func StartSalaryCycle(c *gin.Context) {
 		}
 
 		// ── Sync user profile ─────────────────────────────────────────────
-		// monthly_spending_goal drives WeeklyBudgetCard and the hearts check;
-		// we set it to the discretionary (variable) budget for this cycle.
 		profileUpdates := map[string]any{
 			"monthly_spending_goal": fw.VarNeedsBudget + fw.VarWantsBudget,
 			"expected_salary":       totalIncome,
@@ -332,8 +587,8 @@ func StartSalaryCycle(c *gin.Context) {
 	})
 }
 
-// GetCurrentSalaryCycle returns the most recent salary cycle for the user
-// together with live cycle stats (income/expenses since cycle_start_at).
+// ── GetCurrentSalaryCycle ─────────────────────────────────────────────────────
+
 func GetCurrentSalaryCycle(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -379,10 +634,8 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	})
 }
 
-// UpdateCycleNextPayday handles PATCH /api/salary-cycle/current.
-// Updates only the next_payday_at field on the active cycle and syncs
-// manual_next_payday on the user profile so all downstream components
-// (WeeklyBudgetCard, AI analyze) pick up the change immediately.
+// ── UpdateCycleNextPayday ─────────────────────────────────────────────────────
+
 func UpdateCycleNextPayday(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -418,9 +671,7 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		return
 	}
 
-	// Compare as date-only strings to avoid UTC Truncate vs. local date mismatch.
-	// Both sides become YYYY-MM-DD at UTC midnight, so timezone arithmetic cannot
-	// silently shift the start day by one.
+	// Timezone-safe date comparison: compare YYYY-MM-DD strings at UTC midnight.
 	cycleStartDateStr := cycle.CycleStartAt.UTC().Format("2006-01-02")
 	startDateOnly, _ := time.Parse("2006-01-02", cycleStartDateStr)
 	if !newDate.After(startDateOnly) {
@@ -438,7 +689,6 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		return
 	}
 
-	// Keep User.manual_next_payday in sync
 	if err := database.DB.Model(&models.User{}).Where("id = ?", uid).
 		Update("manual_next_payday", req.NextPayday).Error; err != nil {
 		log.Printf("patch cycle payday: profile sync user=%v err=%v", uid, err)
@@ -450,7 +700,8 @@ func UpdateCycleNextPayday(c *gin.Context) {
 	})
 }
 
-// GetSalaryCycleHistory returns the last 24 salary cycles for historical analysis.
+// ── GetSalaryCycleHistory ─────────────────────────────────────────────────────
+
 func GetSalaryCycleHistory(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -473,139 +724,142 @@ func GetSalaryCycleHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cycles": cycles})
 }
 
-// CycleStats is the server-authoritative aggregation for a salary cycle.
-// React renders these numbers directly — it performs no timestamp math.
-type CycleStats struct {
-	CycleIncome            float64 `json:"cycle_income"`
-	CycleExpenses          float64 `json:"cycle_expenses"`
-	CycleFixedExpenses     float64 `json:"cycle_fixed_expenses"`
-	CycleVariableExpenses  float64 `json:"cycle_variable_expenses"`
-	PreviousSavings        float64 `json:"previous_savings"`
-	NetDiscretionaryBudget float64 `json:"net_discretionary_budget"`
-	DaysTotal              int     `json:"days_total"`
-	DaysElapsed            int     `json:"days_elapsed"`
-	DaysRemaining          int     `json:"days_remaining"`
-	BaseWeeklyAllowance    float64 `json:"base_weekly_allowance"`
-	CurrentWeekIndex       int     `json:"current_week_index"`
-	CurrentWeekAllowance   float64 `json:"current_week_allowance"`
-	CurrentWeekSpent       float64 `json:"current_week_spent"`
-	Rollover               float64 `json:"rollover"`
-}
+// ── AddCycleIncome (Pillar 5) ─────────────────────────────────────────────────
+// POST /api/salary-cycle/income
+// Adds an additional income transaction to the active cycle, then returns
+// fresh cycle stats so the dashboard re-renders immediately.
 
-// computeCycleStats aggregates one cycle entirely server-side: it owns the
-// timestamps and a single timezone, so there is no client/server round-trip to
-// desynchronize. Variable = expense whose category is NOT the cycle's
-// FixedExpCategoryID. Income/expense totals use an inclusive `created_at >=`
-// comparison so the salary row (created_at == cycle_start_at) is always counted.
-func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
-	since := cycle.CycleStartAt
+func AddCycleIncome(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
 
-	// All cycle transactions in one pass.
-	var txs []models.Transaction
-	database.DB.
-		Where("user_id = ? AND created_at >= ?", uid, since).
-		Find(&txs)
+	var req struct {
+		Amount      float64 `json:"amount"      binding:"required,gt=0"`
+		Date        string  `json:"date"`        // YYYY-MM-DD; defaults to today
+		Description string  `json:"description"` // user-supplied note
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	var income, expenses, fixedExp, variableExp float64
-	for _, tx := range txs {
-		switch tx.Type {
-		case "income":
-			income += tx.Amount
-		case "expense":
-			expenses += tx.Amount
-			if cycle.FixedExpCategoryID > 0 && tx.CategoryID == cycle.FixedExpCategoryID {
-				fixedExp += tx.Amount
-			} else {
-				variableExp += tx.Amount
+	var cycle models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at DESC").
+		First(&cycle).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
+		return
+	}
+
+	// Find or create the income category
+	var incomeCat models.Category
+	if err := database.DB.Where("user_id = ?", uid).
+		Where("LOWER(name) IN ('income','доход','дохід','einkommen','salary')").
+		First(&incomeCat).Error; err != nil {
+		if err2 := database.DB.Where("user_id = ?", uid).First(&incomeCat).Error; err2 != nil {
+			incomeCat = models.Category{UserID: uid, Name: "Income"}
+			if err3 := database.DB.Create(&incomeCat).Error; err3 != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find income category"})
+				return
 			}
 		}
 	}
 
-	// All-time net minus this cycle's net = savings carried in from prior cycles.
-	var allIncome, allExpense float64
-	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'income'", uid).
-		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
-	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'expense'", uid).
-		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
-	previousSavings := (allIncome - allExpense) - (income - expenses)
-
-	netDiscretionary := cycle.VarNeedsBudget + cycle.VarWantsBudget
-
-	// Cycle length: cycle_start → next_payday, default 30 days when unset.
 	now := time.Now()
-	daysTotal := 30
-	if cycle.NextPaydayAt != nil {
-		d := int(cycle.NextPaydayAt.Sub(cycle.CycleStartAt).Hours() / 24)
-		if d >= 7 {
-			daysTotal = d
+	txDate := now.Truncate(24 * time.Hour)
+	if req.Date != "" {
+		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
+			txDate = parsed
 		}
 	}
-	daysElapsed := int(now.Sub(cycle.CycleStartAt).Hours() / 24)
-	if daysElapsed < 0 {
-		daysElapsed = 0
-	}
-	daysRemaining := daysTotal - daysElapsed
-	if daysRemaining < 0 {
-		daysRemaining = 0
+
+	desc := strings.TrimSpace(req.Description)
+	if desc == "" {
+		desc = "Additional Income"
 	}
 
-	baseWeekly := 0.0
-	if daysTotal > 0 {
-		baseWeekly = netDiscretionary / float64(daysTotal) * 7
+	newTx := models.Transaction{
+		UserID:      uid,
+		CategoryID:  incomeCat.ID,
+		Amount:      req.Amount,
+		Description: desc,
+		Date:        txDate,
+		Type:        "income",
+		IncomeType:  "one_time",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := database.DB.Create(&newTx).Error; err != nil {
+		log.Printf("add cycle income: user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add income"})
+		return
 	}
 
-	// Rolling cycle-weeks: 7-day chunks from cycle start. Over/under-spend in a
-	// completed week carries into the next. current_week_spent is variable spend
-	// in the active 7-day window only.
-	currentWeekIndex := daysElapsed / 7
-	rollover := 0.0
-	for w := 0; w < currentWeekIndex; w++ {
-		wFrom := cycle.CycleStartAt.AddDate(0, 0, w*7)
-		wTo := cycle.CycleStartAt.AddDate(0, 0, (w+1)*7)
-		rollover += baseWeekly - sumVariableInRange(txs, cycle.FixedExpCategoryID, wFrom, wTo)
-	}
-	currentWeekFrom := cycle.CycleStartAt.AddDate(0, 0, currentWeekIndex*7)
-	currentWeekTo := currentWeekFrom.AddDate(0, 0, 7)
-	currentWeekSpent := sumVariableInRange(txs, cycle.FixedExpCategoryID, currentWeekFrom, currentWeekTo)
-	currentWeekAllowance := baseWeekly + rollover
-	if currentWeekAllowance < 0 {
-		currentWeekAllowance = 0
-	}
-
-	return CycleStats{
-		CycleIncome:            income,
-		CycleExpenses:          expenses,
-		CycleFixedExpenses:     fixedExp,
-		CycleVariableExpenses:  variableExp,
-		PreviousSavings:        previousSavings,
-		NetDiscretionaryBudget: netDiscretionary,
-		DaysTotal:              daysTotal,
-		DaysElapsed:            daysElapsed,
-		DaysRemaining:          daysRemaining,
-		BaseWeeklyAllowance:    baseWeekly,
-		CurrentWeekIndex:       currentWeekIndex,
-		CurrentWeekAllowance:   currentWeekAllowance,
-		CurrentWeekSpent:       currentWeekSpent,
-		Rollover:               rollover,
-	}
+	stats := computeCycleStats(uid, cycle)
+	c.JSON(http.StatusCreated, gin.H{
+		"transaction": newTx,
+		"cycle_stats": stats,
+	})
 }
 
-// sumVariableInRange sums variable expenses in [from, to): created_at >= from
-// and < to, excluding the fixed-payments category.
-func sumVariableInRange(txs []models.Transaction, fixedCatID uint, from, to time.Time) float64 {
-	var sum float64
+// ── GetSavingsHistory (Pillar 4) ──────────────────────────────────────────────
+// GET /api/salary-cycle/savings-history
+// Returns all savings-pool transactions for the current user, together with
+// the running pool balance and the savings category ID.
+
+func GetSavingsHistory(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	var cycle models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at DESC").
+		First(&cycle).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"transactions": []interface{}{}, "balance": 0.0, "savings_category_id": 0})
+		return
+	}
+
+	if cycle.SavedMoneyCategoryID == 0 {
+		c.JSON(http.StatusOK, gin.H{"transactions": []interface{}{}, "balance": 0.0, "savings_category_id": 0})
+		return
+	}
+
+	var txs []models.Transaction
+	database.DB.Preload("Category").
+		Where("user_id = ? AND category_id = ?", uid, cycle.SavedMoneyCategoryID).
+		Order("created_at DESC").
+		Find(&txs)
+
+	var balance float64
 	for _, tx := range txs {
-		if tx.Type != "expense" {
-			continue
-		}
-		if fixedCatID > 0 && tx.CategoryID == fixedCatID {
-			continue
-		}
-		if !tx.CreatedAt.Before(from) && tx.CreatedAt.Before(to) {
-			sum += tx.Amount
+		if tx.Type == "income" {
+			balance += tx.Amount
+		} else {
+			balance -= tx.Amount
 		}
 	}
-	return sum
+
+	c.JSON(http.StatusOK, gin.H{
+		"transactions":        txs,
+		"balance":             balance,
+		"savings_category_id": cycle.SavedMoneyCategoryID,
+	})
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+func normalizeLang(raw string) string {
+	lang := strings.ToLower(strings.SplitN(strings.TrimSpace(raw), "-", 2)[0])
+	if _, ok := fixedCatByLang[lang]; !ok {
+		lang = "en"
+	}
+	return lang
 }

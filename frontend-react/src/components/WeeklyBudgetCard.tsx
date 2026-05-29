@@ -165,7 +165,10 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
   // ── Unified display values (cycle → server; legacy → client) ──────────────
-  const displayLimit = hasCycle ? cycleStats!.net_discretionary_budget : monthlyBudget;
+  // Use variable_allowance if available (new field), fall back to net_discretionary_budget
+  const displayLimit = hasCycle
+    ? (cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget)
+    : monthlyBudget;
   const displaySpentSincePayday = hasCycle ? cycleStats!.cycle_variable_expenses : legacySpentSincePayday;
   const displayCanSpend = hasCycle ? cycleStats!.current_week_allowance : lockedAllowanceLegacy;
   const displayThisWeek = hasCycle ? cycleStats!.current_week_spent : weekSpentLegacy;
