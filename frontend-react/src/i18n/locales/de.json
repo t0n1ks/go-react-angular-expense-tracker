@@ -42,9 +42,12 @@
   "dashboard": {
     "title": "Finanzübersicht",
     "balance": "Aktuelles Guthaben",
+    "history_label": "Verlauf",
     "income": "Einnahmen",
     "income_salary": "Gehalt",
     "income_bonuses": "Boni",
+    "expenses_fixed": "Fix",
+    "expenses_variable": "Variabel",
     "expenses": "Ausgaben",
     "welcome_title": "Willkommen zurück!",
     "welcome_body": "Ihre Finanzen sind unter Kontrolle. Detaillierte Analysen nach Kategorie finden Sie im Bereich Statistiken.",

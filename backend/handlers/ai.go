@@ -217,6 +217,21 @@ type aiUserProfile struct {
 	ManualNextPayday    *string `json:"manual_next_payday"`
 	AIHumorEnabled      bool    `json:"ai_humor_enabled"`
 	Language            string  `json:"language"`
+	FixedExpCategoryID  int     `json:"fixed_exp_category_id"`
+}
+
+type aiSalaryCycleInfo struct {
+	TotalIncome        float64 `json:"total_income"`
+	NeedsPct           float64 `json:"needs_pct"`
+	WantsPct           float64 `json:"wants_pct"`
+	SavingsPct         float64 `json:"savings_pct"`
+	SavingsLimit       float64 `json:"savings_limit"`
+	FixedNeedsTotal    float64 `json:"fixed_needs_total"`
+	FixedWantsTotal    float64 `json:"fixed_wants_total"`
+	VarNeedsBudget     float64 `json:"var_needs_budget"`
+	VarWantsBudget     float64 `json:"var_wants_budget"`
+	FixedExpCategoryID int     `json:"fixed_exp_category_id"`
+	CycleStartAt       string  `json:"cycle_start_at"`
 }
 
 type aiCategoryRef struct {
@@ -235,10 +250,11 @@ type aiTransaction struct {
 }
 
 type analyzeBehaviorRequest struct {
-	UserProfile    aiUserProfile   `json:"user_profile"`
-	Transactions   []aiTransaction `json:"transactions"`
-	AnalysisDate   string          `json:"analysis_date"`
-	UserCategories []string        `json:"user_categories"`
+	UserProfile    aiUserProfile      `json:"user_profile"`
+	Transactions   []aiTransaction    `json:"transactions"`
+	AnalysisDate   string             `json:"analysis_date"`
+	UserCategories []string           `json:"user_categories"`
+	SalaryCycle    *aiSalaryCycleInfo `json:"salary_cycle"`
 }
 
 func AnalyzeBehavior(c *gin.Context) {
@@ -277,6 +293,25 @@ func AnalyzeBehavior(c *gin.Context) {
 		manualNextPayday = &s
 	}
 
+	// Fetch the active salary cycle for AI analysis context
+	var activeCycle models.SalaryCycle
+	var cyclePayload *aiSalaryCycleInfo
+	if err := database.DB.Where("user_id = ?", uid).Order("cycle_start_at DESC").First(&activeCycle).Error; err == nil {
+		cyclePayload = &aiSalaryCycleInfo{
+			TotalIncome:        activeCycle.TotalIncome,
+			NeedsPct:           activeCycle.NeedsPct,
+			WantsPct:           activeCycle.WantsPct,
+			SavingsPct:         activeCycle.SavingsPct,
+			SavingsLimit:       activeCycle.SavingsLimit,
+			FixedNeedsTotal:    activeCycle.FixedNeedsTotal,
+			FixedWantsTotal:    activeCycle.FixedWantsTotal,
+			VarNeedsBudget:     activeCycle.VarNeedsBudget,
+			VarWantsBudget:     activeCycle.VarWantsBudget,
+			FixedExpCategoryID: int(activeCycle.FixedExpCategoryID),
+			CycleStartAt:       activeCycle.CycleStartAt.Format(time.RFC3339),
+		}
+	}
+
 	profile := aiUserProfile{
 		UserID:              int(uid),
 		Currency:            user.Currency,
@@ -287,6 +322,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		ManualNextPayday:    manualNextPayday,
 		AIHumorEnabled:      user.AIHumorEnabled,
 		Language:            analyzeLang,
+		FixedExpCategoryID:  int(activeCycle.FixedExpCategoryID),
 	}
 
 	var cats []models.Category
@@ -319,6 +355,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		Transactions:   aiTxs,
 		AnalysisDate:   time.Now().Format("2006-01-02"),
 		UserCategories: catNames,
+		SalaryCycle:    cyclePayload,
 	}
 
 	body, err := json.Marshal(payload)

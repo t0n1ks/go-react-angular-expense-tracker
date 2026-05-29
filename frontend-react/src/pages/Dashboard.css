@@ -442,6 +442,136 @@
 .budget-insight-cheer--up   { color: #10b981; }
 .budget-insight-cheer--down { color: #f87171; }
 
+/* ── History Modals (Income & Expenses) ─────────────────────────────────── */
+.hist-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.hist-modal {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 460px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hist-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border-card);
+}
+
+.hist-modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.hist-modal-icon.income-icon { background: var(--color-income-icon-bg); color: var(--color-income-icon-text); }
+.hist-modal-icon.expense-icon { background: var(--color-expense-icon-bg); color: var(--color-expense-icon-text); }
+
+.hist-modal-title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-heading);
+  margin: 0;
+}
+
+.hist-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.hist-modal-close:hover { color: var(--color-text-heading); background: rgba(255,255,255,0.06); }
+
+.hist-modal-body {
+  overflow-y: auto;
+  padding: 0.5rem 0;
+  flex: 1;
+}
+
+.hist-modal-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 2rem;
+}
+
+.hist-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.7rem 1.25rem;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.12s;
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-row:hover { background: rgba(255,255,255,0.03); }
+.hist-row--active { background: rgba(56,189,248,0.05); }
+
+.hist-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hist-row-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-heading);
+  text-transform: capitalize;
+}
+
+.hist-row-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 20px;
+  padding: 1px 6px;
+  width: fit-content;
+}
+
+.hist-row-breakdown {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.hist-row-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.income-amount { color: var(--color-income-text, #10b981); }
+.expense-amount { color: var(--color-expense-text, #f87171); }
+
 /* ── Inline payday edit controls (new cycle path) ───────────────────────── */
 .wbc-edit-payday-btn {
   display: inline-flex;

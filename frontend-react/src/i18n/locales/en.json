@@ -42,10 +42,13 @@
   "dashboard": {
     "title": "Financial Overview",
     "balance": "Current Balance",
+    "history_label": "History",
     "income": "Income",
     "income_salary": "Salary",
     "income_bonuses": "Bonuses",
     "expenses": "Expenses",
+    "expenses_fixed": "Fixed",
+    "expenses_variable": "Variable",
     "welcome_title": "Welcome Back!",
     "welcome_body": "Your finances are under control. Find detailed analytics by category in the Statistics section.",
     "loading": "Loading...",

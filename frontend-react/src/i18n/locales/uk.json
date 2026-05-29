@@ -42,9 +42,12 @@
   "dashboard": {
     "title": "Фінансовий огляд",
     "balance": "Поточний баланс",
+    "history_label": "Історія",
     "income": "Доходи",
     "income_salary": "Зарплата",
     "income_bonuses": "Бонуси",
+    "expenses_fixed": "Фіксовані",
+    "expenses_variable": "Змінні",
     "expenses": "Витрати",
     "welcome_title": "З поверненням!",
     "welcome_body": "Ваші фінанси під контролем. Детальну аналітику за категоріями дивіться у розділі Статистика.",

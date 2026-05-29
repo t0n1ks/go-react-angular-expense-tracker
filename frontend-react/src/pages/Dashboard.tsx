@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +6,8 @@ import { Wallet, TrendingDown, TrendingUp, Target } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
 import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
 import SalaryCycleCard from '../components/SalaryCycleCard';
+import IncomeHistoryModal from '../components/IncomeHistoryModal';
+import ExpensesHistoryModal from '../components/ExpensesHistoryModal';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import './Dashboard.css';
 
@@ -22,7 +23,6 @@ interface Transaction {
 
 const Dashboard: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const navigate = useNavigate();
   const {
     formatAmount,
     currencySymbol,
@@ -37,6 +37,8 @@ const Dashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [showExpensesModal, setShowExpensesModal] = useState(false);
   const [aiData, setAIData] = useState<{ tamagotchi_mood: string; predicted_savings_balance?: number } | null>(null);
   const [aiServiceMode, setAIServiceMode] = useState<'online' | 'autonomous' | 'initializing'>('initializing');
 
@@ -120,24 +122,31 @@ const Dashboard: React.FC = () => {
 
   const cycleStartTs = cycleStart.getTime();
 
-  // ── Cycle-filtered income (ONLY current cycle) ────────────────────────────
-  // This fixes the "shows 800+" bug: we now filter strictly by cycle_start_at
+  // ── Cycle-filtered income & expenses ─────────────────────────────────────
+  // Use >= (not >) to survive any sub-second precision loss in SQLite; the
+  // 1-second offset in cycle_start_at (Go: receivedAt - 1s) guarantees that
+  // pre-salary transactions (ts < cycleStartTs) are still excluded correctly.
+  const txTs = (tx: Transaction) =>
+    tx.created_at
+      ? new Date(tx.created_at).getTime()
+      : new Date(tx.date.slice(0, 10) + 'T12:00:00').getTime();
+
   const cycleIncome = transactions
-    .filter(tx => {
-      if (tx.type !== 'income') return false;
-      const ts = tx.created_at ? new Date(tx.created_at).getTime() : new Date(tx.date + 'T00:00:00').getTime();
-      return ts > cycleStartTs;
-    })
+    .filter(tx => tx.type === 'income' && txTs(tx) >= cycleStartTs)
     .reduce((acc, tx) => acc + Number(tx.amount), 0);
 
-  // ── Cycle-filtered expenses ───────────────────────────────────────────────
   const cycleExpenses = transactions
-    .filter(tx => {
-      if (tx.type !== 'expense') return false;
-      const ts = tx.created_at ? new Date(tx.created_at).getTime() : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
-      return ts > cycleStartTs;
-    })
+    .filter(tx => tx.type === 'expense' && txTs(tx) >= cycleStartTs)
     .reduce((acc, tx) => acc + Number(tx.amount), 0);
+
+  // Fixed vs variable split for the Expenses card sub-label
+  const fixedExpCatID = currentCycle?.fixed_exp_category_id ?? 0;
+  const cycleFixedExpenses = fixedExpCatID > 0
+    ? transactions
+        .filter(tx => tx.type === 'expense' && tx.category?.id === fixedExpCatID && txTs(tx) >= cycleStartTs)
+        .reduce((acc, tx) => acc + Number(tx.amount), 0)
+    : (currentCycle ? currentCycle.fixed_needs_total + currentCycle.fixed_wants_total : 0);
+  const cycleVariableExpenses = Math.max(0, cycleExpenses - cycleFixedExpenses);
 
   // ── Balance: cycle net when active, else all-time ────────────────────────
   // cycleIncome - cycleExpenses = (salary + bonuses) - (fixed + variable)
@@ -202,13 +211,13 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Income — current cycle with salary/bonuses breakdown */}
+        {/* Income — current cycle; click → history modal */}
         <div
           className="stat-card stat-card--clickable"
-          onClick={() => navigate('/statistics')}
+          onClick={() => setShowIncomeModal(true)}
           role="button"
           tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && navigate('/statistics')}
+          onKeyDown={e => e.key === 'Enter' && setShowIncomeModal(true)}
           title={t('dashboard.income')}
         >
           <div className="stat-icon income"><TrendingUp size={24}/></div>
@@ -235,19 +244,27 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Expenses — current cycle (fixed + variable); clickable → statistics */}
+        {/* Expenses — fixed + variable; click → history modal */}
         <div
           className="stat-card stat-card--clickable"
-          onClick={() => navigate('/statistics')}
+          onClick={() => setShowExpensesModal(true)}
           role="button"
           tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && navigate('/statistics')}
+          onKeyDown={e => e.key === 'Enter' && setShowExpensesModal(true)}
           title={t('dashboard.expenses')}
         >
           <div className="stat-icon expense"><TrendingDown size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.expenses')}</p>
             <p className="value-minus">-{formatAmount(cycleExpenses)}</p>
+            {currentCycle && cycleFixedExpenses > 0 && (
+              <p className="income-breakdown">
+                {t('dashboard.expenses_fixed')}: {formatAmount(cycleFixedExpenses)}
+                {cycleVariableExpenses > 0 && (
+                  <span> · {t('dashboard.expenses_variable')}: {formatAmount(cycleVariableExpenses)}</span>
+                )}
+              </p>
+            )}
             <p className="stat-sublabel">{t('salary_cycle.expenses_this_cycle')}</p>
           </div>
         </div>
@@ -277,6 +294,24 @@ const Dashboard: React.FC = () => {
           formatAmount={formatAmount}
           cycleStartAt={cycleStart}
           onCycleReset={refreshCycle}
+        />
+      )}
+
+      {showIncomeModal && (
+        <IncomeHistoryModal
+          transactions={transactions}
+          currentCycle={currentCycle}
+          formatAmount={formatAmount}
+          onClose={() => setShowIncomeModal(false)}
+        />
+      )}
+      {showExpensesModal && (
+        <ExpensesHistoryModal
+          transactions={transactions}
+          currentCycle={currentCycle}
+          fixedExpCatID={fixedExpCatID}
+          formatAmount={formatAmount}
+          onClose={() => setShowExpensesModal(false)}
         />
       )}
 

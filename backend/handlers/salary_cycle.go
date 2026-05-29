@@ -147,10 +147,12 @@ func StartSalaryCycle(c *gin.Context) {
 		receivedAt = time.Now()
 	}
 
-	// cycle_start_at is 1 ms before receivedAt so the strict > filter in
-	// fetchCycleStats and the React dashboard correctly includes transactions
-	// whose created_at == receivedAt.
-	cycleStart := receivedAt.Add(-time.Millisecond)
+	// cycle_start_at is 1 second before receivedAt. A 1 ms offset is too tight
+	// because SQLite (and some drivers) truncate sub-second precision when
+	// storing/reading timestamps.  Using 1 s guarantees that all generated
+	// transactions (created_at == receivedAt) satisfy `created_at > cycle_start_at`
+	// even after any precision loss in the DB layer.
+	cycleStart := receivedAt.Add(-time.Second)
 	txDate := receivedAt.Truncate(24 * time.Hour)
 
 	totalIncome := req.BaseSalary + req.Bonuses
@@ -249,7 +251,12 @@ func StartSalaryCycle(c *gin.Context) {
 				return err
 			}
 		}
+		// Persist the category ID — must UPDATE the already-created cycle row
+		// because cycle.FixedExpCategoryID was zero when tx.Create(&cycle) ran.
 		cycle.FixedExpCategoryID = fixedCat.ID
+		if err := tx.Model(&cycle).Update("fixed_exp_category_id", fixedCat.ID).Error; err != nil {
+			return err
+		}
 
 		// ── Income transaction ─────────────────────────────────────────────
 		incomeTx := models.Transaction{

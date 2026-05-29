@@ -42,10 +42,13 @@
   "dashboard": {
     "title": "Финансовый обзор",
     "balance": "Текущий баланс",
+    "history_label": "История",
     "income": "Доходы",
     "income_salary": "Зарплата",
     "income_bonuses": "Бонусы",
     "expenses": "Расходы",
+    "expenses_fixed": "Фиксированные",
+    "expenses_variable": "Переменные",
     "welcome_title": "С возвращением!",
     "welcome_body": "Ваши финансы под контролем. Подробную аналитику по категориям смотрите в разделе Статистика.",
     "loading": "Загрузка...",
