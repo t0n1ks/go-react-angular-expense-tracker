@@ -178,31 +178,29 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 2: Saved money (click → SavingsHistoryModal) — cycle only */}
-        {hasCycle && (
-          <div
-            className="stat-card stat-card--clickable"
-            onClick={() => setShowSavingsModal(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={e => e.key === 'Enter' && setShowSavingsModal(true)}
-            title={t('dashboard.saved_money')}
-          >
-            <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-              <PiggyBank size={24}/>
-            </div>
-            <div className="stat-content">
-              <p className="label">{t('dashboard.saved_money')}</p>
-              <p className="value" style={{ color: '#10b981' }}>{formatAmount(dynamicSavings)}</p>
-              {savedMoneyBalance > 0 && (
-                <p className="income-breakdown">
-                  {t('dashboard.savings_pool_total')}: {formatAmount(savedMoneyBalance)}
-                </p>
-              )}
-              <p className="stat-sublabel">{t('salary_cycle.savings_pool')}</p>
-            </div>
+        {/* Card 2: Saved money (click → SavingsHistoryModal) */}
+        <div
+          className={`stat-card${hasCycle ? ' stat-card--clickable' : ''}`}
+          onClick={hasCycle ? () => setShowSavingsModal(true) : undefined}
+          role={hasCycle ? 'button' : undefined}
+          tabIndex={hasCycle ? 0 : undefined}
+          onKeyDown={hasCycle ? (e => e.key === 'Enter' && setShowSavingsModal(true)) : undefined}
+          title={t('dashboard.saved_money')}
+        >
+          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+            <PiggyBank size={24}/>
           </div>
-        )}
+          <div className="stat-content">
+            <p className="label">{t('dashboard.saved_money')}</p>
+            <p className="value" style={{ color: '#10b981' }}>{formatAmount(dynamicSavings)}</p>
+            {savedMoneyBalance > 0 && (
+              <p className="income-breakdown">
+                {t('dashboard.savings_pool_total')}: {formatAmount(savedMoneyBalance)}
+              </p>
+            )}
+            <p className="stat-sublabel">{t('salary_cycle.savings_pool')}</p>
+          </div>
+        </div>
 
         {/* Card 3: Income — click → IncomeHistoryModal; + Add Income button */}
         <div
@@ -279,21 +277,42 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Card 5: Budget Health */}
-        {(budgetMax > 0 || monthlySpendingGoal > 0) && (
-          <div className="stat-card">
-            <div className="stat-icon budget-icon"><Target size={24}/></div>
-            <div className="stat-content">
-              <p className="label">{t('dashboard.budget_health')}</p>
-              <p className="value" style={{ color: budgetBarColor }}>
-                {formatAmount(budgetRemaining)} / {formatAmount(budgetMax)}
-              </p>
-              <div className="budget-health-bar-track">
-                <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
-              </div>
-              <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
+        <div className="stat-card">
+          <div className="stat-icon budget-icon"><Target size={24}/></div>
+          <div className="stat-content">
+            <p className="label">{t('dashboard.budget_health')}</p>
+            <p className="value" style={{ color: budgetBarColor }}>
+              {formatAmount(budgetRemaining)} / {formatAmount(budgetMax)}
+            </p>
+            <div className="budget-health-bar-track">
+              <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
             </div>
+            <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* ── Savings Forecast ─────────────────────────────────────────────── */}
+      <div className="stat-card" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-icon" style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>
+          <PiggyBank size={24}/>
+        </div>
+        <div className="stat-content">
+          <p className="label">{t('statistics.savings_forecast_title')}</p>
+          <p className="value" style={{ color: '#6366f1' }}>
+            {formatAmount(dynamicSavings * 12)}
+          </p>
+          <p className="income-breakdown">
+            {t('statistics.savings_forecast_this_cycle')}: {formatAmount(dynamicSavings)}
+            {savedMoneyBalance > 0 && (
+              <span> · {t('statistics.savings_forecast_accumulated')}: {formatAmount(savedMoneyBalance)}</span>
+            )}
+            {aiData?.predicted_savings_balance !== undefined && (
+              <span> · AI: {formatAmount(aiData.predicted_savings_balance)}</span>
+            )}
+          </p>
+          <p className="stat-sublabel">{t('statistics.savings_forecast_annual')}</p>
+        </div>
       </div>
 
       <WeeklyBudgetCard
