@@ -46,6 +46,26 @@ export interface UserSettings {
   reputationScore: number;
 }
 
+// Server-authoritative cycle aggregation. The Go backend owns all the
+// timestamp math; React renders these numbers directly (no client-side date
+// parsing for cycle totals).
+export interface CycleStats {
+  cycle_income: number;
+  cycle_expenses: number;
+  cycle_fixed_expenses: number;
+  cycle_variable_expenses: number;
+  previous_savings: number;
+  net_discretionary_budget: number;
+  days_total: number;
+  days_elapsed: number;
+  days_remaining: number;
+  base_weekly_allowance: number;
+  current_week_index: number;
+  current_week_allowance: number;
+  current_week_spent: number;
+  rollover: number;
+}
+
 interface SettingsContextType extends UserSettings {
   settings: UserSettings;
   isLoading: boolean;
@@ -53,6 +73,7 @@ interface SettingsContextType extends UserSettings {
   formatAmount: (amount: number) => string;
   currencySymbol: string;
   currentCycle: SalaryCycle | null;
+  cycleStats: CycleStats | null;
   refreshCycle: () => Promise<void>;
 }
 
@@ -109,12 +130,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [settings, setSettings] = useState<UserSettings>(loadFromStorage);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
+  const [cycleStats, setCycleStats] = useState<CycleStats | null>(null);
 
   const refreshCycle = useCallback(async () => {
     try {
       const res = await axiosInstance.get('/salary-cycle/current');
       const cycle: SalaryCycle | null = res.data.cycle ?? null;
       setCurrentCycle(cycle);
+      setCycleStats(res.data.cycle_stats ?? null);
       if (cycle) {
         localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
       } else {
@@ -127,6 +150,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!isAuthenticated) {
       setSettings(DEFAULT_SETTINGS);
       setCurrentCycle(null);
+      setCycleStats(null);
       localStorage.removeItem(CYCLE_KEY);
       return;
     }
@@ -157,6 +181,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         const cycle: SalaryCycle | null = cycleRes.data.cycle ?? null;
         setCurrentCycle(cycle);
+        setCycleStats(cycleRes.data.cycle_stats ?? null);
         if (cycle) {
           localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
         } else {
@@ -198,6 +223,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     formatAmount,
     currencySymbol,
     currentCycle,
+    cycleStats,
     refreshCycle,
   };
 

@@ -50,4 +50,36 @@ func Connect() {
 	if res := DB.Exec("UPDATE users SET hearts_count = 3 WHERE hearts_count = 0"); res.Error != nil {
 		log.Printf("Warning: hearts_count backfill failed: %v", res.Error)
 	}
+
+	// One-time backfill: salary cycles created before fixed_exp_category_id was
+	// persisted correctly have the column = 0. Set it to the user's "Fixed
+	// Payments" category (matched by localized name) so fixed/variable splits and
+	// AI exclusion work for existing beta users. Idempotent.
+	backfillFixedExpCategory()
+}
+
+// backfillFixedExpCategory sets salary_cycles.fixed_exp_category_id for rows
+// where it is still 0, matching each cycle's user to their Fixed Payments
+// category by any of the four localized names.
+func backfillFixedExpCategory() {
+	const sql = `
+		UPDATE salary_cycles
+		SET fixed_exp_category_id = (
+			SELECT c.id FROM categories c
+			WHERE c.user_id = salary_cycles.user_id
+			  AND c.name IN ('Fixed Payments', 'Базовые затраты', 'Базові витрати', 'Fixkosten')
+			ORDER BY c.id
+			LIMIT 1
+		)
+		WHERE (fixed_exp_category_id IS NULL OR fixed_exp_category_id = 0)
+		  AND EXISTS (
+			SELECT 1 FROM categories c
+			WHERE c.user_id = salary_cycles.user_id
+			  AND c.name IN ('Fixed Payments', 'Базовые затраты', 'Базові витрати', 'Fixkosten')
+		)`
+	if res := DB.Exec(sql); res.Error != nil {
+		log.Printf("Warning: fixed_exp_category_id backfill failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("fixed_exp_category_id backfill: updated %d cycle(s)", res.RowsAffected)
+	}
 }

@@ -232,6 +232,7 @@ type aiSalaryCycleInfo struct {
 	VarWantsBudget     float64 `json:"var_wants_budget"`
 	FixedExpCategoryID int     `json:"fixed_exp_category_id"`
 	CycleStartAt       string  `json:"cycle_start_at"`
+	NextPaydayAt       string  `json:"next_payday_at"`
 }
 
 type aiCategoryRef struct {
@@ -309,6 +310,9 @@ func AnalyzeBehavior(c *gin.Context) {
 			VarWantsBudget:     activeCycle.VarWantsBudget,
 			FixedExpCategoryID: int(activeCycle.FixedExpCategoryID),
 			CycleStartAt:       activeCycle.CycleStartAt.Format(time.RFC3339),
+		}
+		if activeCycle.NextPaydayAt != nil {
+			cyclePayload.NextPaydayAt = activeCycle.NextPaydayAt.Format(time.RFC3339)
 		}
 	}
 

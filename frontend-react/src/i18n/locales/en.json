@@ -603,6 +603,8 @@
     "category_need": "Need",
     "category_want": "Want",
     "ratio_title": "Budget Ratio",
+    "ratio_tooltip": "The 50/30/20 rule splits income into 50% Needs (rent, food), 30% Wants (fun, subscriptions), and 20% Savings. Pick a tighter ratio like 65/20/15 if your fixed costs are high.",
+    "fixed_tooltip": "Fixed expenses are recurring bills you commit to every cycle: rent, utilities, internet, loan payments, insurance, and subscriptions like Netflix. They're deducted from your Needs/Wants ceilings — never from Savings.",
     "ratio_default": "Standard — 50 / 30 / 20",
     "ratio_tight": "Tight Budget — 65 / 20 / 15",
     "ratio_saver": "Super Saver — 50 / 20 / 30",

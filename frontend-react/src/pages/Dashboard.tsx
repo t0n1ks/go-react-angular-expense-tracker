@@ -29,9 +29,8 @@ const Dashboard: React.FC = () => {
     aiAdviceEnabled,
     monthlySpendingGoal,
     expectedSalary,
-    paydayMode,
-    fixedPayday,
     currentCycle,
+    cycleStats,
     refreshCycle,
   } = useSettings();
   const { t, i18n } = useTranslation();
@@ -94,76 +93,29 @@ const Dashboard: React.FC = () => {
     prevModeRef.current = aiServiceMode;
   }, [aiServiceMode, axiosInstance, analyzeLang]);
 
-  // ── Cycle start timestamp ─────────────────────────────────────────────────
-  // If a SalaryCycle exists, use its precise cycle_start_at as the cutoff.
-  // Fall back to the legacy smart/fixed payday logic so old users see no change.
-  const cycleStart: Date = (() => {
-    if (currentCycle?.cycle_start_at) {
-      return new Date(currentCycle.cycle_start_at);
-    }
-    if (paydayMode === 'fixed' && fixedPayday > 0) {
-      const now = new Date();
-      const d = now.getDate(), m = now.getMonth(), y = now.getFullYear();
-      return d >= fixedPayday ? new Date(y, m, fixedPayday) : new Date(y, m - 1, fixedPayday);
-    }
-    const lastSalary = transactions
-      .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
-      .sort((a, b) => {
-        const aTs = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
-        const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
-        return bTs - aTs;
-      })[0];
-    if (lastSalary) {
-      return lastSalary.created_at ? new Date(lastSalary.created_at) : new Date(lastSalary.date + 'T00:00:00');
-    }
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  })();
+  // ── Server-authoritative cycle aggregation ────────────────────────────────
+  // When a SalaryCycle is active, ALL cycle numbers come from the backend
+  // (cycleStats) — React does no timestamp math, which permanently removes the
+  // client/server timezone-mismatch bug class. The legacy (no-cycle) path keeps
+  // a simple all-time client computation for users who never started a cycle.
+  const hasCycle = !!(currentCycle && cycleStats);
+  const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
 
-  const cycleStartTs = cycleStart.getTime();
+  const legacyIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+  const legacyExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
 
-  // ── Cycle-filtered income & expenses ─────────────────────────────────────
-  // Use >= (not >) to survive any sub-second precision loss in SQLite; the
-  // 1-second offset in cycle_start_at (Go: receivedAt - 1s) guarantees that
-  // pre-salary transactions (ts < cycleStartTs) are still excluded correctly.
-  const txTs = (tx: Transaction) =>
-    tx.created_at
-      ? new Date(tx.created_at).getTime()
-      : new Date(tx.date.slice(0, 10) + 'T12:00:00').getTime();
+  const cycleIncome = hasCycle ? cycleStats!.cycle_income : legacyIncome;
+  const cycleExpenses = hasCycle ? cycleStats!.cycle_expenses : legacyExpense;
+  const cycleFixedExpenses = hasCycle ? cycleStats!.cycle_fixed_expenses : 0;
+  const cycleVariableExpenses = hasCycle ? cycleStats!.cycle_variable_expenses : Math.max(0, legacyExpense);
 
-  const cycleIncome = transactions
-    .filter(tx => tx.type === 'income' && txTs(tx) >= cycleStartTs)
-    .reduce((acc, tx) => acc + Number(tx.amount), 0);
-
-  const cycleExpenses = transactions
-    .filter(tx => tx.type === 'expense' && txTs(tx) >= cycleStartTs)
-    .reduce((acc, tx) => acc + Number(tx.amount), 0);
-
-  // Fixed vs variable split for the Expenses card sub-label
-  const fixedExpCatID = currentCycle?.fixed_exp_category_id ?? 0;
-  const cycleFixedExpenses = fixedExpCatID > 0
-    ? transactions
-        .filter(tx => tx.type === 'expense' && tx.category?.id === fixedExpCatID && txTs(tx) >= cycleStartTs)
-        .reduce((acc, tx) => acc + Number(tx.amount), 0)
-    : (currentCycle ? currentCycle.fixed_needs_total + currentCycle.fixed_wants_total : 0);
-  const cycleVariableExpenses = Math.max(0, cycleExpenses - cycleFixedExpenses);
-
-  // ── Balance: cycle net when active, else all-time ────────────────────────
-  // cycleIncome - cycleExpenses = (salary + bonuses) - (fixed + variable)
-  const totalIncomeAllTime = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpenseAllTime = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = currentCycle
-    ? cycleIncome - cycleExpenses
-    : totalIncomeAllTime - totalExpenseAllTime;
+  // Balance = cycle net (salary + bonuses − fixed − variable) when active.
+  const balance = cycleIncome - cycleExpenses;
 
   // ── Income progress bar ───────────────────────────────────────────────────
-  const hasFull = transactions.some(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type) &&
-    (t.created_at ? new Date(t.created_at).getTime() : 0) > cycleStartTs);
   const salaryRef = currentCycle ? currentCycle.total_income : expectedSalary;
-  const incomePercent = salaryRef > 0
-    ? (hasFull ? 100 : Math.min((cycleIncome / salaryRef) * 100, 100))
-    : 0;
-  const incomeOver = salaryRef > 0 && (hasFull || cycleIncome >= salaryRef);
+  const incomePercent = salaryRef > 0 ? Math.min((cycleIncome / salaryRef) * 100, 100) : 0;
+  const incomeOver = salaryRef > 0 && cycleIncome >= salaryRef;
 
   // ── Budget Health: (NeedsLimit + WantsLimit) − cycleExpenses ─────────────
   // Spec: "remaining funds from the 50/30 portion" — does NOT include savings.
@@ -188,7 +140,8 @@ const Dashboard: React.FC = () => {
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
     fetchData();
-  }, [fetchData]);
+    refreshCycle();
+  }, [fetchData, refreshCycle]);
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
@@ -292,8 +245,6 @@ const Dashboard: React.FC = () => {
           transactions={transactions}
           monthlyBudget={monthlySpendingGoal}
           formatAmount={formatAmount}
-          cycleStartAt={cycleStart}
-          onCycleReset={refreshCycle}
         />
       )}
 

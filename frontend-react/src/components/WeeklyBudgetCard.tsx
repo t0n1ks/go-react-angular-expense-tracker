@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays, TrendingUp, TrendingDown, Info, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,8 +19,6 @@ interface Props {
   transactions: Transaction[];
   monthlyBudget: number;
   formatAmount: (n: number) => string;
-  cycleStartAt?: Date;
-  onCycleReset?: () => void;
 }
 
 function toLocalDateStr(d: Date): string {
@@ -43,18 +41,14 @@ function getFixedPaydayDates(fixedDay: number): { last: Date; next: Date } {
   return { last: lastDate, next: nextDate };
 }
 
-const WEEK_MS = 7 * 24 * 3600 * 1000;
-
-const WeeklyBudgetCard: React.FC<Props> = ({
-  transactions,
-  monthlyBudget,
-  formatAmount,
-  cycleStartAt,
-  onCycleReset,
-}) => {
+const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, formatAmount }) => {
   const { t } = useTranslation();
-  const { paydayMode, fixedPayday, manualNextPayday, settings, saveSettings, refreshCycle, currentCycle } = useSettings();
-  const { user, axiosInstance } = useAuth();
+  const {
+    paydayMode, fixedPayday, manualNextPayday, settings, saveSettings,
+    refreshCycle, currentCycle, cycleStats,
+  } = useSettings();
+  const { user } = useAuth();
+  const { axiosInstance } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
   const [paydayEditError, setPaydayEditError] = useState('');
@@ -70,18 +64,27 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     return toLocalDateStr(d);
   })();
 
-  // ── Cycle boundaries ──────────────────────────────────────────────────────
-  let lastPayday: Date | null = null;
-  let nextPayday: Date | null = null;
+  // hasCycle: a SalaryCycle is active and the server returned its stats. In that
+  // case ALL numbers come from cycleStats (server-authoritative — no client date
+  // math). The legacy path below only runs for users without a SalaryCycle.
+  const hasCycle = !!(currentCycle && cycleStats);
+  const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
 
-  if (cycleStartAt) {
-    lastPayday = cycleStartAt;
+  // ── Next-payday date for display ──────────────────────────────────────────
+  let nextPayday: Date | null = null;
+  if (hasCycle) {
+    nextPayday = currentCycle!.next_payday_at ? new Date(currentCycle!.next_payday_at) : null;
+  } else if (paydayMode === 'fixed' && fixedPayday > 0) {
+    nextPayday = getFixedPaydayDates(fixedPayday).next;
+  } else {
     const parsedNext = safeParseDate(manualNextPayday);
     if (parsedNext) { nextPayday = parsedNext; nextPayday.setHours(0, 0, 0, 0); }
-  } else if (paydayMode === 'fixed' && fixedPayday > 0) {
-    const { last, next } = getFixedPaydayDates(fixedPayday);
-    lastPayday = last;
-    nextPayday = next;
+  }
+
+  // ── Legacy pacing (no SalaryCycle) ────────────────────────────────────────
+  let legacyLastPayday: Date | null = null;
+  if (paydayMode === 'fixed' && fixedPayday > 0) {
+    legacyLastPayday = getFixedPaydayDates(fixedPayday).last;
   } else {
     const lastIncomeTx = transactions
       .filter(tx => tx.type === 'income' && (tx.income_type === 'one_time' || !tx.income_type))
@@ -90,108 +93,29 @@ const WeeklyBudgetCard: React.FC<Props> = ({
         const bTs = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
         return bTs - aTs;
       })[0] ?? null;
-    if (lastIncomeTx) {
-      lastPayday = lastIncomeTx.created_at
-        ? new Date(lastIncomeTx.created_at)
-        : new Date(lastIncomeTx.date + 'T00:00:00');
-    } else {
-      lastPayday = new Date(today.getFullYear(), today.getMonth(), 1);
-    }
-    const parsedNext = safeParseDate(manualNextPayday);
-    if (parsedNext) { nextPayday = parsedNext; nextPayday.setHours(0, 0, 0, 0); }
+    legacyLastPayday = lastIncomeTx
+      ? (lastIncomeTx.created_at ? new Date(lastIncomeTx.created_at) : new Date(lastIncomeTx.date + 'T00:00:00'))
+      : new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  const hasCycle = cycleStartAt !== undefined || nextPayday !== null;
-
-  // ── Fixed-expense identification ──────────────────────────────────────────
-  // Transactions tagged with the "Fixed Payments" category are committed
-  // expenses. We exclude them from "variable" spend so the rolling limit
-  // reflects only day-to-day discretionary spending.
-  const fixedExpCatID = currentCycle?.fixed_exp_category_id ?? 0;
-
-  const isVariableExpense = (tx: Transaction): boolean => {
-    if (tx.type !== 'expense') return false;
-    if (fixedExpCatID > 0 && tx.category?.id === fixedExpCatID) return false;
-    return true;
-  };
-
-  // ── Rolling cycle-week calculation ────────────────────────────────────────
-  // Cycle-weeks are 7-day chunks starting strictly from cycleStartAt.
-  // Over-/under-spend in a completed week rolls into the next week's allowance.
-  const cycleStartMs = cycleStartAt?.getTime() ?? 0;
-  const totalCycleDays = cycleStartAt && nextPayday
-    ? Math.max(7, Math.ceil((nextPayday.getTime() - cycleStartAt.getTime()) / (3600 * 24 * 1000)))
-    : 30;
-  const baseWeeklyAllowance = monthlyBudget > 0 ? (monthlyBudget / totalCycleDays) * 7 : 0;
-
-  const daysSinceCycleStart = cycleStartAt
-    ? Math.max(0, (today.getTime() - cycleStartAt.getTime()) / (3600 * 24 * 1000))
-    : 0;
-  const currentWeekIndex = cycleStartAt ? Math.floor(daysSinceCycleStart / 7) : 0;
-
-  // Variable expenses in a half-open interval (fromMs, toMs]
-  const getVarExpensesInRange = useMemo(() => (fromMs: number, toMs: number): number => {
-    return transactions
-      .filter(tx => {
-        if (!isVariableExpense(tx)) return false;
-        const txTs = tx.created_at
-          ? new Date(tx.created_at).getTime()
-          : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
-        return txTs > fromMs && txTs <= toMs;
-      })
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, fixedExpCatID]);
-
-  // Rollover = surplus/deficit carried from every completed cycle-week
-  const rollovers = useMemo(() => {
-    if (!cycleStartAt || currentWeekIndex === 0) return 0;
-    let acc = 0;
-    for (let w = 0; w < currentWeekIndex; w++) {
-      const wFrom = cycleStartMs + w * WEEK_MS;
-      const wTo = cycleStartMs + (w + 1) * WEEK_MS;
-      acc += baseWeeklyAllowance - getVarExpensesInRange(wFrom, wTo);
-    }
-    return acc;
-  }, [cycleStartAt, cycleStartMs, currentWeekIndex, baseWeeklyAllowance, getVarExpensesInRange]);
-
-  // This week's allowance (base + accumulated rollover from prior weeks)
-  const currentWeekAllowance = cycleStartAt ? Math.max(0, baseWeeklyAllowance + rollovers) : 0;
-
-  // Variable expenses in the current cycle-week
-  const currentWeekFromMs = cycleStartMs + currentWeekIndex * WEEK_MS;
-  const currentWeekToMs = currentWeekFromMs + WEEK_MS;
-  const currentWeekVarSpent = cycleStartAt
-    ? getVarExpensesInRange(currentWeekFromMs, currentWeekToMs)
-    : 0;
-
-  // Variable expenses since cycle start (for "Spent since payday" row)
-  const variableSpentSincePayday = cycleStartAt
-    ? getVarExpensesInRange(cycleStartMs, Date.now())
-    : 0;
-
-  // ── Legacy weekly pacing (non-cycle path) ─────────────────────────────────
-  const lastPaydayTs = lastPayday ? lastPayday.getTime() : 0;
-
-  const spentSincePaydayLegacy = transactions
+  const legacySpentSincePayday = transactions
     .filter(tx => {
       if (tx.type !== 'expense' || !tx.date) return false;
       const txTs = tx.created_at
         ? new Date(tx.created_at).getTime()
         : new Date(tx.date.slice(0, 10) + 'T23:59:59').getTime();
-      return txTs > lastPaydayTs;
+      return txTs > (legacyLastPayday ? legacyLastPayday.getTime() : 0);
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
   const daysRemainingLegacy = nextPayday
     ? Math.max(1, Math.ceil((nextPayday.getTime() - today.getTime()) / 86_400_000))
     : 30;
-  const weeklyAllowanceLegacy = hasCycle && nextPayday && !cycleStartAt
-    ? Math.max(0, (monthlyBudget - spentSincePaydayLegacy) / (daysRemainingLegacy / 7))
+  const weeklyAllowanceLegacy = !hasCycle && nextPayday
+    ? Math.max(0, (monthlyBudget - legacySpentSincePayday) / (daysRemainingLegacy / 7))
     : 0;
   const baseLimitPerWeek = monthlyBudget / 4.3;
 
-  // localStorage lock for legacy pacing
   const currentWeekStartStr = toLocalDateStr((() => {
     const d = new Date(today);
     const day = d.getDay();
@@ -201,7 +125,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   })());
   const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
   let lockedAllowanceLegacy = 0;
-  if (hasCycle && !cycleStartAt) {
+  if (!hasCycle && nextPayday) {
     try {
       const raw = localStorage.getItem(lockKey);
       if (raw) {
@@ -222,7 +146,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   }
   const savingsBonusLegacy = Math.max(0, lockedAllowanceLegacy - baseLimitPerWeek);
 
-  // Legacy calendar-week spending (Mon-Sun)
   const weekStart = (() => {
     const d = new Date(today);
     const day = d.getDay();
@@ -241,28 +164,33 @@ const WeeklyBudgetCard: React.FC<Props> = ({
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  // ── Unified display values ────────────────────────────────────────────────
-  const displaySpentSincePayday = cycleStartAt ? variableSpentSincePayday : spentSincePaydayLegacy;
-  const displayCanSpend = cycleStartAt ? currentWeekAllowance : lockedAllowanceLegacy;
-  const displayThisWeek = cycleStartAt ? currentWeekVarSpent : weekSpentLegacy;
-  const isOver = hasCycle && displayThisWeek > displayCanSpend;
-  const pct = displayCanSpend > 0 ? Math.min((displayThisWeek / displayCanSpend) * 100, 100) : 0;
-  const barColor = !hasCycle ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
+  // ── Unified display values (cycle → server; legacy → client) ──────────────
+  const displayLimit = hasCycle ? cycleStats!.net_discretionary_budget : monthlyBudget;
+  const displaySpentSincePayday = hasCycle ? cycleStats!.cycle_variable_expenses : legacySpentSincePayday;
+  const displayCanSpend = hasCycle ? cycleStats!.current_week_allowance : lockedAllowanceLegacy;
+  const displayThisWeek = hasCycle ? cycleStats!.current_week_spent : weekSpentLegacy;
+  const daysRemaining = hasCycle ? cycleStats!.days_remaining : daysRemainingLegacy;
+  const showCard = hasCycle || nextPayday !== null;
 
-  // Delta: today's variable spend vs daily baseline
+  const isOver = showCard && displayThisWeek > displayCanSpend;
+  const pct = displayCanSpend > 0 ? Math.min((displayThisWeek / displayCanSpend) * 100, 100) : 0;
+  const barColor = !showCard ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
+
+  // Today's variable spend vs daily baseline — a small display nicety (delta arrow).
   const spentToday = transactions
-    .filter(tx => isVariableExpense(tx) && tx.date?.slice(0, 10) === todayStr)
+    .filter(tx => {
+      if (tx.type !== 'expense') return false;
+      if (fixedExpCatID > 0 && Number(tx.category?.id) === fixedExpCatID) return false;
+      return tx.date?.slice(0, 10) === todayStr;
+    })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
   const dailyBaseline = displayCanSpend / 7;
   const deltaDirection: 'up' | 'down' | 'neutral' =
-    !hasCycle || displayCanSpend === 0 ? 'neutral'
+    !showCard || displayCanSpend === 0 ? 'neutral'
     : spentToday < dailyBaseline - 0.01 ? 'up'
     : spentToday > dailyBaseline + 0.01 ? 'down'
     : 'neutral';
 
-  const daysRemaining = nextPayday
-    ? Math.max(1, Math.ceil((nextPayday.getTime() - today.getTime()) / 86_400_000))
-    : daysRemainingLegacy;
   const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
   const nextPaydayDisplay = nextPayday
     ? nextPayday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -280,7 +208,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({
   const handleSave = async () => {
     if (!pendingDate) return;
     await saveSettings({ ...settings, manualNextPayday: pendingDate });
-    if (onCycleReset) onCycleReset();
     setEditingPayday(false);
   };
 
@@ -325,14 +252,14 @@ const WeeklyBudgetCard: React.FC<Props> = ({
         <p className="weekly-budget-payday-today">{t('dashboard.weekly_payday_today')}</p>
       )}
 
-      {hasCycle ? (
+      {showCard ? (
         <>
           <div className="weekly-budget-body">
 
             {/* Row 1: Net discretionary budget (50/30 portion minus fixed) */}
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_budget_limit')}</span>
-              <span className="weekly-budget-stat-value">{formatAmount(monthlyBudget)}</span>
+              <span className="weekly-budget-stat-value">{formatAmount(displayLimit)}</span>
             </div>
 
             {/* Row 2: Variable expenses only since cycle start */}
@@ -340,7 +267,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent_since')}</span>
               <span
                 className="weekly-budget-stat-value"
-                style={{ color: displaySpentSincePayday > monthlyBudget ? '#ef4444' : 'var(--color-expense-text)' }}
+                style={{ color: displaySpentSincePayday > displayLimit ? '#ef4444' : 'var(--color-expense-text)' }}
               >
                 {formatAmount(displaySpentSincePayday)}
               </span>
@@ -385,7 +312,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                 </button>
               </div>
 
-              {!cycleStartAt && savingsBonusLegacy > 0.01 && (
+              {!hasCycle && savingsBonusLegacy > 0.01 && (
                 <span className="weekly-budget-bonus-label">
                   +{formatAmount(savingsBonusLegacy)} ({t('dashboard.weekly_savings_bonus')})
                 </span>
@@ -422,7 +349,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
                       <span>{t('dashboard.budget_insight_formula')}</span>
                       <span>
                         {t('dashboard.budget_insight_example', {
-                          remaining: formatAmount(monthlyBudget - displaySpentSincePayday),
+                          remaining: formatAmount(Math.max(0, displayLimit - displaySpentSincePayday)),
                           days: daysRemaining,
                           daily: formatAmount(dailyBaseline),
                         })}
@@ -476,7 +403,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
             />
             <button
               className="weekly-budget-action-btn weekly-budget-action-btn--save"
-              onClick={cycleStartAt ? handleCyclePaydaySave : handleSave}
+              onClick={hasCycle ? handleCyclePaydaySave : handleSave}
             >
               {t('dashboard.weekly_save')}
             </button>
@@ -485,7 +412,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({
             </button>
             {paydayEditError && <span className="wbc-payday-error">{paydayEditError}</span>}
           </div>
-        ) : cycleStartAt ? (
+        ) : hasCycle ? (
           nextPayday ? (
             <div className="weekly-budget-payday-info">
               <span className="weekly-budget-payday-label">{t('dashboard.weekly_next_payday_label')}:</span>

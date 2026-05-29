@@ -24,6 +24,7 @@ interface Transaction {
   type: "expense" | "income";
   income_type?: string;
   date: string;
+  created_at?: string;
   category?: { name: string };
 }
 
@@ -104,24 +105,30 @@ const Statistics: React.FC = () => {
   const timelineData = useMemo(() => {
     if (transactions.length === 0) return [];
 
-    const sortedTransactions = [...transactions].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
+    // Bucket by a stable YYYY-MM-DD key derived from created_at (the authoritative
+    // event time) falling back to date. Slicing the first 10 chars avoids
+    // timezone-dependent Date parsing, so bundled "Salary" + fixed-expense rows
+    // created the same instant land on the correct, single day.
+    const keyOf = (t: { created_at?: string; date: string }) =>
+      (t.created_at ?? t.date).slice(0, 10);
 
-    const dailyMap: Record<string, number> = {};
+    const sorted = [...transactions].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
+
+    const dailyMap = new Map<string, number>();
     let runningBalance = 0;
+    sorted.forEach((tx) => {
+      runningBalance += tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
+      dailyMap.set(keyOf(tx), runningBalance); // last write wins → end-of-day balance
+    });
 
-    sortedTransactions.forEach((t) => {
-      const dateKey = new Date(t.date).toLocaleDateString(i18n.language, {
+    return Array.from(dailyMap.entries()).map(([key, balance]) => {
+      const [y, m, d] = key.split("-").map(Number);
+      const label = new Date(y, m - 1, d).toLocaleDateString(i18n.language, {
         day: "2-digit",
         month: "short",
       });
-      const amount = t.type === "income" ? Number(t.amount) : -Number(t.amount);
-      runningBalance += amount;
-      dailyMap[dateKey] = runningBalance;
+      return { date: label, balance };
     });
-
-    return Object.entries(dailyMap).map(([date, balance]) => ({ date, balance }));
   }, [transactions, i18n.language]);
 
   const nextPayday = useMemo((): Date | null => {

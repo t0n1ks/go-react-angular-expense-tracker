@@ -543,6 +543,8 @@
     "category_need": "Bedürfnis",
     "category_want": "Wunsch",
     "ratio_title": "Budget-Verhältnis",
+    "ratio_tooltip": "Die 50/30/20-Regel teilt das Einkommen in 50% Bedürfnisse (Miete, Essen), 30% Wünsche (Freizeit, Abos) und 20% Ersparnisse. Wähle ein engeres Verhältnis wie 65/20/15, wenn deine Fixkosten hoch sind.",
+    "fixed_tooltip": "Fixkosten sind wiederkehrende Pflichtzahlungen pro Zyklus: Miete, Nebenkosten, Internet, Kredite, Versicherung und Abos wie Netflix. Sie werden von den Bedürfnis-/Wunsch-Limits abgezogen — nie von den Ersparnissen.",
     "ratio_default": "Standard — 50 / 30 / 20",
     "ratio_tight": "Knappes Budget — 65 / 20 / 15",
     "ratio_saver": "Maximales Sparen — 50 / 20 / 30",

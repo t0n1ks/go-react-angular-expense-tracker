@@ -147,12 +147,11 @@ func StartSalaryCycle(c *gin.Context) {
 		receivedAt = time.Now()
 	}
 
-	// cycle_start_at is 1 second before receivedAt. A 1 ms offset is too tight
-	// because SQLite (and some drivers) truncate sub-second precision when
-	// storing/reading timestamps.  Using 1 s guarantees that all generated
-	// transactions (created_at == receivedAt) satisfy `created_at > cycle_start_at`
-	// even after any precision loss in the DB layer.
-	cycleStart := receivedAt.Add(-time.Second)
+	// cycle_start_at is exactly receivedAt. All cycle aggregation uses an
+	// inclusive `created_at >= cycle_start_at` comparison, so the generated
+	// income/fixed transactions (created_at == receivedAt) are always counted —
+	// no arbitrary offset needed, and robust to sub-second truncation in SQLite.
+	cycleStart := receivedAt
 	txDate := receivedAt.Truncate(24 * time.Hour)
 
 	totalIncome := req.BaseSalary + req.Bonuses
@@ -359,17 +358,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	cycleIncome, cycleExpenses := fetchCycleStats(uid, cycle.CycleStartAt)
-
-	var allIncome, allExpense float64
-	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'income'", uid).
-		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
-	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'expense'", uid).
-		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
-
-	previousSavings := (allIncome - allExpense) - (cycleIncome - cycleExpenses)
+	stats := computeCycleStats(uid, cycle)
 
 	fw := BudgetFramework{
 		TotalIncome:     cycle.TotalIncome,
@@ -386,11 +375,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"cycle":            cycle,
 		"budget_framework": fw,
-		"cycle_stats": gin.H{
-			"cycle_income":     cycleIncome,
-			"cycle_expenses":   cycleExpenses,
-			"previous_savings": previousSavings,
-		},
+		"cycle_stats":      stats,
 	})
 }
 
@@ -484,15 +469,139 @@ func GetSalaryCycleHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"cycles": cycles})
 }
 
-// fetchCycleStats sums income and expenses strictly after `since`.
-// Because cycle_start_at is set to receivedAt-1ms, all transactions created
-// at receivedAt satisfy `created_at > since` correctly.
-func fetchCycleStats(uid uint, since time.Time) (income, expenses float64) {
+// CycleStats is the server-authoritative aggregation for a salary cycle.
+// React renders these numbers directly — it performs no timestamp math.
+type CycleStats struct {
+	CycleIncome            float64 `json:"cycle_income"`
+	CycleExpenses          float64 `json:"cycle_expenses"`
+	CycleFixedExpenses     float64 `json:"cycle_fixed_expenses"`
+	CycleVariableExpenses  float64 `json:"cycle_variable_expenses"`
+	PreviousSavings        float64 `json:"previous_savings"`
+	NetDiscretionaryBudget float64 `json:"net_discretionary_budget"`
+	DaysTotal              int     `json:"days_total"`
+	DaysElapsed            int     `json:"days_elapsed"`
+	DaysRemaining          int     `json:"days_remaining"`
+	BaseWeeklyAllowance    float64 `json:"base_weekly_allowance"`
+	CurrentWeekIndex       int     `json:"current_week_index"`
+	CurrentWeekAllowance   float64 `json:"current_week_allowance"`
+	CurrentWeekSpent       float64 `json:"current_week_spent"`
+	Rollover               float64 `json:"rollover"`
+}
+
+// computeCycleStats aggregates one cycle entirely server-side: it owns the
+// timestamps and a single timezone, so there is no client/server round-trip to
+// desynchronize. Variable = expense whose category is NOT the cycle's
+// FixedExpCategoryID. Income/expense totals use an inclusive `created_at >=`
+// comparison so the salary row (created_at == cycle_start_at) is always counted.
+func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
+	since := cycle.CycleStartAt
+
+	// All cycle transactions in one pass.
+	var txs []models.Transaction
+	database.DB.
+		Where("user_id = ? AND created_at >= ?", uid, since).
+		Find(&txs)
+
+	var income, expenses, fixedExp, variableExp float64
+	for _, tx := range txs {
+		switch tx.Type {
+		case "income":
+			income += tx.Amount
+		case "expense":
+			expenses += tx.Amount
+			if cycle.FixedExpCategoryID > 0 && tx.CategoryID == cycle.FixedExpCategoryID {
+				fixedExp += tx.Amount
+			} else {
+				variableExp += tx.Amount
+			}
+		}
+	}
+
+	// All-time net minus this cycle's net = savings carried in from prior cycles.
+	var allIncome, allExpense float64
 	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'income' AND created_at > ?", uid, since).
-		Select("COALESCE(SUM(amount), 0)").Scan(&income)
+		Where("user_id = ? AND type = 'income'", uid).
+		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
 	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'expense' AND created_at > ?", uid, since).
-		Select("COALESCE(SUM(amount), 0)").Scan(&expenses)
-	return
+		Where("user_id = ? AND type = 'expense'", uid).
+		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
+	previousSavings := (allIncome - allExpense) - (income - expenses)
+
+	netDiscretionary := cycle.VarNeedsBudget + cycle.VarWantsBudget
+
+	// Cycle length: cycle_start → next_payday, default 30 days when unset.
+	now := time.Now()
+	daysTotal := 30
+	if cycle.NextPaydayAt != nil {
+		d := int(cycle.NextPaydayAt.Sub(cycle.CycleStartAt).Hours() / 24)
+		if d >= 7 {
+			daysTotal = d
+		}
+	}
+	daysElapsed := int(now.Sub(cycle.CycleStartAt).Hours() / 24)
+	if daysElapsed < 0 {
+		daysElapsed = 0
+	}
+	daysRemaining := daysTotal - daysElapsed
+	if daysRemaining < 0 {
+		daysRemaining = 0
+	}
+
+	baseWeekly := 0.0
+	if daysTotal > 0 {
+		baseWeekly = netDiscretionary / float64(daysTotal) * 7
+	}
+
+	// Rolling cycle-weeks: 7-day chunks from cycle start. Over/under-spend in a
+	// completed week carries into the next. current_week_spent is variable spend
+	// in the active 7-day window only.
+	currentWeekIndex := daysElapsed / 7
+	rollover := 0.0
+	for w := 0; w < currentWeekIndex; w++ {
+		wFrom := cycle.CycleStartAt.AddDate(0, 0, w*7)
+		wTo := cycle.CycleStartAt.AddDate(0, 0, (w+1)*7)
+		rollover += baseWeekly - sumVariableInRange(txs, cycle.FixedExpCategoryID, wFrom, wTo)
+	}
+	currentWeekFrom := cycle.CycleStartAt.AddDate(0, 0, currentWeekIndex*7)
+	currentWeekTo := currentWeekFrom.AddDate(0, 0, 7)
+	currentWeekSpent := sumVariableInRange(txs, cycle.FixedExpCategoryID, currentWeekFrom, currentWeekTo)
+	currentWeekAllowance := baseWeekly + rollover
+	if currentWeekAllowance < 0 {
+		currentWeekAllowance = 0
+	}
+
+	return CycleStats{
+		CycleIncome:            income,
+		CycleExpenses:          expenses,
+		CycleFixedExpenses:     fixedExp,
+		CycleVariableExpenses:  variableExp,
+		PreviousSavings:        previousSavings,
+		NetDiscretionaryBudget: netDiscretionary,
+		DaysTotal:              daysTotal,
+		DaysElapsed:            daysElapsed,
+		DaysRemaining:          daysRemaining,
+		BaseWeeklyAllowance:    baseWeekly,
+		CurrentWeekIndex:       currentWeekIndex,
+		CurrentWeekAllowance:   currentWeekAllowance,
+		CurrentWeekSpent:       currentWeekSpent,
+		Rollover:               rollover,
+	}
+}
+
+// sumVariableInRange sums variable expenses in [from, to): created_at >= from
+// and < to, excluding the fixed-payments category.
+func sumVariableInRange(txs []models.Transaction, fixedCatID uint, from, to time.Time) float64 {
+	var sum float64
+	for _, tx := range txs {
+		if tx.Type != "expense" {
+			continue
+		}
+		if fixedCatID > 0 && tx.CategoryID == fixedCatID {
+			continue
+		}
+		if !tx.CreatedAt.Before(from) && tx.CreatedAt.Before(to) {
+			sum += tx.Amount
+		}
+	}
+	return sum
 }

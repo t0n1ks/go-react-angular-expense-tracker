@@ -1,10 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket } from 'lucide-react';
+import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import './SalaryCycleCard.css';
+
+// Lightweight hover/focus tooltip — no state, positioned via CSS so it never
+// clips. Used to explain the 50/30/20 rule and what counts as a fixed expense.
+const InfoTip: React.FC<{ text: string }> = ({ text }) => (
+  <span className="sc-infotip" tabIndex={0} role="note">
+    <Info size={13} />
+    <span className="sc-infotip-bubble">{text}</span>
+  </span>
+);
 
 interface FixedExpenseRow {
   id: string;
@@ -245,7 +254,10 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
 
             {/* ── Budget ratio ── */}
             <div className="sc-section">
-              <label className="sc-section-label">{t('salary_cycle.ratio_title')}</label>
+              <label className="sc-section-label">
+                {t('salary_cycle.ratio_title')}
+                <InfoTip text={t('salary_cycle.ratio_tooltip')} />
+              </label>
               <div className="sc-ratio-tabs">
                 {(['50/30/20', '65/20/15', '50/20/30', 'custom'] as RatioProfile[]).map(p => (
                   <button
@@ -287,7 +299,10 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
             {/* ── Fixed expenses ── */}
             <div className="sc-section">
               <div className="sc-section-header">
-                <label className="sc-section-label">{t('salary_cycle.fixed_expenses')}</label>
+                <label className="sc-section-label">
+                  {t('salary_cycle.fixed_expenses')}
+                  <InfoTip text={t('salary_cycle.fixed_tooltip')} />
+                </label>
                 <span className="sc-section-hint">{t('salary_cycle.fixed_expenses_hint')}</span>
               </div>
               {fixedExpenses.map(fe => (
