@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { type CycleStats } from '../context/SettingsContext';
 
 interface Props {
-  formatAmount: (n: number) => string;
   onClose: () => void;
   onSuccess: (updatedStats: CycleStats) => void;
 }
@@ -16,7 +15,7 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const AddIncomeModal: React.FC<Props> = ({ formatAmount, onClose, onSuccess }) => {
+const AddIncomeModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   const { t } = useTranslation();
   const { axiosInstance } = useAuth();
   const [amount, setAmount] = useState('');

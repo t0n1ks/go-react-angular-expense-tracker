@@ -323,7 +323,6 @@ const Dashboard: React.FC = () => {
       )}
       {showAddIncomeModal && (
         <AddIncomeModal
-          formatAmount={formatAmount}
           onClose={() => setShowAddIncomeModal(false)}
           onSuccess={handleIncomeAdded}
         />
