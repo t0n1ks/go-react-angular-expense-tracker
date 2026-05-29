@@ -673,7 +673,15 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	}
 	cycle := *activeCycle
 
-	stats := computeCycleStats(uid, cycle)
+	// Only compute live stats when a cycle actually covers today.
+	// When the last cycle has ended (hasActive == false) we return cycle_stats: null
+	// so the frontend shows strictly zero in every card rather than stale numbers
+	// from a period that is already over.
+	var cycleStatsPayload interface{}
+	if hasActive {
+		s := computeCycleStats(uid, cycle)
+		cycleStatsPayload = s
+	}
 
 	fw := BudgetFramework{
 		TotalIncome:     cycle.TotalIncome,
@@ -690,7 +698,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"cycle":            cycle,
 		"budget_framework": fw,
-		"cycle_stats":      stats,
+		"cycle_stats":      cycleStatsPayload, // nil → JSON null when no active cycle
 		"has_active_cycle": hasActive,
 	})
 }
