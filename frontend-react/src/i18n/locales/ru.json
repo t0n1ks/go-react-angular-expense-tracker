@@ -43,6 +43,8 @@
     "title": "Финансовый обзор",
     "balance": "Текущий баланс",
     "income": "Доходы",
+    "income_salary": "Зарплата",
+    "income_bonuses": "Бонусы",
     "expenses": "Расходы",
     "welcome_title": "С возвращением!",
     "welcome_body": "Ваши финансы под контролем. Подробную аналитику по категориям смотрите в разделе Статистика.",
@@ -559,7 +561,8 @@
     "active_cycle": "Активный цикл",
     "cycle_since": "С {{date}}",
     "income_this_cycle": "за цикл",
-    "expenses_this_cycle": "за цикл"
+    "expenses_this_cycle": "за цикл",
+    "fixed_payments_category": "Базовые затраты"
   },
   "tour": {
     "home_title": "Панель управления",

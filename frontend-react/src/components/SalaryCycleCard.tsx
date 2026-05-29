@@ -33,7 +33,7 @@ interface Props {
 const todayDateStr = () => new Date().toISOString().slice(0, 10);
 
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { axiosInstance } = useAuth();
   const { currentCycle, refreshCycle, formatAmount } = useSettings();
 
@@ -115,6 +115,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
         bonuses: parseFloat(bonuses) || 0,
         received_at_date: receivedAtDate || undefined,
         next_payday_date: nextPayday || undefined,
+        language: i18n.resolvedLanguage ?? 'en',
         needs_pct: needsPct,
         wants_pct: wantsPct,
         savings_pct: savingsPct,

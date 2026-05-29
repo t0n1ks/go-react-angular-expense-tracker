@@ -27,6 +27,7 @@ export interface SalaryCycle {
   fixed_wants_total: number;
   var_needs_budget: number;
   var_wants_budget: number;
+  fixed_exp_category_id: number;
   cycle_start_at: string; // ISO timestamp
   next_payday_at: string | null;
   fixed_expenses: FixedExpenseItem[];

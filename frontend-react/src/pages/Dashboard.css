@@ -76,6 +76,13 @@
     color: #38bdf8;
 }
 
+/* Income breakdown line (Salary · Bonuses) */
+.income-breakdown {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 3px 0 0;
+}
+
 /* Clickable stat card */
 .stat-card--clickable {
   cursor: pointer;

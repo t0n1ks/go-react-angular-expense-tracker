@@ -92,11 +92,20 @@ func StartSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
+	// localized names for the "Fixed Payments" category created when a cycle starts
+	var fixedCatByLang = map[string]string{
+		"en": "Fixed Payments",
+		"de": "Fixkosten",
+		"ru": "Базовые затраты",
+		"uk": "Базові витрати",
+	}
+
 	var req struct {
 		BaseSalary     float64             `json:"base_salary"`
 		Bonuses        float64             `json:"bonuses"`
 		NextPayday     string              `json:"next_payday_date"`
 		ReceivedAtDate string              `json:"received_at_date"` // YYYY-MM-DD; defaults to today
+		Language       string              `json:"language"`         // "en"|"ru"|"uk"|"de"
 		NeedsPct       float64             `json:"needs_pct"`
 		WantsPct       float64             `json:"wants_pct"`
 		SavingsPct     float64             `json:"savings_pct"`
@@ -203,8 +212,7 @@ func StartSalaryCycle(c *gin.Context) {
 			}
 		}
 
-		// ── Find categories for transaction records ────────────────────────
-		// Income category: prefer one named after income in any supported language
+		// ── Income category ────────────────────────────────────────────────
 		var incomeCat models.Category
 		if err := tx.Where("user_id = ?", uid).
 			Where("LOWER(name) IN ('income','доход','дохід','einkommen','salary')").
@@ -217,19 +225,33 @@ func StartSalaryCycle(c *gin.Context) {
 			}
 		}
 
-		// Expense category: first category that is NOT the income category
-		var expenseCat models.Category
-		if err := tx.Where("user_id = ? AND id != ?", uid, incomeCat.ID).
-			Where("LOWER(name) NOT IN ('income','доход','дохід','einkommen','salary')").
-			First(&expenseCat).Error; err != nil {
-			// Fallback: any category (even the income one)
-			if err2 := tx.Where("user_id = ?", uid).First(&expenseCat).Error; err2 != nil {
-				expenseCat = incomeCat
+		// ── "Fixed Payments" category (localized) ─────────────────────────
+		// All fixed expense transactions are tagged with this category so the
+		// React frontend can distinguish them from user-added variable expenses.
+		lang := strings.ToLower(strings.SplitN(strings.TrimSpace(req.Language), "-", 2)[0])
+		if _, ok := fixedCatByLang[lang]; !ok {
+			lang = "en"
+		}
+		fixedCatName := fixedCatByLang[lang]
+
+		var fixedCat models.Category
+		// Try to find an existing category by any of the localized names first
+		found := false
+		for _, name := range fixedCatByLang {
+			if err := tx.Where("user_id = ? AND name = ?", uid, name).First(&fixedCat).Error; err == nil {
+				found = true
+				break
 			}
 		}
+		if !found {
+			fixedCat = models.Category{UserID: uid, Name: fixedCatName, CreatedAt: receivedAt, UpdatedAt: receivedAt}
+			if err := tx.Create(&fixedCat).Error; err != nil {
+				return err
+			}
+		}
+		cycle.FixedExpCategoryID = fixedCat.ID
 
 		// ── Income transaction ─────────────────────────────────────────────
-		// created_at = receivedAt > cycleStart = receivedAt-1ms ✓
 		incomeTx := models.Transaction{
 			UserID:      uid,
 			CategoryID:  incomeCat.ID,
@@ -247,19 +269,19 @@ func StartSalaryCycle(c *gin.Context) {
 		incomeTxID = incomeTx.ID
 
 		// ── Fixed expense transactions ─────────────────────────────────────
-		// These are committed expenses (rent, subscriptions, etc.) and must appear
-		// in the transaction history so the cycle expenses sum is correct.
+		// Tagged with the dedicated "Fixed Payments" category so the frontend
+		// can filter them out of variable-expense calculations.
 		for _, fe := range req.FixedExpenses {
 			if fe.Amount <= 0 {
 				continue
 			}
 			desc := strings.TrimSpace(fe.Description)
 			if desc == "" {
-				desc = "Fixed expense"
+				desc = fixedCatName
 			}
 			expTx := models.Transaction{
 				UserID:      uid,
-				CategoryID:  expenseCat.ID,
+				CategoryID:  fixedCat.ID,
 				Amount:      fe.Amount,
 				Description: desc,
 				Date:        txDate,

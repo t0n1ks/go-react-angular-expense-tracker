@@ -17,7 +17,7 @@ interface Transaction {
   income_type?: string;
   date: string;
   created_at?: string;
-  category?: { name: string };
+  category?: { id: number; name: string };
 }
 
 const Dashboard: React.FC = () => {
@@ -139,25 +139,31 @@ const Dashboard: React.FC = () => {
     })
     .reduce((acc, tx) => acc + Number(tx.amount), 0);
 
-  // ── All-time totals for balance card ─────────────────────────────────────
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
+  // ── Balance: cycle net when active, else all-time ────────────────────────
+  // cycleIncome - cycleExpenses = (salary + bonuses) - (fixed + variable)
+  const totalIncomeAllTime = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+  const totalExpenseAllTime = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+  const balance = currentCycle
+    ? cycleIncome - cycleExpenses
+    : totalIncomeAllTime - totalExpenseAllTime;
 
-  // Income progress bar (vs expected salary)
+  // ── Income progress bar ───────────────────────────────────────────────────
   const hasFull = transactions.some(t => t.type === 'income' && (t.income_type === 'one_time' || !t.income_type) &&
     (t.created_at ? new Date(t.created_at).getTime() : 0) > cycleStartTs);
-  const incomePercent = expectedSalary > 0
-    ? (hasFull ? 100 : Math.min((cycleIncome / expectedSalary) * 100, 100))
+  const salaryRef = currentCycle ? currentCycle.total_income : expectedSalary;
+  const incomePercent = salaryRef > 0
+    ? (hasFull ? 100 : Math.min((cycleIncome / salaryRef) * 100, 100))
     : 0;
-  const incomeOver = expectedSalary > 0 && (hasFull || cycleIncome >= expectedSalary);
+  const incomeOver = salaryRef > 0 && (hasFull || cycleIncome >= salaryRef);
 
-  const forecast = expectedSalary > 0
-    ? (hasFull ? cycleIncome - cycleExpenses : Math.max(cycleIncome, expectedSalary) - cycleExpenses)
-    : null;
-
-  const budgetPercent = monthlySpendingGoal > 0 ? (cycleExpenses / monthlySpendingGoal) * 100 : 0;
+  // ── Budget Health: (NeedsLimit + WantsLimit) − cycleExpenses ─────────────
+  // Spec: "remaining funds from the 50/30 portion" — does NOT include savings.
+  const budget5030 = currentCycle
+    ? currentCycle.needs_limit + currentCycle.wants_limit
+    : monthlySpendingGoal;
+  const budgetPercent = budget5030 > 0 ? (cycleExpenses / budget5030) * 100 : 0;
   const budgetBarColor = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
+  const budgetRemaining = Math.max(0, budget5030 - cycleExpenses);
 
   const { heartsCount } = useSettings();
 
@@ -187,19 +193,16 @@ const Dashboard: React.FC = () => {
       {/* ── Stats grid ───────────────────────────────────────────────────── */}
       <div className="stats-grid">
 
-        {/* Balance (all-time: previous savings + current cycle net) */}
+        {/* Balance = cycle net (salary + bonuses − all expenses) */}
         <div className="stat-card">
           <div className="stat-icon wallet"><Wallet size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.balance')}</p>
             <p className="value">{formatAmount(balance)}</p>
-            {forecast !== null && (
-              <p className="forecast-text">{t('dashboard.forecast')}: {formatAmount(forecast)}</p>
-            )}
           </div>
         </div>
 
-        {/* Income — current cycle only; clickable → statistics */}
+        {/* Income — current cycle with salary/bonuses breakdown */}
         <div
           className="stat-card stat-card--clickable"
           onClick={() => navigate('/statistics')}
@@ -212,19 +215,27 @@ const Dashboard: React.FC = () => {
           <div className="stat-content">
             <p className="label">{t('dashboard.income')}</p>
             <p className="value-plus">+{formatAmount(cycleIncome)}</p>
-            {expectedSalary > 0 && (
+            {currentCycle && (
+              <p className="income-breakdown">
+                {t('dashboard.income_salary')}: {formatAmount(currentCycle.base_salary)}
+                {currentCycle.bonuses > 0 && (
+                  <span> · {t('dashboard.income_bonuses')}: {formatAmount(currentCycle.bonuses)}</span>
+                )}
+              </p>
+            )}
+            {salaryRef > 0 && !currentCycle && (
               <>
                 <div className={`progress-track${incomeOver ? ' progress-track--glow' : ''}`}>
                   <div className="progress-fill" style={{ width: `${incomePercent}%`, background: incomeOver ? '#10b981' : '#38bdf8' }} />
                 </div>
-                <p className="progress-label">{t('dashboard.income_of_expected', { expected: formatAmount(expectedSalary) })}</p>
+                <p className="progress-label">{t('dashboard.income_of_expected', { expected: formatAmount(salaryRef) })}</p>
               </>
             )}
             <p className="stat-sublabel">{t('salary_cycle.income_this_cycle')}</p>
           </div>
         </div>
 
-        {/* Expenses — current cycle only; clickable → statistics */}
+        {/* Expenses — current cycle (fixed + variable); clickable → statistics */}
         <div
           className="stat-card stat-card--clickable"
           onClick={() => navigate('/statistics')}
@@ -241,14 +252,14 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Budget Health */}
-        {monthlySpendingGoal > 0 && (
+        {/* Budget Health: remaining 50/30 budget */}
+        {budget5030 > 0 && (
           <div className="stat-card">
             <div className="stat-icon budget-icon"><Target size={24}/></div>
             <div className="stat-content">
               <p className="label">{t('dashboard.budget_health')}</p>
               <p className="value" style={{ color: budgetBarColor }}>
-                {formatAmount(cycleExpenses)} / {formatAmount(monthlySpendingGoal)}
+                {formatAmount(budgetRemaining)} / {formatAmount(budget5030)}
               </p>
               <div className="budget-health-bar-track">
                 <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
@@ -259,7 +270,7 @@ const Dashboard: React.FC = () => {
         )}
       </div>
 
-      {monthlySpendingGoal > 0 && (
+      {(monthlySpendingGoal > 0 || currentCycle) && (
         <WeeklyBudgetCard
           transactions={transactions}
           monthlyBudget={monthlySpendingGoal}
