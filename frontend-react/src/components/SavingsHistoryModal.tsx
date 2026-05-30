@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, PiggyBank, Plus, Minus } from 'lucide-react';
+import { X, PiggyBank, Plus, Minus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { type SalaryCycle, type CycleStats } from '../context/SettingsContext';
@@ -8,7 +8,7 @@ import { type SalaryCycle, type CycleStats } from '../context/SettingsContext';
 interface SavingsTx {
   id: number;
   amount: number;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   date: string;
   created_at?: string;
   description?: string;
@@ -23,22 +23,20 @@ interface Props {
   onSaved?: (updatedStats: CycleStats) => void;
 }
 
-function cycleDateLabel(startAt: string, endAt: string | null, lang: string): string {
-  const from = new Date(startAt);
-  const fromStr = from.toLocaleDateString(lang, { month: 'short', day: 'numeric' });
-  if (!endAt) return `${fromStr} – …`;
-  const to = new Date(endAt);
-  return `${fromStr} – ${to.toLocaleDateString(lang, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-}
 
 const SavingsHistoryModal: React.FC<Props> = ({
-  currentCycle, formatAmount, savedMoneyBalance, onClose, onSaved,
+  currentCycle: _currentCycle, formatAmount, savedMoneyBalance, onClose, onSaved,
 }) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { axiosInstance } = useAuth();
 
   const [txs, setTxs] = useState<SavingsTx[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Delete state ─────────────────────────────────────────────────────────
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // ── Manual savings entry form ────────────────────────────────────────────
   const [entryMode, setEntryMode] = useState<'deposit' | 'withdraw'>('deposit');
@@ -80,9 +78,24 @@ const SavingsHistoryModal: React.FC<Props> = ({
     }
   };
 
-  const cycleLabel = currentCycle
-    ? cycleDateLabel(currentCycle.cycle_start_at, currentCycle.next_payday_at, i18n.language)
-    : '';
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await axiosInstance.delete(`/transactions/${pendingDeleteId}`);
+      setTxs(prev => prev.filter(t => t.id !== pendingDeleteId));
+      setPendingDeleteId(null);
+      const statsRes = await axiosInstance.get('/salary-cycle/current');
+      if (onSaved && statsRes.data.cycle_stats) {
+        onSaved(statsRes.data.cycle_stats as CycleStats);
+      }
+    } catch {
+      setDeleteError(t('dashboard.savings_delete_error'));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="hist-modal-overlay" onClick={onClose}>
@@ -115,14 +128,28 @@ const SavingsHistoryModal: React.FC<Props> = ({
 
         {/* Transaction list */}
         <div className="hist-modal-body">
+          {/* Inline delete confirmation */}
+          {pendingDeleteId !== null && (
+            <div className="hist-delete-confirm">
+              <span>{t('dashboard.savings_delete_confirm')}</span>
+              <button className="hist-delete-ok" onClick={handleDeleteConfirm} disabled={deleting} type="button">
+                {deleting ? '…' : t('common.delete')}
+              </button>
+              <button className="hist-delete-cancel" onClick={() => { setPendingDeleteId(null); setDeleteError(''); }} type="button">
+                {t('transactions.cancel_btn')}
+              </button>
+              {deleteError && <span className="hist-delete-error">{deleteError}</span>}
+            </div>
+          )}
+
           {loading ? (
             <p className="hist-modal-empty">{t('common.loading')}</p>
           ) : txs.length === 0 ? (
             <p className="hist-modal-empty">{t('dashboard.savings_empty')}</p>
           ) : (
             txs.map(tx => {
-              const isDeposit = tx.type === 'income';
-              const dateLabel = cycleLabel || (tx.created_at ?? tx.date).slice(0, 10);
+              const isDeposit = tx.type === 'income' || tx.type === 'savings_deposit';
+              const dateLabel = (tx.created_at ?? tx.date).slice(0, 10);
               return (
                 <div key={tx.id} className={`hist-row${isDeposit ? ' hist-row--active' : ''}`}>
                   <div className="hist-row-left">
@@ -131,9 +158,20 @@ const SavingsHistoryModal: React.FC<Props> = ({
                       <span className="hist-row-breakdown">{tx.description}</span>
                     )}
                   </div>
-                  <span className="hist-row-amount" style={{ color: isDeposit ? '#10b981' : '#f87171' }}>
-                    {isDeposit ? '+' : '-'}{formatAmount(tx.amount)}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="hist-row-amount" style={{ color: isDeposit ? '#10b981' : '#f87171' }}>
+                      {isDeposit ? '+' : '-'}{formatAmount(tx.amount)}
+                    </span>
+                    <button
+                      className="hist-row-delete-btn"
+                      onClick={e => { e.stopPropagation(); setPendingDeleteId(tx.id); setDeleteError(''); }}
+                      title={t('common.delete')}
+                      type="button"
+                      aria-label={t('common.delete')}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               );
             })

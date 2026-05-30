@@ -189,7 +189,7 @@ func UpdateTransaction(c *gin.Context) {
 
 	if input.Type != nil {
 		if *input.Type != "expense" && *input.Type != "income" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid type. Allowed values: expense, income"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid type. Allowed values: expense, income. Use the /salary-cycle/savings endpoint for savings transfers."})
 			return
 		}
 		transaction.Type = *input.Type

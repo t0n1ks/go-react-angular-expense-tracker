@@ -61,6 +61,8 @@
     "savings_save_btn": "Save",
     "savings_amount_error": "Enter a valid positive amount",
     "savings_add_error": "Failed to update savings pool",
+    "savings_delete_confirm": "Delete this savings entry? This cannot be undone.",
+    "savings_delete_error": "Failed to delete savings entry",
     "no_cycle_title": "No Active Salary Cycle",
     "no_cycle_desc": "Start a new salary cycle to track your income, expenses, and budget allocation.",
     "delete_cycle_btn": "Delete cycle",

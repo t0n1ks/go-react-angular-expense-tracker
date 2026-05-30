@@ -99,7 +99,10 @@ const Dashboard: React.FC = () => {
   const hasCycle = !!(currentCycle && cycleStats);
   const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
 
-  const legacyIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+  const savingsCatId = currentCycle?.saved_money_category_id ?? 0;
+  const legacyIncome = transactions
+    .filter(t => t.type === 'income' && !(savingsCatId > 0 && Number(t.category?.id) === savingsCatId))
+    .reduce((acc, t) => acc + Number(t.amount), 0);
   const legacyExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
 
   const cycleIncome        = hasCycle ? cycleStats!.cycle_income        : legacyIncome;

@@ -147,7 +147,9 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 	for _, tx := range txs {
 		// Savings-pool transactions are tracked separately, never mixed into
 		// cycle income / expense totals (they would double-count the pool).
-		if cycle.SavedMoneyCategoryID > 0 && tx.CategoryID == cycle.SavedMoneyCategoryID {
+		// Check by explicit type (new) or by category ID (legacy backward compat).
+		if tx.Type == "savings_deposit" || tx.Type == "savings_withdrawal" ||
+			(cycle.SavedMoneyCategoryID > 0 && tx.CategoryID == cycle.SavedMoneyCategoryID) {
 			continue
 		}
 		switch tx.Type {
@@ -178,7 +180,7 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 			Where("user_id = ? AND category_id = ?", uid, cycle.SavedMoneyCategoryID).
 			Find(&pool)
 		for _, p := range pool {
-			if p.Type == "income" {
+			if p.Type == "income" || p.Type == "savings_deposit" {
 				savedMoneyBalance += p.Amount
 			} else {
 				savedMoneyBalance -= p.Amount
@@ -189,10 +191,10 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 	// Previous savings = net all-time minus net this cycle.
 	var allIncome, allExpense float64
 	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'income'", uid).
+		Where("user_id = ? AND type IN ('income', 'savings_deposit')", uid).
 		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
 	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = 'expense'", uid).
+		Where("user_id = ? AND type IN ('expense', 'savings_withdrawal')", uid).
 		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
 	previousSavings := (allIncome - allExpense) - (income - expenses)
 
@@ -531,10 +533,10 @@ func StartSalaryCycle(c *gin.Context) {
 			remainingBalance := prevVarAllowance - prevVariable
 
 			if math.Abs(remainingBalance) > 0.01 {
-				transferType := "income"
+				transferType := "savings_deposit"
 				transferDesc := "Pleasant bonus from the previous cycle"
 				if remainingBalance < 0 {
-					transferType = "expense"
+					transferType = "savings_withdrawal"
 					transferDesc = "Penalty from previous cycle"
 				}
 				savingsTx := models.Transaction{
@@ -900,7 +902,7 @@ func GetSavingsHistory(c *gin.Context) {
 
 	var balance float64
 	for _, tx := range txs {
-		if tx.Type == "income" {
+		if tx.Type == "income" || tx.Type == "savings_deposit" {
 			balance += tx.Amount
 		} else {
 			balance -= tx.Amount
@@ -1082,10 +1084,10 @@ func AddSavingsManual(c *gin.Context) {
 		return
 	}
 
-	txType := "income"
+	txType := "savings_deposit"
 	txAmount := req.Amount
 	if txAmount < 0 {
-		txType = "expense"
+		txType = "savings_withdrawal"
 		txAmount = -txAmount
 	}
 

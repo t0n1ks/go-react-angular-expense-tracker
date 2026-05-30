@@ -8,7 +8,7 @@ import { type SalaryCycle } from '../context/SettingsContext';
 interface Transaction {
   id: number;
   amount: number;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   income_type?: string;
   date: string;
   created_at?: string;
@@ -79,12 +79,21 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
       .catch(() => { /* keep currentCycle fallback */ });
   }, [axiosInstance]);
 
+  // Returns true only for real income transactions — excludes savings deposits
+  // by explicit type (new) and by savings category ID (legacy backward compat).
+  const isRealIncome = (tx: Transaction): boolean => {
+    if (tx.type === 'savings_deposit' || tx.type === 'savings_withdrawal') return false;
+    if (tx.type !== 'income') return false;
+    if (currentCycle && tx.category?.id === currentCycle.saved_money_category_id) return false;
+    return true;
+  };
+
   const groups = useMemo<CycleGroup[]>(() => {
     if (!cycles.length) {
       // Legacy path: calendar-month grouping when no cycles exist
       const map = new Map<string, number>();
       for (const tx of transactions) {
-        if (tx.type !== 'income') continue;
+        if (!isRealIncome(tx)) continue;
         const key = (tx.created_at ?? tx.date).slice(0, 7);
         map.set(key, (map.get(key) ?? 0) + Number(tx.amount));
       }
@@ -109,7 +118,7 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
     const firstStart = sorted[0]?.cycle_start_at.slice(0, 10) ?? '';
     if (firstStart) {
       const preTxs = transactions.filter(
-        tx => tx.type === 'income' && (tx.created_at ?? tx.date).slice(0, 10) < firstStart
+        tx => isRealIncome(tx) && (tx.created_at ?? tx.date).slice(0, 10) < firstStart
       );
       if (preTxs.length > 0) {
         const preTotal = preTxs.reduce((s, tx) => s + Number(tx.amount), 0);
@@ -139,7 +148,7 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
       const isCurrentCycle = idx === sorted.length - 1;
 
       const total = transactions
-        .filter(tx => tx.type === 'income')
+        .filter(tx => isRealIncome(tx))
         .filter(tx => {
           const d = (tx.created_at ?? tx.date).slice(0, 10);
           return d >= startDate && (endDate === null || d < endDate);
@@ -162,7 +171,7 @@ const IncomeHistoryModal: React.FC<Props> = ({ transactions, currentCycle, forma
 
     // Newest first
     return result.reverse();
-  }, [transactions, cycles, i18n.language, t]);
+  }, [transactions, cycles, currentCycle, i18n.language, t]);
 
   return (
     <div className="hist-modal-overlay" onClick={onClose}>

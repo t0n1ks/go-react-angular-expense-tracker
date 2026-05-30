@@ -15,7 +15,7 @@ type Transaction struct {
 	Amount      float64        `json:"amount"      gorm:"type:numeric(10,2);not null"`
 	Description string         `json:"description"`
 	Date        time.Time      `json:"date"        gorm:"not null"`
-	Type        string         `json:"type"        gorm:"type:varchar(10);not null;default:'expense'"`
+	Type        string         `json:"type"        gorm:"type:varchar(20);not null;default:'expense'"`
 	IncomeType  string         `json:"income_type" gorm:"type:varchar(20);not null;default:'one_time'"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`

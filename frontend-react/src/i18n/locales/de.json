@@ -61,6 +61,8 @@
     "savings_save_btn": "Speichern",
     "savings_amount_error": "Gültigen positiven Betrag eingeben",
     "savings_add_error": "Spar-Pool konnte nicht aktualisiert werden",
+    "savings_delete_confirm": "Diesen Spareintrag löschen? Dies kann nicht rückgängig gemacht werden.",
+    "savings_delete_error": "Spareintrag konnte nicht gelöscht werden",
     "no_cycle_title": "Kein aktiver Gehaltszyklus",
     "no_cycle_desc": "Starten Sie einen neuen Gehaltszyklus, um Einnahmen, Ausgaben und Budget zu verfolgen.",
     "delete_cycle_btn": "Zyklus löschen",
