@@ -1061,7 +1061,7 @@ func AddSavingsManual(c *gin.Context) {
 	uid := userID.(uint)
 
 	var req struct {
-		Amount      float64 `json:"amount" binding:"required"`
+		Amount      float64 `json:"amount"`
 		Description string  `json:"description"`
 		Date        string  `json:"date"` // YYYY-MM-DD; optional
 	}
