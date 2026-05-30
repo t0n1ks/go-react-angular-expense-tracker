@@ -1080,8 +1080,31 @@ func AddSavingsManual(c *gin.Context) {
 		return
 	}
 	if cycle.SavedMoneyCategoryID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Savings category not configured — start a new cycle first"})
-		return
+		// Lazy-initialize: find or create the savings category and persist it on
+		// the cycle so future requests don't need to re-run this path.
+		var savedCat models.Category
+		for _, name := range savedMoneyCatByLang {
+			if database.DB.Where("user_id = ? AND name = ?", uid, name).First(&savedCat).Error == nil {
+				break
+			}
+		}
+		if savedCat.ID == 0 {
+			savedCat = models.Category{
+				UserID: uid, Name: "Saved Money",
+				CreatedAt: time.Now(), UpdatedAt: time.Now(),
+			}
+			if err := database.DB.Create(&savedCat).Error; err != nil {
+				log.Printf("add savings: create savings cat user=%v err=%v", uid, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
+				return
+			}
+		}
+		if err := database.DB.Model(cycle).Update("saved_money_category_id", savedCat.ID).Error; err != nil {
+			log.Printf("add savings: update cycle cat user=%v err=%v", uid, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
+			return
+		}
+		cycle.SavedMoneyCategoryID = savedCat.ID
 	}
 
 	txType := "savings_deposit"

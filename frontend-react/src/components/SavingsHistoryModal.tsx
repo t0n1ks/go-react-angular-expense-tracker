@@ -71,10 +71,8 @@ const SavingsHistoryModal: React.FC<Props> = ({
       if (onSaved && res.data.cycle_stats) {
         onSaved(res.data.cycle_stats as CycleStats);
       }
-    } catch (err: unknown) {
-      const apiMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setEntryError(apiMsg || t('dashboard.savings_add_error'));
-      console.error('[SavingsModal] save failed:', err);
+    } catch {
+      setEntryError(t('dashboard.savings_add_error'));
     } finally {
       setEntrySaving(false);
     }
