@@ -16,7 +16,7 @@ interface Transaction {
   date: string;
   created_at?: string;
   description: string;
-  type: "expense" | "income";
+  type: "expense" | "income" | "savings_deposit" | "savings_withdrawal";
   income_type?: string;
   category: Category;
 }

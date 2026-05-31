@@ -136,8 +136,13 @@ func deleteZeroTransactionCycles() {
 	var toDelete []uint
 	for _, cycle := range cycles {
 		var count int64
+		// Use a 5-minute buffer before cycle_start_at so that any GORM
+		// auto-timestamp imprecision (sub-second differences between when
+		// the cycle row and its salary transaction are written) never causes
+		// a legitimate cycle to be misidentified as a ghost.
+		bufStart := cycle.CycleStartAt.Add(-5 * time.Minute)
 		q := DB.Model(&models.Transaction{}).
-			Where("user_id = ? AND created_at >= ? AND type = 'income'", cycle.UserID, cycle.CycleStartAt)
+			Where("user_id = ? AND created_at >= ? AND type = 'income'", cycle.UserID, bufStart)
 		if cycle.NextPaydayAt != nil {
 			q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
 		}

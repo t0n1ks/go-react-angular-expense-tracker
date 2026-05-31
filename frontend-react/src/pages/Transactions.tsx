@@ -20,7 +20,7 @@ interface Transaction {
   date: string;
   created_at?: string;
   description: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   income_type?: string;
   category: Category;
 }
@@ -183,7 +183,7 @@ const Transactions: React.FC = () => {
       date: tr.date.split('T')[0],
       description: tr.description,
       category_id: tr.category?.id.toString() ?? '',
-      type: tr.type,
+      type: tr.type === 'savings_deposit' ? 'income' : tr.type === 'savings_withdrawal' ? 'expense' : tr.type,
       income_type: tr.income_type || 'one_time',
     });
   };
@@ -457,17 +457,19 @@ const Transactions: React.FC = () => {
                             <td><span className="category-tag">{tr.category?.name || t('transactions.no_category')}</span></td>
                             <td>{tr.description || '—'}</td>
                             <td>
-                              <span className={`type-badge ${tr.type === 'income' ? 'type-income' : 'type-expense'}`}>
-                                {tr.type === 'income' ? t('transactions.type_income') : t('transactions.type_expense')}
+                              <span className={`type-badge ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'type-income' : 'type-expense'}`}>
+                                {tr.type === 'income' ? t('transactions.type_income') : tr.type === 'expense' ? t('transactions.type_expense') : tr.type === 'savings_deposit' ? t('transactions.type_income') : t('transactions.type_expense')}
                               </span>
                             </td>
-                            <td className={tr.type === 'income' ? 'amount-income' : 'amount-expense'}>
-                              {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                            <td className={tr.type === 'income' || tr.type === 'savings_deposit' ? 'amount-income' : 'amount-expense'}>
+                              {tr.type === 'income' || tr.type === 'savings_deposit' ? '+' : '-'}{formatAmount(tr.amount)}
                             </td>
                             <td>
-                              <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
-                                <Pencil size={18}/>
-                              </button>
+                              {tr.type !== 'savings_deposit' && tr.type !== 'savings_withdrawal' && (
+                                <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
+                                  <Pencil size={18}/>
+                                </button>
+                              )}
                               <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete" title={t('common.delete') ?? 'Delete'}>
                                 <Trash2 size={18}/>
                               </button>
@@ -605,8 +607,8 @@ const Transactions: React.FC = () => {
                                 <>
                                   <div className="tx-card-top">
                                     <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
-                                    <span className={`tx-card-amount ${tr.type === 'income' ? 'amount-income' : 'amount-expense'}`}>
-                                      {tr.type === 'income' ? '+' : '-'}{formatAmount(tr.amount)}
+                                    <span className={`tx-card-amount ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'amount-income' : 'amount-expense'}`}>
+                                      {tr.type === 'income' || tr.type === 'savings_deposit' ? '+' : '-'}{formatAmount(tr.amount)}
                                     </span>
                                   </div>
                                   <div className="tx-card-meta">
@@ -614,7 +616,9 @@ const Transactions: React.FC = () => {
                                     {tr.description && <span className="tx-card-desc">{tr.description}</span>}
                                   </div>
                                   <div className="tx-card-actions">
-                                    <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit"><Pencil size={16}/></button>
+                                    {tr.type !== 'savings_deposit' && tr.type !== 'savings_withdrawal' && (
+                                      <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit"><Pencil size={16}/></button>
+                                    )}
                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(tr); }} className="action-btn delete"><Trash2 size={16}/></button>
                                   </div>
                                 </>

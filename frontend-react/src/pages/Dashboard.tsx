@@ -16,7 +16,7 @@ import './Dashboard.css';
 interface Transaction {
   id: number;
   amount: number;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   income_type?: string;
   date: string;
   created_at?: string;
