@@ -79,6 +79,7 @@ func CreateTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
 		return
 	}
+	InvalidateCycleCache(userID.(uint))
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Transaction created successfully", "transaction": transaction})
 }
@@ -244,6 +245,7 @@ func UpdateTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
 		return
 	}
+	InvalidateCycleCache(userID.(uint))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction updated successfully", "transaction": transaction})
 }
@@ -271,6 +273,7 @@ func DeleteTransaction(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found or access denied"})
 		return
 	}
+	InvalidateCycleCache(userID.(uint))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction deleted successfully"})
 }

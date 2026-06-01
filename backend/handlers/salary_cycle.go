@@ -639,6 +639,8 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
+	InvalidateCycleCache(uid)
+
 	if err := database.DB.Preload("FixedExpenses").First(&cycle, cycle.ID).Error; err != nil {
 		log.Printf("start salary cycle: preload err=%v", err)
 	}
@@ -660,6 +662,12 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
+	// Fast path: serve the cached payload when fresh (invalidated on any write).
+	if cached, ok := getCachedCycle(uid); ok {
+		c.JSON(http.StatusOK, cached)
+		return
+	}
+
 	// Load cycles ASC, then find the one whose date window covers today.
 	// This prevents empty "fragment" cycles (created by backdated inserts)
 	// from being returned as the active cycle instead of the canonical earlier one.
@@ -674,12 +682,14 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	}
 	if len(allCycles) == 0 {
 		// User has never started a cycle — clean no-cycle state, no INSERT.
-		c.JSON(http.StatusOK, gin.H{
+		payload := gin.H{
 			"cycle":            nil,
 			"budget_framework": nil,
 			"cycle_stats":      nil,
 			"has_active_cycle": false,
-		})
+		}
+		setCachedCycle(uid, payload)
+		c.JSON(http.StatusOK, payload)
 		return
 	}
 
@@ -726,12 +736,14 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		DeficitWarning:  cycle.VarNeedsBudget < 0,
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	payload := gin.H{
 		"cycle":            cycle,
 		"budget_framework": fw,
 		"cycle_stats":      cycleStatsPayload, // nil → JSON null when no active cycle
 		"has_active_cycle": hasActive,
-	})
+	}
+	setCachedCycle(uid, payload)
+	c.JSON(http.StatusOK, payload)
 }
 
 // ── UpdateCycleNextPayday ─────────────────────────────────────────────────────
@@ -788,6 +800,7 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update next payday"})
 		return
 	}
+	InvalidateCycleCache(uid)
 
 	if err := database.DB.Model(&models.User{}).Where("id = ?", uid).
 		Update("manual_next_payday", req.NextPayday).Error; err != nil {
@@ -896,6 +909,7 @@ func AddCycleIncome(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add income"})
 		return
 	}
+	InvalidateCycleCache(uid)
 
 	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{
@@ -1019,6 +1033,8 @@ func DeleteSalaryCycle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cycle"})
 		return
 	}
+
+	InvalidateCycleCache(uid)
 
 	log.Printf("delete cycle: user=%v deleted cycle id=%v (start=%v)",
 		uid, cycleID, cycle.CycleStartAt.Format("2006-01-02"))
@@ -1187,6 +1203,7 @@ func AddSavingsManual(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add savings entry"})
 		return
 	}
+	InvalidateCycleCache(uid)
 
 	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{"transaction": newTx, "cycle_stats": stats})

@@ -27,7 +27,7 @@ interface Transaction {
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount } = useSettings();
+  const { formatAmount, refreshCycle } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -132,6 +132,7 @@ const Transactions: React.FC = () => {
       navigator.vibrate?.(10);
       setFormState(prev => ({ ...prev, amount: '', description: '' }));
       fetchData();
+      refreshCycle(); // real-time: recompute cycle stats app-wide (cache-backed)
     } catch {
       setFormError(t('transactions.error_save'));
     }
@@ -140,10 +141,11 @@ const Transactions: React.FC = () => {
   const commitDelete = useCallback(async (id: number) => {
     try {
       await axiosInstance.delete(`/transactions/${id}`);
+      refreshCycle(); // real-time: recompute cycle stats app-wide (cache-backed)
     } catch {
       setFormError(t('transactions.error_delete'));
     }
-  }, [axiosInstance, t]);
+  }, [axiosInstance, t, refreshCycle]);
 
   const handleDelete = useCallback(async (tr: Transaction) => {
     // If a delete is already pending, commit it immediately before starting a new one
@@ -216,6 +218,7 @@ const Transactions: React.FC = () => {
       await axiosInstance.put(`/transactions/${id}`, payload);
       setEditingId(null);
       fetchData();
+      refreshCycle(); // real-time: recompute cycle stats app-wide (cache-backed)
     } catch {
       setFormError(t('transactions.error_update'));
     }

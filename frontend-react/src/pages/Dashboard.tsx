@@ -63,11 +63,16 @@ const Dashboard: React.FC = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const analyzeLang = i18n.resolvedLanguage ?? 'en';
-  useEffect(() => {
+
+  // Re-run AI analysis on demand so the prediction updates in real time after a
+  // transaction/income/savings mutation — no page reload required.
+  const runAnalyze = useCallback(() => {
     axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
       .then((res: { data: { tamagotchi_mood: string; predicted_savings_balance?: number } }) => setAIData(res.data))
       .catch(() => {});
   }, [axiosInstance, analyzeLang]);
+
+  useEffect(() => { runAnalyze(); }, [runAnalyze]);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
@@ -88,12 +93,10 @@ const Dashboard: React.FC = () => {
   const prevModeRef = useRef<'online' | 'autonomous' | 'initializing'>('initializing');
   useEffect(() => {
     if (prevModeRef.current !== 'online' && aiServiceMode === 'online') {
-      axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
-        .then((res: { data: { tamagotchi_mood: string; predicted_savings_balance?: number } }) => setAIData(res.data))
-        .catch(() => {});
+      runAnalyze();
     }
     prevModeRef.current = aiServiceMode;
-  }, [aiServiceMode, axiosInstance, analyzeLang]);
+  }, [aiServiceMode, runAnalyze]);
 
   // ── Server-authoritative cycle aggregation ────────────────────────────────
   const hasCycle = !!(currentCycle && cycleStats);
@@ -158,7 +161,8 @@ const Dashboard: React.FC = () => {
     // Full refresh in background to sync all data
     fetchData();
     refreshCycle().then(() => setLocalCycleStats(null));
-  }, [fetchData, refreshCycle]);
+    runAnalyze(); // real-time AI prediction refresh
+  }, [fetchData, refreshCycle, runAnalyze]);
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
@@ -332,6 +336,7 @@ const Dashboard: React.FC = () => {
           onSaved={stats => {
             setLocalCycleStats(stats);
             refreshCycle().then(() => setLocalCycleStats(null));
+            runAnalyze(); // real-time AI prediction refresh
           }}
         />
       )}
