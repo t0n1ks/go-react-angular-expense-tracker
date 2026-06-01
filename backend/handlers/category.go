@@ -137,7 +137,9 @@ func DeleteCategory(c *gin.Context) {
 	}
 
 	var transactionCount int64
-	database.DB.Model(&models.Transaction{}).Where("category_id = ?", uint(categoryID)).Count(&transactionCount)
+	database.DB.Model(&models.Transaction{}).
+		Where("category_id = ? AND user_id = ?", uint(categoryID), userID.(uint)).
+		Count(&transactionCount)
 	if transactionCount > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Cannot delete category: it has " + strconv.FormatInt(transactionCount, 10) + " associated transaction(s)"})
 		return

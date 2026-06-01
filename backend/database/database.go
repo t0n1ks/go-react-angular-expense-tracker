@@ -69,6 +69,13 @@ func Connect() {
 	// Remove any salary cycles that have absolutely zero income transactions in
 	// their window — these are ghost placeholders that were never properly funded.
 	deleteZeroTransactionCycles()
+
+	// Detect and reset cycles whose fixed_exp_category_id or
+	// saved_money_category_id point at a category that belongs to a different
+	// user (data corruption from earlier code versions). Resetting to 0 lets
+	// the backfill functions above re-assign the correct per-user category on
+	// the next restart, or the next cycle creation will create fresh ones.
+	healCrossUserCategoryRefs()
 }
 
 // backfillFixedExpCategory sets salary_cycles.fixed_exp_category_id for rows
@@ -159,6 +166,45 @@ func deleteZeroTransactionCycles() {
 	if len(toDelete) > 0 {
 		DB.Where("id IN ?", toDelete).Delete(&models.SalaryCycle{})
 		log.Printf("deleteZeroTransactionCycles: removed %d ghost cycle(s)", len(toDelete))
+	}
+}
+
+// healCrossUserCategoryRefs detects and resets salary cycle rows whose
+// fixed_exp_category_id or saved_money_category_id point at a category that
+// belongs to a DIFFERENT user. This can happen when a previous code version
+// had a defect in the category-lookup logic. Resetting to 0 lets the
+// backfill functions re-assign the correct per-user category on the next
+// startup, or the next StartSalaryCycle call will create fresh ones.
+// Idempotent; safe to run on every start.
+func healCrossUserCategoryRefs() {
+	const fixSQL = `
+		UPDATE salary_cycles
+		SET fixed_exp_category_id = 0
+		WHERE fixed_exp_category_id > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM categories c
+			WHERE c.id = salary_cycles.fixed_exp_category_id
+			  AND c.user_id = salary_cycles.user_id
+		)`
+	if res := DB.Exec(fixSQL); res.Error != nil {
+		log.Printf("healCrossUserCategoryRefs: fixed_exp reset failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("healCrossUserCategoryRefs: reset %d cycle(s) with wrong fixed_exp_category_id", res.RowsAffected)
+	}
+
+	const savedSQL = `
+		UPDATE salary_cycles
+		SET saved_money_category_id = 0
+		WHERE saved_money_category_id > 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM categories c
+			WHERE c.id = salary_cycles.saved_money_category_id
+			  AND c.user_id = salary_cycles.user_id
+		)`
+	if res := DB.Exec(savedSQL); res.Error != nil {
+		log.Printf("healCrossUserCategoryRefs: saved_money reset failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("healCrossUserCategoryRefs: reset %d cycle(s) with wrong saved_money_category_id", res.RowsAffected)
 	}
 }
 

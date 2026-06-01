@@ -336,6 +336,11 @@ func AnalyzeBehavior(c *gin.Context) {
 		}
 	}
 
+	var fixedExpCatID int
+	if cyclePayload != nil {
+		fixedExpCatID = cyclePayload.FixedExpCategoryID
+	}
+
 	profile := aiUserProfile{
 		UserID:              int(uid),
 		Currency:            user.Currency,
@@ -346,7 +351,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		ManualNextPayday:    manualNextPayday,
 		AIHumorEnabled:      user.AIHumorEnabled,
 		Language:            analyzeLang,
-		FixedExpCategoryID:  int(activeCycle.FixedExpCategoryID),
+		FixedExpCategoryID:  fixedExpCatID,
 	}
 
 	var cats []models.Category

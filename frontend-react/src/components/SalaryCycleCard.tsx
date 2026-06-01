@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X } from 'lucide-react';
@@ -53,6 +53,13 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const today = todayDateStr();
 
   const [expanded, setExpanded] = useState(!currentCycle);
+
+  // When the active cycle is deleted (currentCycle → null), automatically
+  // expand the form so the user can immediately start a new cycle.
+  useEffect(() => {
+    if (!currentCycle) setExpanded(true);
+  }, [currentCycle]);
+
   const [baseSalary, setBaseSalary] = useState('');
   const [bonuses, setBonuses] = useState('');
   const [receivedAtDate, setReceivedAtDate] = useState(today);
