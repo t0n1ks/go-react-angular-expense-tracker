@@ -80,6 +80,7 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(userID.(uint))
+	ScheduleBrainResync(userID.(uint))
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Transaction created successfully", "transaction": transaction})
 }
@@ -246,6 +247,7 @@ func UpdateTransaction(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(userID.(uint))
+	ScheduleBrainResync(userID.(uint))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction updated successfully", "transaction": transaction})
 }
@@ -274,6 +276,7 @@ func DeleteTransaction(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(userID.(uint))
+	ScheduleBrainResync(userID.(uint))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Transaction deleted successfully"})
 }

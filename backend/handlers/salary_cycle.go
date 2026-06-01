@@ -910,6 +910,7 @@ func AddCycleIncome(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(uid)
+	ScheduleBrainResync(uid)
 
 	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{
@@ -1204,6 +1205,7 @@ func AddSavingsManual(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(uid)
+	ScheduleBrainResync(uid)
 
 	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{"transaction": newTx, "cycle_stats": stats})
