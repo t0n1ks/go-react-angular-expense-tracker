@@ -177,7 +177,29 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
   const isOver = showCard && displayThisWeek > displayCanSpend;
   const pct = displayCanSpend > 0 ? Math.min((displayThisWeek / displayCanSpend) * 100, 100) : 0;
-  const barColor = !showCard ? '#94a3b8' : isOver ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#38bdf8';
+
+  // ── 3-tier semantic zone (drives dynamic number + progress-bar colors) ─────
+  // Safe 0–70% · Warning 70–90% · Danger 90%+, over budget, or no allowance left.
+  const consumedRatio = displayCanSpend > 0
+    ? displayThisWeek / displayCanSpend
+    : (displayThisWeek > 0 ? 1 : 0);
+  const budgetZone: 'safe' | 'warning' | 'danger' =
+    !showCard ? 'safe'
+    : isOver || displayCanSpend <= 0 || consumedRatio >= 0.9 ? 'danger'
+    : consumedRatio >= 0.7 ? 'warning'
+    : 'safe';
+
+  // The dynamic numbers ("Можно потратить" / "Потрачено") share the zone color.
+  // Safe → crisp readable heading white so the card isn't a wall of red.
+  const zoneTextColor =
+    budgetZone === 'danger' ? '#ef4444'
+    : budgetZone === 'warning' ? '#f59e0b'
+    : 'var(--color-text-heading)';
+  const barColor = !showCard
+    ? '#94a3b8'
+    : budgetZone === 'danger' ? '#ef4444'
+    : budgetZone === 'warning' ? '#f59e0b'
+    : '#38bdf8';
 
   // Today's variable spend vs daily baseline — a small display nicety (delta arrow).
   const spentToday = transactions
@@ -270,7 +292,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent_since')}</span>
               <span
                 className="weekly-budget-stat-value"
-                style={{ color: displaySpentSincePayday > displayLimit ? '#ef4444' : 'var(--color-expense-text)' }}
+                style={{ color: displaySpentSincePayday > displayLimit ? '#ef4444' : 'var(--color-text-heading)' }}
               >
                 {formatAmount(displaySpentSincePayday)}
               </span>
@@ -282,7 +304,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
               <div className="budget-can-spend-row">
                 <span
                   className="weekly-budget-stat-value"
-                  style={{ color: isOver ? '#ef4444' : 'var(--color-text-heading)' }}
+                  style={{ color: zoneTextColor }}
                 >
                   {formatAmount(displayCanSpend)}
                 </span>
@@ -375,7 +397,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent')}</span>
               <span
                 className="weekly-budget-stat-value"
-                style={{ color: isOver ? '#ef4444' : 'var(--color-expense-text)' }}
+                style={{ color: zoneTextColor }}
               >
                 {formatAmount(displayThisWeek)}
               </span>
