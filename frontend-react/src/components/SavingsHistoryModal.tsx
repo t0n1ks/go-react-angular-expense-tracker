@@ -17,6 +17,8 @@ interface SavingsTx {
 interface Props {
   currentCycle: SalaryCycle | null;
   formatAmount: (n: number) => string;
+  /** Fallback balance from parent cycleStats; the modal overwrites this with
+   *  the live value it fetches from GET /salary-cycle/savings-history. */
   savedMoneyBalance: number;
   onClose: () => void;
   /** Called after a manual savings entry is saved so the parent can refresh stats. */
@@ -32,6 +34,9 @@ const SavingsHistoryModal: React.FC<Props> = ({
 
   const [txs, setTxs] = useState<SavingsTx[]>([]);
   const [loading, setLoading] = useState(true);
+  // Live balance fetched directly from the API — avoids showing the stale prop
+  // that the parent Dashboard has cached from the last cycleStats refresh.
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
 
   // ── Delete state ─────────────────────────────────────────────────────────
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
@@ -47,7 +52,10 @@ const SavingsHistoryModal: React.FC<Props> = ({
 
   const fetchTxs = () =>
     axiosInstance.get('/salary-cycle/savings-history')
-      .then((res: { data: { transactions: SavingsTx[] } }) => setTxs(res.data.transactions ?? []))
+      .then((res: { data: { transactions: SavingsTx[]; balance: number } }) => {
+        setTxs(res.data.transactions ?? []);
+        if (typeof res.data.balance === 'number') setLiveBalance(res.data.balance);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
 
@@ -116,13 +124,13 @@ const SavingsHistoryModal: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* Pool balance */}
+        {/* Pool balance — uses live API value to avoid stale cycleStats cache */}
         <div style={{ padding: '0.5rem 1.25rem', background: 'rgba(16,185,129,0.07)', borderBottom: '1px solid var(--color-border-card)' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
             {t('dashboard.savings_balance')}:&nbsp;
           </span>
           <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#10b981' }}>
-            {formatAmount(savedMoneyBalance)}
+            {formatAmount(liveBalance ?? savedMoneyBalance)}
           </span>
         </div>
 

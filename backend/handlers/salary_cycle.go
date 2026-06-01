@@ -573,6 +573,29 @@ func StartSalaryCycle(c *gin.Context) {
 		}
 		incomeTxID = incomeTxn.ID
 
+		// ── Auto savings deposit ───────────────────────────────────────────
+		// Transfer the planned savings allocation straight into the pool so
+		// the savings card shows the correct balance from day one (digital
+		// piggy bank). Amount = salary × savings_pct%; excluded from cycle
+		// income by type + category checks in computeCycleStats.
+		if req.SavingsPct > 0 && savedCat.ID > 0 {
+			savingsAmount := totalIncome * req.SavingsPct / 100
+			autoSavingsTx := models.Transaction{
+				UserID:      uid,
+				CategoryID:  savedCat.ID,
+				Amount:      savingsAmount,
+				Description: "Planned savings allocation",
+				Date:        txDate,
+				Type:        "savings_deposit",
+				IncomeType:  "one_time",
+				CreatedAt:   receivedAt,
+				UpdatedAt:   receivedAt,
+			}
+			if err := tx.Create(&autoSavingsTx).Error; err != nil {
+				return err
+			}
+		}
+
 		// ── Fixed expense transactions ─────────────────────────────────────
 		for _, fe := range req.FixedExpenses {
 			if fe.Amount <= 0 {
@@ -674,6 +697,12 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		activeCycle = &allCycles[len(allCycles)-1] // all ended — show most recent for reference
 	}
 	cycle := *activeCycle
+
+	// Ensure the savings category is always linked — heals old/migrated cycles.
+	if hasActive {
+		ensureSavingsCategory(uid, activeCycle)
+		cycle = *activeCycle // reflect any ID update
+	}
 
 	// Only compute live stats when a cycle actually covers today.
 	// When the last cycle has ended (hasActive == false) we return cycle_stats: null
@@ -889,7 +918,12 @@ func GetSavingsHistory(c *gin.Context) {
 	uid := userID.(uint)
 
 	cycle := findActiveCycle(uid)
-	if cycle == nil || cycle.SavedMoneyCategoryID == 0 {
+	if cycle == nil {
+		c.JSON(http.StatusOK, gin.H{"transactions": []any{}, "balance": 0.0, "savings_category_id": 0})
+		return
+	}
+	ensureSavingsCategory(uid, cycle)
+	if cycle.SavedMoneyCategoryID == 0 {
 		c.JSON(http.StatusOK, gin.H{"transactions": []any{}, "balance": 0.0, "savings_category_id": 0})
 		return
 	}
@@ -993,6 +1027,39 @@ func DeleteSalaryCycle(c *gin.Context) {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+// ensureSavingsCategory guarantees that cycle.SavedMoneyCategoryID is non-zero.
+// If the cycle row already has the value set this is a no-op (fast path).
+// Otherwise it finds or creates the savings category and persists the ID back
+// to the cycle row — a self-healing operation for old or migrated cycles.
+// Returns true if the cycle is usable (category is set after the call).
+func ensureSavingsCategory(uid uint, cycle *models.SalaryCycle) bool {
+	if cycle.SavedMoneyCategoryID > 0 {
+		return true
+	}
+	var savedCat models.Category
+	for _, name := range savedMoneyCatByLang {
+		if database.DB.Where("user_id = ? AND name = ?", uid, name).First(&savedCat).Error == nil {
+			break
+		}
+	}
+	if savedCat.ID == 0 {
+		savedCat = models.Category{
+			UserID: uid, Name: "Saved Money",
+			CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		}
+		if err := database.DB.Create(&savedCat).Error; err != nil {
+			log.Printf("ensureSavingsCategory: create cat user=%v err=%v", uid, err)
+			return false
+		}
+	}
+	if err := database.DB.Model(cycle).Update("saved_money_category_id", savedCat.ID).Error; err != nil {
+		log.Printf("ensureSavingsCategory: update cycle user=%v err=%v", uid, err)
+		return false
+	}
+	cycle.SavedMoneyCategoryID = savedCat.ID
+	return true
+}
+
 func normalizeLang(raw string) string {
 	lang := strings.ToLower(strings.SplitN(strings.TrimSpace(raw), "-", 2)[0])
 	if _, ok := fixedCatByLang[lang]; !ok {
@@ -1079,32 +1146,9 @@ func AddSavingsManual(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
 		return
 	}
-	if cycle.SavedMoneyCategoryID == 0 {
-		// Lazy-initialize: find or create the savings category and persist it on
-		// the cycle so future requests don't need to re-run this path.
-		var savedCat models.Category
-		for _, name := range savedMoneyCatByLang {
-			if database.DB.Where("user_id = ? AND name = ?", uid, name).First(&savedCat).Error == nil {
-				break
-			}
-		}
-		if savedCat.ID == 0 {
-			savedCat = models.Category{
-				UserID: uid, Name: "Saved Money",
-				CreatedAt: time.Now(), UpdatedAt: time.Now(),
-			}
-			if err := database.DB.Create(&savedCat).Error; err != nil {
-				log.Printf("add savings: create savings cat user=%v err=%v", uid, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
-				return
-			}
-		}
-		if err := database.DB.Model(cycle).Update("saved_money_category_id", savedCat.ID).Error; err != nil {
-			log.Printf("add savings: update cycle cat user=%v err=%v", uid, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
-			return
-		}
-		cycle.SavedMoneyCategoryID = savedCat.ID
+	if !ensureSavingsCategory(uid, cycle) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
+		return
 	}
 
 	txType := "savings_deposit"

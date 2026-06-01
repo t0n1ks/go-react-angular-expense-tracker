@@ -184,7 +184,7 @@ const Dashboard: React.FC = () => {
         {/* Card 2: Saved money (click → SavingsHistoryModal) */}
         <div
           className={`stat-card${hasCycle ? ' stat-card--clickable' : ''}`}
-          onClick={hasCycle ? () => setShowSavingsModal(true) : undefined}
+          onClick={hasCycle ? () => { setShowSavingsModal(true); refreshCycle(); } : undefined}
           role={hasCycle ? 'button' : undefined}
           tabIndex={hasCycle ? 0 : undefined}
           onKeyDown={hasCycle ? (e => e.key === 'Enter' && setShowSavingsModal(true)) : undefined}

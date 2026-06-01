@@ -221,18 +221,20 @@ type aiUserProfile struct {
 }
 
 type aiSalaryCycleInfo struct {
-	TotalIncome        float64 `json:"total_income"`
-	NeedsPct           float64 `json:"needs_pct"`
-	WantsPct           float64 `json:"wants_pct"`
-	SavingsPct         float64 `json:"savings_pct"`
-	SavingsLimit       float64 `json:"savings_limit"`
-	FixedNeedsTotal    float64 `json:"fixed_needs_total"`
-	FixedWantsTotal    float64 `json:"fixed_wants_total"`
-	VarNeedsBudget     float64 `json:"var_needs_budget"`
-	VarWantsBudget     float64 `json:"var_wants_budget"`
-	FixedExpCategoryID int     `json:"fixed_exp_category_id"`
-	CycleStartAt       string  `json:"cycle_start_at"`
-	NextPaydayAt       string  `json:"next_payday_at"`
+	TotalIncome          float64 `json:"total_income"`
+	NeedsPct             float64 `json:"needs_pct"`
+	WantsPct             float64 `json:"wants_pct"`
+	SavingsPct           float64 `json:"savings_pct"`
+	SavingsLimit         float64 `json:"savings_limit"`
+	FixedNeedsTotal      float64 `json:"fixed_needs_total"`
+	FixedWantsTotal      float64 `json:"fixed_wants_total"`
+	VarNeedsBudget       float64 `json:"var_needs_budget"`
+	VarWantsBudget       float64 `json:"var_wants_budget"`
+	FixedExpCategoryID   int     `json:"fixed_exp_category_id"`
+	SavedMoneyCategoryID int     `json:"saved_money_category_id"`
+	SavedMoneyBalance    float64 `json:"saved_money_balance"`
+	CycleStartAt         string  `json:"cycle_start_at"`
+	NextPaydayAt         string  `json:"next_payday_at"`
 }
 
 type aiCategoryRef struct {
@@ -298,18 +300,36 @@ func AnalyzeBehavior(c *gin.Context) {
 	var activeCycle models.SalaryCycle
 	var cyclePayload *aiSalaryCycleInfo
 	if err := database.DB.Where("user_id = ?", uid).Order("cycle_start_at DESC").First(&activeCycle).Error; err == nil {
+		// Compute the authoritative savings pool balance for the AI service
+		// so the forecast uses real pool data, not a generic income-expense net.
+		var savedMoneyBalance float64
+		if activeCycle.SavedMoneyCategoryID > 0 {
+			var pool []models.Transaction
+			database.DB.
+				Where("user_id = ? AND category_id = ?", uid, activeCycle.SavedMoneyCategoryID).
+				Find(&pool)
+			for _, p := range pool {
+				if p.Type == "income" || p.Type == "savings_deposit" {
+					savedMoneyBalance += p.Amount
+				} else {
+					savedMoneyBalance -= p.Amount
+				}
+			}
+		}
 		cyclePayload = &aiSalaryCycleInfo{
-			TotalIncome:        activeCycle.TotalIncome,
-			NeedsPct:           activeCycle.NeedsPct,
-			WantsPct:           activeCycle.WantsPct,
-			SavingsPct:         activeCycle.SavingsPct,
-			SavingsLimit:       activeCycle.SavingsLimit,
-			FixedNeedsTotal:    activeCycle.FixedNeedsTotal,
-			FixedWantsTotal:    activeCycle.FixedWantsTotal,
-			VarNeedsBudget:     activeCycle.VarNeedsBudget,
-			VarWantsBudget:     activeCycle.VarWantsBudget,
-			FixedExpCategoryID: int(activeCycle.FixedExpCategoryID),
-			CycleStartAt:       activeCycle.CycleStartAt.Format(time.RFC3339),
+			TotalIncome:          activeCycle.TotalIncome,
+			NeedsPct:             activeCycle.NeedsPct,
+			WantsPct:             activeCycle.WantsPct,
+			SavingsPct:           activeCycle.SavingsPct,
+			SavingsLimit:         activeCycle.SavingsLimit,
+			FixedNeedsTotal:      activeCycle.FixedNeedsTotal,
+			FixedWantsTotal:      activeCycle.FixedWantsTotal,
+			VarNeedsBudget:       activeCycle.VarNeedsBudget,
+			VarWantsBudget:       activeCycle.VarWantsBudget,
+			FixedExpCategoryID:   int(activeCycle.FixedExpCategoryID),
+			SavedMoneyCategoryID: int(activeCycle.SavedMoneyCategoryID),
+			SavedMoneyBalance:    savedMoneyBalance,
+			CycleStartAt:         activeCycle.CycleStartAt.Format(time.RFC3339),
 		}
 		if activeCycle.NextPaydayAt != nil {
 			cyclePayload.NextPaydayAt = activeCycle.NextPaydayAt.Format(time.RFC3339)
