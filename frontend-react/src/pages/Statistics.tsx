@@ -21,11 +21,11 @@ import "./Statistics.css";
 
 interface Transaction {
   amount: number;
-  type: "expense" | "income";
+  type: "expense" | "income" | "savings_deposit" | "savings_withdrawal";
   income_type?: string;
   date: string;
   created_at?: string;
-  category?: { name: string };
+  category?: { id?: number; name: string };
 }
 
 interface AnalysisResult {
@@ -37,7 +37,7 @@ interface AnalysisResult {
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -178,20 +178,68 @@ const Statistics: React.FC = () => {
     return Math.max(0, lastDay - now.getDate());
   }, [nextPayday]);
 
-  const periodLabel = nextPayday !== null ? 'payday' : 'month';
+  // ── Cycle-aware blended burn-rate forecast ───────────────────────────────
+  // When a salary cycle is active we forecast end-of-cycle solvency from the
+  // server-authoritative cycle stats instead of naive `balance − days × rate`
+  // division (which produced alarming, alienating deficits). The burn rate is a
+  // BLEND of the real rolling 7-day spending velocity and the even-pace budget
+  // ceiling, capped so a single heavy week cannot project an unhinged shortfall.
+  const cycleForecast = useMemo(() => {
+    if (!hasActiveCycle || !cycleStats || !currentCycle) return null;
 
-  const displayedPredictedBalance = useMemo(() => {
-    if (nextPayday) {
-      // Project current balance forward at the same daily rate used everywhere else.
-      // Mixing Python's ML prediction with the frontend average rate produced values
-      // that could exceed the actual current balance (incoherent).
-      const currentBalance =
-        transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0) -
-        transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-      return currentBalance - daysRemaining * dailySpendingRate;
-    }
-    return analysis?.predicted_end_of_month_balance ?? null;
-  }, [analysis, nextPayday, transactions, daysRemaining, dailySpendingRate]);
+    const variableAllowance = cycleStats.variable_allowance ?? 0;
+    const variableSpent = cycleStats.cycle_variable_expenses ?? 0;
+    const fixedExpenses = cycleStats.cycle_fixed_expenses ?? 0;
+    const totalIncome = cycleStats.cycle_income || currentCycle.total_income || 0;
+    const remainingAllowance = Math.max(0, variableAllowance - variableSpent);
+    const daysLeft = Math.max(0, cycleStats.days_remaining ?? 0);
+
+    // Even-pace ceiling rate: spread whatever allowance remains evenly.
+    const evenPace = daysLeft > 0 ? remainingAllowance / daysLeft : 0;
+
+    // Real rolling 7-day variable spending velocity (fixed expenses excluded —
+    // they're committed and already in the cycle budget).
+    const fixedCatId = Number(currentCycle.fixed_exp_category_id ?? 0);
+    const cutoff = Date.now() - 7 * 86_400_000;
+    const last7Variable = transactions
+      .filter(t =>
+        t.type === 'expense' &&
+        new Date(t.date).getTime() >= cutoff &&
+        !(fixedCatId > 0 && Number(t.category?.id) === fixedCatId))
+      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+    const rolling7 = last7Variable / 7;
+
+    // Blend: weight recent behaviour but anchor to the budget ceiling.
+    const blendedDaily = rolling7 > 0 ? 0.6 * rolling7 + 0.4 * evenPace : evenPace;
+
+    // Project remaining variable spend, capped at +15% of what's actually left.
+    const projectedRemaining = Math.min(blendedDaily * daysLeft, remainingAllowance * 1.15);
+    const projectedTotalVariable = variableSpent + projectedRemaining;
+    const projectedEndState = remainingAllowance - projectedRemaining;
+
+    // HARD deficit only when unavoidable fixed costs + the real projected
+    // variable trend mathematically exceed total aggregate cycle income.
+    const isHardDeficit = fixedExpenses + projectedTotalVariable > totalIncome + 0.01;
+
+    // Present cleanly: surface a negative only for a true hard deficit; otherwise
+    // show the projected leftover (≥ 0) so a tight-but-solvent cycle reads calmly.
+    const displayBalance = isHardDeficit
+      ? totalIncome - (fixedExpenses + projectedTotalVariable)
+      : Math.max(0, projectedEndState);
+
+    return { displayBalance, blendedDaily, daysLeft };
+  }, [hasActiveCycle, cycleStats, currentCycle, transactions]);
+
+  const periodLabel = cycleForecast || nextPayday !== null ? 'payday' : 'month';
+
+  // Prefer the cycle-aware blended forecast; otherwise fall back to Python's
+  // already-stabilized end-of-month prediction (never the naive client calc).
+  const displayedPredictedBalance = cycleForecast
+    ? cycleForecast.displayBalance
+    : analysis?.predicted_end_of_month_balance ?? null;
+
+  const displayDailyRate = cycleForecast ? cycleForecast.blendedDaily : dailySpendingRate;
+  const displayDaysRemaining = cycleForecast ? cycleForecast.daysLeft : daysRemaining;
 
   // Savings forecast: cycle income vs projected expenses → monthly & annual rate
   const cycleIncome = useMemo(() => {
@@ -209,7 +257,6 @@ const Statistics: React.FC = () => {
   const projectedCycleExpenses = cycleExpensesActual + daysRemaining * dailySpendingRate;
   const effectiveCycleIncome = cycleIncome > 0 ? cycleIncome : expectedSalary;
   const projectedMonthlySavings = effectiveCycleIncome - projectedCycleExpenses;
-  const projectedAnnualSavings = projectedMonthlySavings * 12;
 
   // Use AI-computed accumulated savings if available, else use current all-time balance
   const accumulatedSavings = useMemo(() => {
@@ -219,6 +266,16 @@ const Statistics: React.FC = () => {
     return transactions.reduce((acc, t) =>
       acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
   }, [analysis, transactions]);
+
+  // ── Unified savings forecast (single source) ─────────────────────────────
+  // When a cycle is active, surface the authoritative planned allocation and
+  // real accumulated pool balance (the figures the dashboard card used to show);
+  // otherwise fall back to the burn-rate projection for cycle-less users.
+  const sfThisCycle = hasActiveCycle && cycleStats ? cycleStats.dynamic_savings ?? 0 : projectedMonthlySavings;
+  const sfAnnual = sfThisCycle * 12;
+  const sfAccumulated = hasActiveCycle && cycleStats ? cycleStats.saved_money_balance ?? 0 : accumulatedSavings;
+  const sfPositive = sfThisCycle >= 0;
+  const showSavingsForecast = hasActiveCycle || effectiveCycleIncome > 0 || monthlySpendingGoal > 0;
 
   const BRUSH_WINDOW = 14;
   const needsBrush = timelineData.length > 7;
@@ -334,13 +391,13 @@ const Statistics: React.FC = () => {
             predictedBalance={displayedPredictedBalance}
             healthScore={analysis.financial_health_score}
             spendingTier={analysis.spending_tier}
-            dailyRate={dailySpendingRate}
+            dailyRate={displayDailyRate}
             onClick={() => setForecastOpen(true)}
           />
         )}
 
-        {(effectiveCycleIncome > 0 || monthlySpendingGoal > 0) && (
-          <div className={`savings-forecast-card ${projectedMonthlySavings >= 0 ? 'savings-forecast-card--pos' : 'savings-forecast-card--neg'}`}>
+        {showSavingsForecast && (
+          <div className={`savings-forecast-card ${sfPositive ? 'savings-forecast-card--pos' : 'savings-forecast-card--neg'}`}>
             <div className="savings-forecast-header">
               <div className="savings-forecast-icon">
                 <PiggyBank size={20} />
@@ -352,32 +409,32 @@ const Statistics: React.FC = () => {
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_this_cycle')}</span>
                 <span
                   className="savings-forecast-stat-value"
-                  style={{ color: projectedMonthlySavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                  style={{ color: sfThisCycle >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
                 >
-                  {projectedMonthlySavings >= 0 ? '+' : ''}{formatAmount(projectedMonthlySavings)}
+                  {sfThisCycle >= 0 ? '+' : ''}{formatAmount(sfThisCycle)}
                 </span>
               </div>
               <div className="savings-forecast-stat">
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_annual')}</span>
                 <span
                   className="savings-forecast-stat-value"
-                  style={{ color: projectedAnnualSavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                  style={{ color: sfAnnual >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
                 >
-                  {projectedAnnualSavings >= 0 ? '~+' : '~'}{formatAmount(projectedAnnualSavings)}
+                  {sfAnnual >= 0 ? '~+' : '~'}{formatAmount(sfAnnual)}
                 </span>
               </div>
               <div className="savings-forecast-stat">
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_accumulated')}</span>
                 <span
                   className="savings-forecast-stat-value"
-                  style={{ color: accumulatedSavings >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
+                  style={{ color: sfAccumulated >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
                 >
-                  {formatAmount(accumulatedSavings)}
+                  {formatAmount(sfAccumulated)}
                 </span>
               </div>
             </div>
             <p className="savings-forecast-tip">
-              {projectedMonthlySavings >= 0
+              {sfPositive
                 ? t('statistics.savings_forecast_tip_pos')
                 : t('statistics.savings_forecast_tip_neg')}
             </p>
@@ -390,8 +447,8 @@ const Statistics: React.FC = () => {
         predictedBalance={displayedPredictedBalance}
         healthScore={analysis?.financial_health_score ?? null}
         spendingTier={analysis?.spending_tier ?? "pacing_good"}
-        dailyRate={dailySpendingRate}
-        daysRemaining={daysRemaining}
+        dailyRate={displayDailyRate}
+        daysRemaining={displayDaysRemaining}
         periodLabel={periodLabel}
         onClose={() => setForecastOpen(false)}
       />

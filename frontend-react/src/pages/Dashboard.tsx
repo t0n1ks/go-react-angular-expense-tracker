@@ -295,28 +295,8 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Savings Forecast ─────────────────────────────────────────────── */}
-      <div className="stat-card" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-icon" style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>
-          <PiggyBank size={24}/>
-        </div>
-        <div className="stat-content">
-          <p className="label">{t('statistics.savings_forecast_title')}</p>
-          <p className="value" style={{ color: '#6366f1' }}>
-            {formatAmount(dynamicSavings * 12)}
-          </p>
-          <p className="income-breakdown">
-            {t('statistics.savings_forecast_this_cycle')}: {formatAmount(dynamicSavings)}
-            {savedMoneyBalance > 0 && (
-              <span> · {t('statistics.savings_forecast_accumulated')}: {formatAmount(savedMoneyBalance)}</span>
-            )}
-            {aiData?.predicted_savings_balance !== undefined && (
-              <span> · AI: {formatAmount(aiData.predicted_savings_balance)}</span>
-            )}
-          </p>
-          <p className="stat-sublabel">{t('statistics.savings_forecast_annual')}</p>
-        </div>
-      </div>
+      {/* Savings Forecast relocated to the Statistics/Analytics section to
+          de-duplicate the dashboard (see Statistics.tsx → savings-forecast-card). */}
 
       <WeeklyBudgetCard
         transactions={transactions}
