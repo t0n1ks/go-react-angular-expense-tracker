@@ -40,6 +40,16 @@ func Connect() {
 
 	log.Println("Database migration completed")
 
+	// CRITICAL: widen transactions.type before any cycle/savings write.
+	// Early schemas created the column as varchar(10). SQLite ignores the length
+	// so it never surfaced locally, but Postgres (production/Render) enforces it
+	// strictly and rejects "savings_deposit" (15) / "savings_withdrawal" (18)
+	// with SQLSTATE 22001 ("value too long"), 500-ing StartSalaryCycle and the
+	// savings endpoints. AutoMigrate does not reliably widen an existing column,
+	// so we issue an explicit, idempotent ALTER. Runs in Connect(), i.e. before
+	// the router starts serving requests.
+	widenTransactionTypeColumn()
+
 	// One-time normalization: ensure all existing usernames are lowercase.
 	if res := DB.Exec("UPDATE users SET username = LOWER(username) WHERE username != LOWER(username)"); res.Error != nil {
 		log.Printf("Warning: username normalization failed: %v", res.Error)
@@ -83,6 +93,26 @@ func Connect() {
 	// Remove any salary cycles that have absolutely zero income transactions in
 	// their window — these are ghost placeholders that were never properly funded.
 	deleteZeroTransactionCycles()
+}
+
+// widenTransactionTypeColumn ensures transactions.type is wide enough to hold
+// the longest value the app writes ("savings_withdrawal", 18 chars).
+//
+// Only Postgres enforces varchar length, so the ALTER is Postgres-specific;
+// SQLite stores any-length text regardless of the declared size, so it is a
+// no-op there. The statement is idempotent — re-running it just re-asserts the
+// same type. Safe to run on every startup.
+func widenTransactionTypeColumn() {
+	if DB.Dialector.Name() != "postgres" {
+		return // SQLite (and others) do not enforce varchar length
+	}
+	const sql = `ALTER TABLE transactions ALTER COLUMN type TYPE varchar(30)`
+	if res := DB.Exec(sql); res.Error != nil {
+		// Fatal: leaving a too-narrow column means every cycle/savings write
+		// will 500 in production, so fail loudly rather than serve broken.
+		log.Fatalf("widenTransactionTypeColumn: failed to widen transactions.type: %v", res.Error)
+	}
+	log.Println("Schema: transactions.type ensured at varchar(30)")
 }
 
 // backfillFixedExpCategory sets salary_cycles.fixed_exp_category_id for rows
