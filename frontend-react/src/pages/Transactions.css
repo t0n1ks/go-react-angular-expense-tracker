@@ -196,6 +196,69 @@
 .edit-input { padding: 0.4rem 0.6rem; font-size: 0.875rem; width: 100%; min-width: 80px; }
 .edit-actions { white-space: nowrap; }
 
+/* ── Desktop inline edit: full-width wrapping form ────────────────────────────
+   The edit row breaks out of the rigid 6-column table grid into one full-width
+   cell so the fields reflow with flex-wrap instead of being squeezed/overlapped
+   (notably the income-type pills no longer collide with the amount column). */
+.edit-row--form td { padding: 1rem; }
+
+.edit-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+}
+
+.edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1 1 150px;
+    min-width: 140px;
+}
+
+.edit-field--date { flex: 0 1 160px; }
+.edit-field--desc { flex: 3 1 220px; }
+.edit-field--amount { flex: 0 1 140px; min-width: 110px; }
+
+.edit-field-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+}
+
+/* Inside the flex grid the inputs must be free to shrink, so drop the
+   table-cell min-width and let the field track size them. */
+.edit-grid .edit-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.edit-actions--form {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 0 0 auto;
+    align-self: flex-end;
+    padding-bottom: 0.15rem;
+}
+
+/* Locked type indicator for savings-pool rows (type cannot be changed here). */
+.edit-savings-badge {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    padding: 0.4rem 0.8rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
 /* Income type pill selector */
 .income-type-row {
     grid-column: 1 / -1;
