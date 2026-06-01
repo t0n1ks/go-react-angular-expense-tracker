@@ -52,13 +52,27 @@ func Connect() {
 		log.Printf("Warning: hearts_count backfill failed: %v", res.Error)
 	}
 
+	// ORDER MATTERS. Heal must run BEFORE the backfills.
+	//
+	// Detect and reset cycles whose fixed_exp_category_id or
+	// saved_money_category_id point at a category that belongs to a different
+	// user (data corruption from earlier code versions). Resetting to 0 lets
+	// the backfill functions BELOW re-assign the correct per-user category in
+	// this same startup pass — otherwise a corrupted cycle would be left with
+	// category_id = 0 for the entire server session (breaking the fixed/variable
+	// split and forcing cycle/savings writes to operate against a zero ID) until
+	// the next restart.
+	healCrossUserCategoryRefs()
+
 	// One-time backfill: salary cycles created before fixed_exp_category_id was
-	// persisted correctly have the column = 0. Set it to the user's "Fixed
-	// Payments" category (matched by localized name) so fixed/variable splits and
-	// AI exclusion work for existing beta users. Idempotent.
+	// persisted correctly have the column = 0 (or were just reset to 0 by the
+	// heal step above). Set it to the user's "Fixed Payments" category (matched
+	// by localized name) so fixed/variable splits and AI exclusion work for
+	// existing beta users. Idempotent.
 	backfillFixedExpCategory()
 
-	// Backfill saved_money_category_id for cycles that pre-date the savings pool feature.
+	// Backfill saved_money_category_id for cycles that pre-date the savings pool
+	// feature, or that were just reset to 0 by the heal step above.
 	backfillSavedMoneyCategory()
 
 	// Remove duplicate/overlapping salary cycles that were created by the old
@@ -69,13 +83,6 @@ func Connect() {
 	// Remove any salary cycles that have absolutely zero income transactions in
 	// their window — these are ghost placeholders that were never properly funded.
 	deleteZeroTransactionCycles()
-
-	// Detect and reset cycles whose fixed_exp_category_id or
-	// saved_money_category_id point at a category that belongs to a different
-	// user (data corruption from earlier code versions). Resetting to 0 lets
-	// the backfill functions above re-assign the correct per-user category on
-	// the next restart, or the next cycle creation will create fresh ones.
-	healCrossUserCategoryRefs()
 }
 
 // backfillFixedExpCategory sets salary_cycles.fixed_exp_category_id for rows
