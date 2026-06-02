@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import TamagotchiJournalModal from './TamagotchiJournalModal';
+import { fetchBrainContent } from '../utils/brainContent';
 import cowSpriteUrl from '../assets/pixelcow.png';
 import './TamagotchiWidget.css';
 
@@ -13,6 +15,13 @@ const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
 const MSG_SHOW_DELAY  = 3_000;
+
+// Global entity spawner pacing — one entity (cow OR calendar) at a time, with a
+// long cooldown between spawns so the scene stays calm and non-intrusive.
+const ENTITY_SPAWN_MIN_MS = 35_000;
+const ENTITY_SPAWN_VAR_MS = 35_000; // → 35–70s between spawns
+// Proactive cycle-week countdown hint: surfaced at most once per window per user.
+const PROACTIVE_CYCLE_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3h
 
 const BUBBLE_TOP_PAD = 24;
 const UFO_GAP        = 8;
@@ -71,6 +80,21 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Parse a friendly first name from a display name that may be an email.
+//   "Yohans.Ingerma@x" → "Yohans"   (split on '.')
+//   "YohansIngerma@x"  → "YohansIngerma" (split on '@' only)
+//   "nik"              → "Nik"
+// Capitalizes the first letter; truncates names longer than 14 chars with '…'.
+function parseDisplayName(raw: string | undefined | null): string {
+  const base = (raw ?? '').trim();
+  if (!base) return '';
+  const local = base.split('@')[0];          // drop any email domain
+  let name = local.split('.')[0] || local;   // first dotted segment
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+  if (name.length > 14) name = name.slice(0, 13) + '…';
+  return name;
+}
+
 export interface Discoveries { date: string; facts: string[]; jokes: string[]; }
 
 export function loadDiscoveries(userId: string | number): Discoveries {
@@ -125,6 +149,46 @@ const PixelMoon: React.FC = () => (
   </svg>
 );
 
+const PixelCalendar: React.FC = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2"   y="3"   width="14"  height="13" rx="2"   fill="#0c0c0c" stroke="#ffd700" strokeWidth="1"/>
+    <rect x="2"   y="3"   width="14"  height="4"  rx="2"   fill="#ffd700"/>
+    <rect x="5"   y="1.4" width="1.6" height="3"  rx="0.8" fill="#ffd700"/>
+    <rect x="11.4" y="1.4" width="1.6" height="3" rx="0.8" fill="#ffd700"/>
+    <rect x="4.5" y="9"   width="2"   height="2"  fill="#7dd3fc"/>
+    <rect x="8"   y="9"   width="2"   height="2"  fill="#7dd3fc"/>
+    <rect x="11.5" y="9"  width="2"   height="2"  fill="#7dd3fc"/>
+    <rect x="4.5" y="12"  width="2"   height="2"  fill="#7dd3fc"/>
+    <rect x="8"   y="12"  width="2"   height="2"  fill="#7dd3fc"/>
+  </svg>
+);
+
+// ── Cycle-week countdown helpers ──────────────────────────────────────────────
+
+// A "cycle week" is a 7-day window from the cycle start. The next week begins at
+// cycle_start + (current_week_index + 1) * 7 days. Server-authoritative inputs —
+// no client budget math, just a date offset.
+function getNextCycleWeekStart(cycleStartISO: string, currentWeekIndex: number): Date | null {
+  const start = new Date(cycleStartISO);
+  if (isNaN(start.getTime())) return null;
+  const next = new Date(start);
+  next.setDate(next.getDate() + (currentWeekIndex + 1) * 7);
+  return next;
+}
+
+const DAY_MS = 86_400_000;
+
+// >24h → "N days left"; <24h → live HH:MM:SS; elapsed → fresh-week message.
+function formatCycleCountdown(target: Date, now: Date, t: (k: string, o?: Record<string, unknown>) => string): string {
+  const ms = target.getTime() - now.getTime();
+  if (ms <= 0) return t('dashboard.tama_cal_new_week');
+  if (ms > DAY_MS) return t('dashboard.tama_cal_days', { days: Math.ceil(ms / DAY_MS) });
+  const totalSec = Math.floor(ms / 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const hms = `${pad(Math.floor(totalSec / 3600))}:${pad(Math.floor((totalSec % 3600) / 60))}:${pad(totalSec % 60)}`;
+  return t('dashboard.tama_cal_hms', { time: hms });
+}
+
 
 // ── Static layout data ────────────────────────────────────────────────────────
 
@@ -165,8 +229,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   aiServiceMode,
   savingsBalance,
 }) => {
-  const { t } = useTranslation();
-  const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { user, axiosInstance } = useAuth();
+  const { currentCycle, cycleStats } = useSettings();
   const [mode,          setMode]          = useState<WidgetMode>('idle');
   const [bubbleText,    setBubbleText]    = useState('');
   const [fromHook,      setFromHook]      = useState(false);
@@ -179,6 +244,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [cowExiting,     setCowExiting]     = useState(false);
   const [cowTop,         setCowTop]         = useState(35);
   const [cowKey,         setCowKey]         = useState(0);
+  const [calVisible,     setCalVisible]     = useState(false);
+  const [calTop,         setCalTop]         = useState(50);
+  const [calKey,         setCalKey]         = useState(0);
   const [showJournal,    setShowJournal]    = useState(false);
 
   const modeRef        = useRef<WidgetMode>('idle');
@@ -193,13 +261,15 @@ const TamagotchiWidget: React.FC<Props> = ({
   const widgetRef      = useRef<HTMLDivElement>(null);
   const bubbleRef      = useRef<HTMLDivElement>(null);
   const rainbowTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cowTimerRef        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cowAutoHideRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const msgsSinceHintRef   = useRef(0);
   const pendingJokeRef     = useRef<string | null>(null);
-  const cowCooldownRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
   const starCooldownRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spawnCowOrQueueRef = useRef<() => void>(() => {});
+  const calTickRef         = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  // ── Global entity spawner: one drifting entity (cow OR calendar) at a time ──
+  const entityActiveRef    = useRef(false);
+  const spawnTimerRef      = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const scheduleSpawnRef   = useRef<() => void>(() => {});
+  const doSpawnRef         = useRef<() => void>(() => {});
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { messageRef.current = message; }, [message]);
@@ -214,19 +284,25 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => ro.disconnect();
   }, []);
 
-  // ── First-login greeting ──────────────────────────────────────────────────
+  // ── Daily greeting — once per 24h per user (localStorage date, no DB call) ─
   useEffect(() => {
-    if (localStorage.getItem(GREETED_KEY)) return;
+    if (!user?.id) return; // wait until the user is loaded before greeting
+    const key = `${GREETED_KEY}_${user.id}`;
+    const today = getTodayKey();
+    let last: string | null = null;
+    try { last = localStorage.getItem(key); } catch { /* ignore */ }
+    if (last === today) return;
+    const name = parseDisplayName(user.username);
     const t0 = setTimeout(() => {
       if (modeRef.current !== 'idle') return;
-      setBubbleText(t('dashboard.tama_greeting', { name: user?.username ?? '' }));
+      setBubbleText(t('dashboard.tama_greeting', { name }));
       setFromHook(false);
       setMode('greeting');
-      localStorage.setItem(GREETED_KEY, '1');
+      try { localStorage.setItem(key, today); } catch { /* ignore */ }
     }, 1200);
     return () => clearTimeout(t0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.id]);
 
   // ── Proactive savings milestone tip ──────────────────────────────────────
   useEffect(() => {
@@ -358,30 +434,107 @@ const TamagotchiWidget: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
-  // ── Space cow scheduling ─────────────────────────────────────────────────
-  useEffect(() => {
-    const spawnCow = () => {
-      if (cowCooldownRef.current) return;
+  // ── Proactive cycle-week countdown hint (rare, cooldowned) ────────────────
+  // Defined fresh each render so it closes over the latest cycle data/translator.
+  const maybeProactiveCycleHint = () => {
+    if (modeRef.current !== 'idle' || msgsSinceHintRef.current < 2) return;
+    const uid = user?.id ?? 'anon';
+    const key = `tama_cycle_proactive_${uid}`;
+    try {
+      const last = Number(localStorage.getItem(key) || 0);
+      if (Date.now() - last < PROACTIVE_CYCLE_COOLDOWN_MS) return;
+    } catch { /* ignore */ }
+    if (!currentCycle?.cycle_start_at || cycleStats?.current_week_index == null) return;
+    const target = getNextCycleWeekStart(currentCycle.cycle_start_at, cycleStats.current_week_index);
+    if (!target) return;
+    const ms = target.getTime() - Date.now();
+    if (ms <= 0) return;
+    const days = Math.max(1, Math.ceil(ms / DAY_MS));
+    setBubbleText(t('dashboard.tama_cal_proactive', { days }));
+    setFromHook(false);
+    setMode('ai_bubble');
+    msgsSinceHintRef.current = 0;
+    try { localStorage.setItem(key, String(Date.now())); } catch { /* ignore */ }
+  };
+
+  // ── Global entity spawner ─────────────────────────────────────────────────
+  // One drifting entity (cow OR calendar) at a time. doSpawnRef is reassigned
+  // every render so it always sees the latest closures without re-arming the
+  // timer; the recursive scheduler lives in a stable, empty-deps effect.
+  doSpawnRef.current = () => {
+    // Collision avoidance: never spawn over an active entity or an open dialog.
+    if (entityActiveRef.current || modeRef.current !== 'idle') {
+      scheduleSpawnRef.current(); // retry after another cooldown
+      return;
+    }
+    entityActiveRef.current = true;
+    if (Math.random() < 0.5) {
       setCowTop(15 + Math.random() * 40);
       setCowKey(k => k + 1);
       setCowExiting(false);
       setCowVisible(true);
-      cowAutoHideRef.current = setTimeout(() => {
-        setCowVisible(false);
-        cowTimerRef.current = setTimeout(
-          spawnCowOrQueueRef.current,
-          10_000 + Math.random() * 10_000,
-        );
-      }, 22_000);
+    } else {
+      setCalTop(20 + Math.random() * 45);
+      setCalKey(k => k + 1);
+      setCalVisible(true);
+      maybeProactiveCycleHint();
+    }
+  };
+
+  useEffect(() => {
+    const scheduleSpawn = () => {
+      clearTimeout(spawnTimerRef.current);
+      spawnTimerRef.current = setTimeout(
+        () => doSpawnRef.current(),
+        ENTITY_SPAWN_MIN_MS + Math.random() * ENTITY_SPAWN_VAR_MS,
+      );
     };
-    spawnCowOrQueueRef.current = spawnCow;
-    cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
-    return () => {
-      clearTimeout(cowTimerRef.current);
-      clearTimeout(cowAutoHideRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    scheduleSpawnRef.current = scheduleSpawn;
+    scheduleSpawn();
+    return () => clearTimeout(spawnTimerRef.current);
   }, []);
+
+  // Released when the active entity finishes (drifts off or is dismissed); arms
+  // the next spawn. Idempotent so a click + animation-end can't double-schedule.
+  const endEntity = useCallback(() => {
+    if (!entityActiveRef.current) return;
+    entityActiveRef.current = false;
+    scheduleSpawnRef.current();
+  }, []);
+
+  // ── Live countdown ticker lives only while a calendar bubble is open ──────
+  useEffect(() => {
+    if (mode !== 'ai_bubble') clearInterval(calTickRef.current);
+  }, [mode]);
+
+  // ── Calendar click → dismiss entity + open cycle-week countdown bubble ────
+  const handleCalendarClick = useCallback(() => {
+    // Click-to-dismiss: terminate the drift and remove the calendar from the DOM
+    // immediately, then release the spawner — regardless of widget state.
+    setCalVisible(false);
+    endEntity();
+    if (modeRef.current !== 'idle') return; // don't stack over an open dialog/tour
+    clearTimeout(autoDismissRef.current);
+
+    const cycleStart = currentCycle?.cycle_start_at;
+    const weekIdx = cycleStats?.current_week_index;
+    if (!cycleStart || weekIdx == null) {
+      setBubbleText(t('dashboard.tama_cal_no_cycle'));
+      setFromHook(false);
+      setMode('ai_bubble');
+      return;
+    }
+    const target = getNextCycleWeekStart(cycleStart, weekIdx);
+    if (!target) return;
+
+    const tick = () => setBubbleText(formatCycleCountdown(target, new Date(), t));
+    tick();
+    setFromHook(false);
+    setMode('ai_bubble');
+    // Live HH:MM:SS under 24h; harmless 1s refresh when showing "N days" too.
+    clearInterval(calTickRef.current);
+    calTickRef.current = setInterval(tick, 1000);
+  }, [currentCycle, cycleStats, t, endEntity]);
 
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
@@ -420,20 +573,30 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Rainbow star click ────────────────────────────────────────────────────
-  const handleStarClick = useCallback((idx: number) => {
+  // ── Rainbow star click → FACT (AI-first, local fallback) ──────────────────
+  const handleStarClick = useCallback(async (idx: number) => {
     if (rainbowStarIdx !== idx) return;
     if (starCooldownRef.current || mode !== 'idle') return;
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
     setFlyPhase(null);
-    const factsPool = t('ai.facts', { returnObjects: true }) as string[];
-    const fact = getNextFromCycle(factsPool, user?.id ?? 'anon', 'fact');
-    addDiscovery(user?.id ?? 'anon', 'fact', fact);
+
+    // Instant click feedback: clear the star + arm the cooldown synchronously.
     setRainbowStarIdx(null);
     navigator.vibrate?.(50);
     starCooldownRef.current = setTimeout(() => { starCooldownRef.current = null; }, 30_000);
+
+    // AI-first within a short charge window; fall back to the local pool. Computing
+    // the local pick only on miss avoids burning a shuffled item when AI wins.
+    const ai = await fetchBrainContent(axiosInstance, 'fact', i18n.language, { aiServiceMode, timeoutMs: 1000 });
+    const fact = ai?.text
+      ?? getNextFromCycle(t('ai.facts', { returnObjects: true }) as string[], user?.id ?? 'anon', 'fact');
+
+    // The user may have started another interaction during the await.
+    if (modeRef.current !== 'idle') return;
+
+    addDiscovery(user?.id ?? 'anon', 'fact', fact);
     clearTimeout(autoDismissRef.current);
     setBubbleText(fact);
     setFromHook(false);
@@ -449,28 +612,29 @@ const TamagotchiWidget: React.FC<Props> = ({
         msgsSinceHintRef.current = 0;
       }
     }, 45_000);
-  }, [rainbowStarIdx, t, user?.id, mode]);
+  }, [rainbowStarIdx, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
 
-  // ── Space cow click ───────────────────────────────────────────────────────
+  // ── Space cow click → JOKE (AI-first, local fallback) ─────────────────────
   const handleCowClick = useCallback(() => {
-    if (cowExiting || cowCooldownRef.current || mode !== 'idle') return;
+    if (cowExiting || mode !== 'idle') return;
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
     setFlyPhase(null);
-    clearTimeout(cowAutoHideRef.current);
     setCowExiting(true);
     navigator.vibrate?.(200);
+
+    // Local pick first — the guaranteed fallback shown when the cow finishes its
+    // ~3s exit animation. The brain fetch runs during that window and overwrites
+    // pendingJokeRef if it wins; the joke is only displayed in onAnimationComplete,
+    // so there is a single bubble render and zero added latency. The spawner is
+    // released in onAnimationComplete via endEntity().
     const jokesPool = t('ai.humor', { returnObjects: true }) as string[];
-    const joke = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
-    addDiscovery(user?.id ?? 'anon', 'joke', joke);
-    pendingJokeRef.current = joke;
-    cowCooldownRef.current = setTimeout(() => {
-      cowCooldownRef.current = null;
-      clearTimeout(cowTimerRef.current);
-      cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
-    }, 30_000);
-  }, [cowExiting, t, user?.id, mode]);
+    pendingJokeRef.current = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
+    fetchBrainContent(axiosInstance, 'joke', i18n.language, { aiServiceMode })
+      .then(res => { if (res) pendingJokeRef.current = res.text; })
+      .catch(() => { /* keep local fallback */ });
+  }, [cowExiting, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
@@ -521,10 +685,9 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(autoDismissRef.current);
       clearTimeout(exitTimerRef.current);
       clearTimeout(rainbowTimerRef.current);
-      clearTimeout(cowTimerRef.current);
-      clearTimeout(cowAutoHideRef.current);
-      if (cowCooldownRef.current) clearTimeout(cowCooldownRef.current);
       if (starCooldownRef.current) clearTimeout(starCooldownRef.current);
+      clearTimeout(spawnTimerRef.current);
+      clearInterval(calTickRef.current);
     };
   }, []);
 
@@ -559,6 +722,13 @@ const TamagotchiWidget: React.FC<Props> = ({
 
       <div className="tama-scene">
 
+        {/* ── Background comets (pure CSS — survive tab throttling) ── */}
+        <div className="tama-comets" aria-hidden="true">
+          <span className="tama-comet tama-comet--a" />
+          <span className="tama-comet tama-comet--b" />
+          <span className="tama-comet tama-comet--c" />
+        </div>
+
         {/* ── Persistent star field with rainbow hitboxes ── */}
         <div className="tama-stars">
           {STARS.map((s, i) => (
@@ -566,7 +736,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               key={i}
               className="tama-star-hitbox"
               style={{ left: `${s.x}%`, top: `${s.y}%` }}
-              onClick={() => handleStarClick(i)}
+              onClick={() => { void handleStarClick(i); }}
               role={rainbowStarIdx === i ? 'button' : undefined}
               aria-label={rainbowStarIdx === i ? 'Cosmic secret' : undefined}
             >
@@ -605,19 +775,16 @@ const TamagotchiWidget: React.FC<Props> = ({
                 : { duration: 18, ease: 'linear' }
               }
               onAnimationComplete={() => {
-                if (cowExiting) {
-                  if (pendingJokeRef.current) {
-                    clearTimeout(autoDismissRef.current);
-                    setBubbleText(pendingJokeRef.current);
-                    setFromHook(false);
-                    setMode('ai_bubble');
-                    pendingJokeRef.current = null;
-                  }
-                  setCowVisible(false);
-                  cowTimerRef.current = setTimeout(spawnCowOrQueueRef.current, 10_000 + Math.random() * 10_000);
-                } else {
-                  setCowVisible(false);
+                if (cowExiting && pendingJokeRef.current) {
+                  clearTimeout(autoDismissRef.current);
+                  addDiscovery(user?.id ?? 'anon', 'joke', pendingJokeRef.current);
+                  setBubbleText(pendingJokeRef.current);
+                  setFromHook(false);
+                  setMode('ai_bubble');
+                  pendingJokeRef.current = null;
                 }
+                setCowVisible(false);
+                endEntity();
               }}
               onClick={handleCowClick}
               role="button"
@@ -630,6 +797,29 @@ const TamagotchiWidget: React.FC<Props> = ({
                 alt=""
                 style={{ imageRendering: 'pixelated', display: 'block' }}
               />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Floating cycle calendar (drifts right→left, distinct from cow) ── */}
+        <AnimatePresence>
+          {calVisible && (
+            <motion.div
+              key={`cal-${calKey}`}
+              className="tama-calendar"
+              style={{ top: `${calTop}%` }}
+              initial={{ right: '-15%' }}
+              animate={{ right: '115%' }}
+              transition={{ duration: 24, ease: 'linear' }}
+              onAnimationComplete={() => {
+                setCalVisible(false);
+                endEntity();
+              }}
+              onClick={handleCalendarClick}
+              role="button"
+              aria-label="Cycle calendar"
+            >
+              <PixelCalendar />
             </motion.div>
           )}
         </AnimatePresence>

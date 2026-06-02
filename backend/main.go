@@ -100,6 +100,10 @@ func main() {
 			middleware.PerUser(rate.Every(3*time.Second), 5),
 			handlers.GetNextAction,
 		)
+		protected.GET("/ai/content",
+			middleware.PerUser(rate.Every(3*time.Second), 5),
+			handlers.GetCategorizedContent,
+		)
 		protected.POST("/ai/feedback", handlers.SendFeedback)
 		protected.GET("/ai/status", handlers.GetAIServiceStatus)
 

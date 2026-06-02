@@ -160,6 +160,33 @@ func checkAndUpdateHearts(userID uint) {
 		Update("hearts_count", user.HeartsCount+1)
 }
 
+// computeBudgetHealth derives a lightweight {good|warn|over} budget-health hint
+// from the user's active cycle for context-aware AI content selection. Read-only —
+// reuses computeCycleStats and performs no new budget math. Returns "" when there
+// is no active cycle (Python then uses its neutral default).
+func computeBudgetHealth(uid uint) string {
+	var cycle models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at DESC").First(&cycle).Error; err != nil {
+		return ""
+	}
+	stats := computeCycleStats(uid, cycle)
+	if stats.CurrentWeekAllowance <= 0 {
+		if stats.CurrentWeekSpent > 0 {
+			return "over"
+		}
+		return ""
+	}
+	switch ratio := stats.CurrentWeekSpent / stats.CurrentWeekAllowance; {
+	case ratio >= 1.0:
+		return "over"
+	case ratio >= 0.8:
+		return "warn"
+	default:
+		return "good"
+	}
+}
+
 // GetNextAction proxies GET /v1/tamagotchi/next-action from the Python AI brain service.
 func GetNextAction(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -175,6 +202,9 @@ func GetNextAction(c *gin.Context) {
 
 	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
 		getBrainBaseURL(), userID.(uint), lang)
+	if health := computeBudgetHealth(userID.(uint)); health != "" {
+		url += "&context=" + health
+	}
 
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
 	if err != nil {
@@ -201,6 +231,58 @@ func GetNextAction(c *gin.Context) {
 	// when the AI service is offline.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		c.JSON(http.StatusOK, gin.H{"type": "AFK", "content": afkPhrases[rand.Intn(len(afkPhrases))], "animation_hint": "FLY_BY_MOON"})
+		return
+	}
+
+	c.Data(resp.StatusCode, "application/json", respBody)
+}
+
+// GetCategorizedContent proxies GET /v1/tamagotchi/content for the user-initiated
+// UFO entities (Cow → joke, Star → fact) and the transaction-advice path. It is
+// strictly category-locked. On any error/non-2xx — or an unknown category — it
+// returns 200 with {"type":"NONE"} so the frontend silently falls back to its
+// local i18n pool and the UI never sees a network error.
+func GetCategorizedContent(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	category := strings.ToLower(strings.TrimSpace(c.Query("category")))
+	switch category {
+	case "joke", "fact", "advice":
+		// valid
+	default:
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": nil})
+		return
+	}
+
+	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
+	url := fmt.Sprintf("%s/v1/tamagotchi/content?user_id=%d&category=%s&language=%s",
+		getBrainBaseURL(), uid, category, lang)
+	if health := computeBudgetHealth(uid); health != "" {
+		url += "&context=" + health
+	}
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": nil})
+		return
+	}
+	req.Header.Set("X-Brain-API-Key", os.Getenv("AI_SERVICE_KEY"))
+
+	resp, err := brainClient.Do(req)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": nil})
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": nil})
 		return
 	}
 

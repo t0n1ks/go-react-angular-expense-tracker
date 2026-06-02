@@ -5,6 +5,31 @@ import { useTranslation } from 'react-i18next';
 
 const SESSION_KEY = 'ai_advice_session';
 
+// ─── Cooldown-based advice pacing ──────────────────────────────────────────────
+// Budget advice should never fire on every transaction. It surfaces only when a
+// cooldown has elapsed OR a transaction significantly impacts the cycle.
+const ADVICE_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
+const SIGNIFICANT_FRACTION = 0.25;             // single expense ≥ 25% of weekly allowance
+
+function adviceCooldownKey(userId?: number): string {
+  return `tama_advice_cooldown_${userId ?? 'anon'}`;
+}
+
+function adviceCooldownElapsed(userId?: number): boolean {
+  try {
+    const raw = localStorage.getItem(adviceCooldownKey(userId));
+    if (!raw) return true;
+    const ts = Number(raw);
+    return !Number.isFinite(ts) || Date.now() - ts >= ADVICE_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markAdviceShown(userId?: number): void {
+  try { localStorage.setItem(adviceCooldownKey(userId), String(Date.now())); } catch { /* ignore */ }
+}
+
 function getMonday(d: Date): Date {
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -52,6 +77,7 @@ interface Options {
   };
   language: string;
   aiServiceMode: 'online' | 'autonomous' | 'initializing';
+  userId?: number;
 }
 
 export function useAIAssistant({
@@ -61,6 +87,7 @@ export function useAIAssistant({
   axiosInstance,
   language,
   aiServiceMode,
+  userId,
 }: Options) {
   const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -99,16 +126,23 @@ export function useAIAssistant({
           const { type, content, animation_hint } = res.data as {
             type: string; content: string | null; animation_hint: string | null;
           };
-          if (type && type !== 'NONE' && content) {
-            enqueue({ text: content, hint: animation_hint ?? null });
+          if (!type || type === 'NONE' || !content) return;
+          // Strict separation: jokes come only from the Cow, facts only from the
+          // Star. The proactive channel carries advice/greetings/encouragements.
+          if (type === 'JOKE' || type === 'FACT') return;
+          // Cooldown-based pacing for budget advice — at most once per window.
+          if (type === 'ADVICE') {
+            if (!adviceCooldownElapsed(userId)) return;
+            markAdviceShown(userId);
           }
+          enqueue({ text: content, hint: animation_hint ?? null });
         })
         .catch(() => { /* silent — autonomous fallback handles proactive messages */ });
     };
     fetch();
     const id = setInterval(fetch, 10 * 60 * 1000);
     return () => clearInterval(id);
-  }, [aiAdviceEnabled, aiServiceMode, language, axiosInstance, enqueue]);
+  }, [aiAdviceEnabled, aiServiceMode, language, axiosInstance, enqueue, userId]);
 
   // ── Weekly pacing analysis (autonomous fallback only) ────────────────────
   useEffect(() => {
@@ -167,6 +201,14 @@ export function useAIAssistant({
 
     if (!tier) return;
 
+    // Cooldown-based pacing: only surface advice on a significant transaction (a
+    // single expense ≥ 25% of the weekly allowance, or the week already over
+    // budget) or once the cooldown has elapsed. Otherwise stay quiet.
+    const maxSingleExpense = thisWeekExp.reduce((m, tx) => Math.max(m, Math.abs(Number(tx.amount))), 0);
+    const significant = weeklyLimit > 0
+      && (maxSingleExpense >= weeklyLimit * SIGNIFICANT_FRACTION || weekSpending > weeklyLimit);
+    if (!significant && !adviceCooldownElapsed(userId)) return;
+
     const fp = `${weekKey}:${tier}:s${salaryJustIn ? 1 : 0}`;
     if (getStoredFp() === fp) return;
     storeFp(fp);
@@ -179,8 +221,11 @@ export function useAIAssistant({
       msg = pickFromKey(tier);
     }
 
-    if (msg) enqueue({ text: msg });
-  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey]);
+    if (msg) {
+      enqueue({ text: msg });
+      markAdviceShown(userId);
+    }
+  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey, userId]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {

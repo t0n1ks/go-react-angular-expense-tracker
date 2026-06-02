@@ -24,7 +24,7 @@ interface Transaction {
 }
 
 const Dashboard: React.FC = () => {
-  const { axiosInstance } = useAuth();
+  const { axiosInstance, user } = useAuth();
   const {
     formatAmount,
     currencySymbol,
@@ -140,6 +140,7 @@ const Dashboard: React.FC = () => {
     axiosInstance,
     language: analyzeLang,
     aiServiceMode,
+    userId: user?.id,
   });
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {

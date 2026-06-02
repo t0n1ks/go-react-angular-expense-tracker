@@ -141,6 +141,95 @@
   50%       { transform: translateY(-4px) rotate(2deg); }
 }
 
+/* ── Cycle calendar (floating, clickable) ───────────────────────────────── */
+.tama-calendar {
+  position: absolute;
+  cursor: pointer;
+  z-index: 11; /* between stars (8) and cow (12); below bubbles (20)/UFO (22) */
+  user-select: none;
+  line-height: 0;
+  filter:
+    drop-shadow(0 0 3px rgba(255, 215, 0, 0.75))
+    drop-shadow(0 0 8px rgba(125, 211, 252, 0.35));
+  animation: tama-cal-bob 4s ease-in-out infinite;
+}
+
+@keyframes tama-cal-bob {
+  0%, 100% { transform: translateY(0px) rotate(-3deg); }
+  50%       { transform: translateY(-5px) rotate(3deg); }
+}
+
+/* ── Background comets (pure CSS — unaffected by tab throttling) ─────────── */
+.tama-comets {
+  position: absolute;
+  inset: 0;
+  z-index: 4; /* behind the moon (6) and stars (8) */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tama-comet {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.8);
+  will-change: transform, opacity;
+}
+
+.tama-comet::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 1px;
+  width: 26px;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.7), transparent);
+}
+
+/* Three comets crossing the whole scene from different corners/angles, with long
+   cycles + staggered delays so each is a rare, subtle streak (not a frequent loop).
+   A constant rotate() aligns the tail to trail behind the motion direction. */
+.tama-comet--a { top:  8%; left: -6%; animation: tama-comet-a 26s ease-in  4s infinite; }
+.tama-comet--b { top: -6%; left: 78%; animation: tama-comet-b 34s ease-in 16s infinite; }
+.tama-comet--c { top: 80%; left: -6%; animation: tama-comet-c 42s ease-in 30s infinite; }
+
+/* top-left → down-right */
+@keyframes tama-comet-a {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(25deg); }
+  3%   { opacity: 0.9; }
+  13%  { opacity: 0.9; }
+  18%  { opacity: 0; transform: translate(170px, 80px) rotate(25deg); }
+  100% { opacity: 0; transform: translate(170px, 80px) rotate(25deg); }
+}
+
+/* top-right → down-left */
+@keyframes tama-comet-b {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(148deg); }
+  3%   { opacity: 0.85; }
+  11%  { opacity: 0.85; }
+  16%  { opacity: 0; transform: translate(-150px, 95px) rotate(148deg); }
+  100% { opacity: 0; transform: translate(-150px, 95px) rotate(148deg); }
+}
+
+/* bottom-left → up-right */
+@keyframes tama-comet-c {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(-24deg); }
+  3%   { opacity: 0.8; }
+  10%  { opacity: 0.8; }
+  15%  { opacity: 0; transform: translate(160px, -70px) rotate(-24deg); }
+  100% { opacity: 0; transform: translate(160px, -70px) rotate(-24deg); }
+}
+
+/* Respect users who prefer reduced motion — calm the background comets. */
+@media (prefers-reduced-motion: reduce) {
+  .tama-comet { animation: none; opacity: 0; }
+  .tama-calendar { animation: none; }
+}
+
 /* ── Moon ───────────────────────────────────────────────────────────────────── */
 
 .tama-moon {
