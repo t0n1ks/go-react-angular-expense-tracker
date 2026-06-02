@@ -83,7 +83,7 @@ const Transactions: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [axiosInstance, formState.category_id, t]);
+  }, [axiosInstance, formState.category_id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -106,7 +106,11 @@ const Transactions: React.FC = () => {
   const toggleMonth = useCallback((key: string) => {
     setExpandedMonths(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
   }, []);
@@ -248,7 +252,7 @@ const Transactions: React.FC = () => {
     } finally {
       setIsPDFLoading(false);
     }
-  }, [axiosInstance, t, isPDFLoading]);
+  }, [axiosInstance, t, isPDFLoading, i18n.resolvedLanguage]);
 
   if (loading) return <div className="transactions-wrapper">{t('common.loading')}</div>;
 
