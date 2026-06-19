@@ -60,6 +60,7 @@ yarn-error.log*
 # Build output for frontend projects
 /frontend-react/dist/
 backend/expenses.db
+backend/test_expenses.db
 backend/tmp/
 
 # Claude Code — entire local context dir (settings, memory, session files).
