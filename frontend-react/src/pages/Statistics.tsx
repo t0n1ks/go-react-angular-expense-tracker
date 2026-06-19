@@ -12,7 +12,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Brush,
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
 import ForecastCard from "../components/ForecastCard";
@@ -35,6 +34,14 @@ interface AnalysisResult {
   spending_tier: string;
 }
 
+// Balance-timeline period filter options. `days: 0` means all-time.
+const TIMELINE_PERIODS = [
+  { days: 30, labelKey: "statistics.period_30" },
+  { days: 90, labelKey: "statistics.period_90" },
+  { days: 180, labelKey: "statistics.period_180" },
+  { days: 0, labelKey: "statistics.period_all" },
+] as const;
+
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
   const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle } = useSettings();
@@ -44,6 +51,7 @@ const Statistics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
+  const [timelinePeriod, setTimelinePeriod] = useState<number>(90); // days; 0 = all time
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,10 +96,27 @@ const Statistics: React.FC = () => {
     fetchAnalysis();
   }, [fetchData, fetchAnalysis]);
 
+  // Donut is strictly scoped to the active salary cycle (mirrors the dashboard's
+  // cycle window: [cycle_start_at, next_payday_at]). Cycle-less users fall back
+  // to all-time so the chart is never empty for them.
   const categoryData = useMemo(() => {
+    const cycleStart =
+      hasActiveCycle && currentCycle ? new Date(currentCycle.cycle_start_at) : null;
+    const cycleEnd =
+      hasActiveCycle && currentCycle?.next_payday_at
+        ? new Date(currentCycle.next_payday_at)
+        : null;
+    const inCurrentCycle = (t: Transaction) => {
+      if (!cycleStart) return true; // no active cycle → all-time fallback
+      const ev = new Date(t.created_at ?? t.date);
+      if (ev < cycleStart) return false;
+      if (cycleEnd && ev > cycleEnd) return false;
+      return true;
+    };
+
     const map: Record<string, number> = {};
     transactions
-      .filter((t) => t.type === "expense")
+      .filter((t) => t.type === "expense" && inCurrentCycle(t))
       .forEach((t) => {
         const name = t.category?.name || "—";
         map[name] = (map[name] || 0) + Math.abs(Number(t.amount));
@@ -100,10 +125,24 @@ const Statistics: React.FC = () => {
     return Object.keys(map)
       .map((name) => ({ name, value: map[name] }))
       .sort((a, b) => b.value - a.value);
-  }, [transactions]);
+  }, [transactions, hasActiveCycle, currentCycle]);
 
+  // ── Balance Dynamics ──────────────────────────────────────────────────────
+  // True cumulative cash flow over time: income adds, expense subtracts. Savings
+  // pool transfers (savings_deposit / savings_withdrawal) are INTERNAL movements
+  // between cash and the savings pool — not earning or spending — so they are
+  // excluded. Including them previously injected large budget-derived amounts
+  // (e.g. the auto "Planned savings allocation" = income × savings %) into the
+  // series, producing the anomalous vertical drops to budget-shaped figures.
+  //
+  // The full cumulative series is built across ALL history first so every point
+  // reflects the real running balance, and is only THEN sliced to the selected
+  // period — keeping the first visible point anchored to the true balance.
   const timelineData = useMemo(() => {
-    if (transactions.length === 0) return [];
+    const events = transactions.filter(
+      (t) => t.type === "income" || t.type === "expense",
+    );
+    if (events.length === 0) return [];
 
     // Bucket by a stable YYYY-MM-DD key derived from created_at (the authoritative
     // event time) falling back to date. Slicing the first 10 chars avoids
@@ -112,7 +151,7 @@ const Statistics: React.FC = () => {
     const keyOf = (t: { created_at?: string; date: string }) =>
       (t.created_at ?? t.date).slice(0, 10);
 
-    const sorted = [...transactions].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
+    const sorted = [...events].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
 
     const dailyMap = new Map<string, number>();
     let runningBalance = 0;
@@ -121,7 +160,18 @@ const Statistics: React.FC = () => {
       dailyMap.set(keyOf(tx), runningBalance); // last write wins → end-of-day balance
     });
 
-    return Array.from(dailyMap.entries()).map(([key, balance]) => {
+    let entries = Array.from(dailyMap.entries());
+
+    // Period filter (0 = all time). Slice AFTER the cumulative sum so the first
+    // visible point keeps its true running balance instead of resetting to zero.
+    if (timelinePeriod > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - timelinePeriod);
+      const cutoffKey = cutoff.toISOString().slice(0, 10);
+      entries = entries.filter(([key]) => key >= cutoffKey);
+    }
+
+    return entries.map(([key, balance]) => {
       const [y, m, d] = key.split("-").map(Number);
       const label = new Date(y, m - 1, d).toLocaleDateString(i18n.language, {
         day: "2-digit",
@@ -129,7 +179,7 @@ const Statistics: React.FC = () => {
       });
       return { date: label, balance };
     });
-  }, [transactions, i18n.language]);
+  }, [transactions, i18n.language, timelinePeriod]);
 
   const nextPayday = useMemo((): Date | null => {
     if (paydayMode === 'fixed' && fixedPayday > 0) {
@@ -277,10 +327,6 @@ const Statistics: React.FC = () => {
   const sfPositive = sfThisCycle >= 0;
   const showSavingsForecast = hasActiveCycle || effectiveCycleIncome > 0 || monthlySpendingGoal > 0;
 
-  const BRUSH_WINDOW = 14;
-  const needsBrush = timelineData.length > 7;
-  const brushStart = Math.max(0, timelineData.length - BRUSH_WINDOW);
-
   if (loading)
     return <div className="statistics-wrapper">{t("statistics.loading")}</div>;
 
@@ -301,11 +347,29 @@ const Statistics: React.FC = () => {
         </div>
 
         <div className="stat-chart-card">
-          <h2>
-            <TrendingUp size={22} color="#10b981" /> {t("statistics.balance_timeline")}
-          </h2>
+          <div className="stat-chart-head">
+            <h2>
+              <TrendingUp size={22} color="#10b981" /> {t("statistics.balance_timeline")}
+            </h2>
+            <div
+              className="stat-period-filter"
+              role="group"
+              aria-label={t("statistics.balance_timeline")}
+            >
+              {TIMELINE_PERIODS.map((p) => (
+                <button
+                  key={p.days}
+                  type="button"
+                  className={`stat-period-btn${timelinePeriod === p.days ? " stat-period-btn--active" : ""}`}
+                  onClick={() => setTimelinePeriod(p.days)}
+                >
+                  {t(p.labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
           {timelineData.length > 0 ? (
-            <div style={{ width: "100%", height: needsBrush ? 340 : 300, minWidth: 0 }}>
+            <div style={{ width: "100%", height: 300, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timelineData}>
                   <defs>
@@ -361,18 +425,6 @@ const Statistics: React.FC = () => {
                     fillOpacity={1}
                     fill="url(#colorBalance)"
                   />
-                  {needsBrush && (
-                    <Brush
-                      key={`brush-${timelineData.length}`}
-                      dataKey="date"
-                      height={28}
-                      stroke={isDark ? "#334155" : "#e2e8f0"}
-                      fill={isDark ? "#1e293b" : "#f8fafc"}
-                      travellerWidth={6}
-                      startIndex={brushStart}
-                      endIndex={timelineData.length - 1}
-                    />
-                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
