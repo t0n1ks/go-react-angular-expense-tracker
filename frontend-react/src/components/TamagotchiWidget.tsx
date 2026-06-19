@@ -5,6 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import TamagotchiJournalModal from './TamagotchiJournalModal';
 import { fetchBrainContent } from '../utils/brainContent';
+import { addDiscovery } from '../utils/tamaStorage';
+import {
+  buildItem,
+  resolveItemText,
+  CONTENT_KEYS,
+  type ContentKind,
+  type SavedItem,
+} from '../data/tamaContent';
 import cowSpriteUrl from '../assets/pixelcow.png';
 import './TamagotchiWidget.css';
 
@@ -55,12 +63,17 @@ function clearHighlights(): void {
 
 // ── Cycle-exhaustion content picker ──────────────────────────────────────────
 
-function getNextFromCycle(items: string[], userId: string | number, type: 'fact' | 'joke'): string {
-  const key = `tama_${type}_cycle_${userId}`;
+// Non-repeating cycle over the registry keys for a kind: shuffles the full key
+// set, returns one key per call, reshuffles once exhausted. Returns a stable key
+// (e.g. "joke_045") so the journal/favorites resolve to the active UI language.
+function getNextKeyFromCycle(kind: ContentKind, userId: string | number): string {
+  const keys = CONTENT_KEYS[kind];
+  const storeKey = `tama_${kind}_cycle_${userId}`;
   let state: { order: number[]; index: number } = { order: [], index: 0 };
-  try { state = JSON.parse(localStorage.getItem(key) ?? '{}'); } catch { /* ignore */ }
-  if (!Array.isArray(state.order) || state.index >= state.order.length) {
-    const idxs = items.map((_, i) => i);
+  try { state = JSON.parse(localStorage.getItem(storeKey) ?? '{}'); } catch { /* ignore */ }
+  // Reshuffle when missing, exhausted, or the pool size changed (content grew).
+  if (!Array.isArray(state.order) || state.order.length !== keys.length || state.index >= state.order.length) {
+    const idxs = keys.map((_, i) => i);
     for (let i = idxs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
@@ -69,8 +82,8 @@ function getNextFromCycle(items: string[], userId: string | number, type: 'fact'
   }
   const picked = state.order[state.index];
   state.index++;
-  try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* ignore */ }
-  return items[picked] ?? items[0];
+  try { localStorage.setItem(storeKey, JSON.stringify(state)); } catch { /* ignore */ }
+  return keys[picked] ?? keys[0];
 }
 
 // ── Daily discoveries (journal) ───────────────────────────────────────────────
@@ -95,27 +108,9 @@ function parseDisplayName(raw: string | undefined | null): string {
   return name;
 }
 
-export interface Discoveries { date: string; facts: string[]; jokes: string[]; }
-
-export function loadDiscoveries(userId: string | number): Discoveries {
-  const today = getTodayKey();
-  try {
-    const raw = localStorage.getItem(`tama_discoveries_${userId}`);
-    if (!raw) return { date: today, facts: [], jokes: [] };
-    const parsed = JSON.parse(raw) as Discoveries;
-    if (parsed.date !== today) return { date: today, facts: [], jokes: [] };
-    return parsed;
-  } catch { return { date: today, facts: [], jokes: [] }; }
-}
-
-function addDiscovery(userId: string | number, type: 'fact' | 'joke', content: string): void {
-  try {
-    const current = loadDiscoveries(userId);
-    const list = type === 'fact' ? current.facts : current.jokes;
-    if (!list.includes(content)) list.push(content);
-    localStorage.setItem(`tama_discoveries_${userId}`, JSON.stringify(current));
-  } catch { /* ignore */ }
-}
+// Daily-discovery + favorites persistence now lives in utils/tamaStorage.ts,
+// storing stable keyed SavedItems (language-resolved at render) instead of raw
+// localized strings — see addDiscovery import above.
 
 // ── SVG sprites ───────────────────────────────────────────────────────────────
 
@@ -262,7 +257,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const bubbleRef      = useRef<HTMLDivElement>(null);
   const rainbowTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const msgsSinceHintRef   = useRef(0);
-  const pendingJokeRef     = useRef<string | null>(null);
+  const pendingJokeRef     = useRef<SavedItem | null>(null);
   const starCooldownRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calTickRef         = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   // ── Global entity spawner: one drifting entity (cow OR calendar) at a time ──
@@ -590,15 +585,16 @@ const TamagotchiWidget: React.FC<Props> = ({
     // AI-first within a short charge window; fall back to the local pool. Computing
     // the local pick only on miss avoids burning a shuffled item when AI wins.
     const ai = await fetchBrainContent(axiosInstance, 'fact', i18n.language, { aiServiceMode, timeoutMs: 1000 });
-    const fact = ai?.text
-      ?? getNextFromCycle(t('ai.facts', { returnObjects: true }) as string[], user?.id ?? 'anon', 'fact');
+    const item: SavedItem = ai
+      ? buildItem('fact', { text: ai.text, translations: ai.translations })
+      : buildItem('fact', { key: getNextKeyFromCycle('fact', user?.id ?? 'anon') });
 
     // The user may have started another interaction during the await.
     if (modeRef.current !== 'idle') return;
 
-    addDiscovery(user?.id ?? 'anon', 'fact', fact);
+    addDiscovery(user?.id ?? 'anon', 'fact', item);
     clearTimeout(autoDismissRef.current);
-    setBubbleText(fact);
+    setBubbleText(resolveItemText(item, i18n.language));
     setFromHook(false);
     setMode('ai_bubble');
     clearTimeout(rainbowTimerRef.current);
@@ -629,12 +625,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     // pendingJokeRef if it wins; the joke is only displayed in onAnimationComplete,
     // so there is a single bubble render and zero added latency. The spawner is
     // released in onAnimationComplete via endEntity().
-    const jokesPool = t('ai.humor', { returnObjects: true }) as string[];
-    pendingJokeRef.current = getNextFromCycle(jokesPool, user?.id ?? 'anon', 'joke');
+    pendingJokeRef.current = buildItem('joke', { key: getNextKeyFromCycle('joke', user?.id ?? 'anon') });
     fetchBrainContent(axiosInstance, 'joke', i18n.language, { aiServiceMode })
-      .then(res => { if (res) pendingJokeRef.current = res.text; })
+      .then(res => { if (res) pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations }); })
       .catch(() => { /* keep local fallback */ });
-  }, [cowExiting, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
+  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
@@ -776,9 +771,10 @@ const TamagotchiWidget: React.FC<Props> = ({
               }
               onAnimationComplete={() => {
                 if (cowExiting && pendingJokeRef.current) {
+                  const jokeItem = pendingJokeRef.current;
                   clearTimeout(autoDismissRef.current);
-                  addDiscovery(user?.id ?? 'anon', 'joke', pendingJokeRef.current);
-                  setBubbleText(pendingJokeRef.current);
+                  addDiscovery(user?.id ?? 'anon', 'joke', jokeItem);
+                  setBubbleText(resolveItemText(jokeItem, i18n.language));
                   setFromHook(false);
                   setMode('ai_bubble');
                   pendingJokeRef.current = null;

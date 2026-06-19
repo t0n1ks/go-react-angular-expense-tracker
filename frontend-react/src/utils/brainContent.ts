@@ -39,7 +39,7 @@ export async function fetchBrainContent(
   category: BrainCategory,
   language: string,
   opts: { aiServiceMode?: string; timeoutMs?: number } = {},
-): Promise<{ text: string } | null> {
+): Promise<{ text: string; translations?: Record<string, string> | null } | null> {
   const { aiServiceMode, timeoutMs = 1200 } = opts;
 
   // Fast path: known-offline → skip the network entirely, use the local pool.
@@ -57,7 +57,9 @@ export async function fetchBrainContent(
     if (!data || data.type === 'NONE' || !text) return null;
     // Strict categorization: only accept content of the exact requested type.
     if (data.type !== CATEGORY_TYPE[category]) return null;
-    return { text };
+    // Pass through all-language translations so the journal/favorites can
+    // re-render the item when the UI language changes.
+    return { text, translations: data.all_translations ?? null };
   } catch {
     // Timeout, network error, abort — caller falls back to its local pool.
     return null;

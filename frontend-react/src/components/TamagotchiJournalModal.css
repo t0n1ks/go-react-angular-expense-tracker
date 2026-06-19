@@ -146,6 +146,99 @@
   border-left-color: rgba(251, 191, 36, 0.4);
 }
 
+/* ── Tabs (Discoveries / Favorites) ─────────────────────────────────────── */
+.tama-journal-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+  background: var(--color-bg-input, rgba(148, 163, 184, 0.1));
+  border-radius: 0.85rem;
+  padding: 0.3rem;
+  flex-shrink: 0;
+}
+
+.tama-journal-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tama-journal-tab:hover {
+  color: var(--color-text-heading);
+}
+
+.tama-journal-tab--active {
+  background: var(--color-bg-card);
+  color: var(--color-text-heading);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.tama-journal-tab-star {
+  color: #fbbf24;
+}
+
+.tama-journal-tab-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(251, 191, 36, 0.18);
+  color: #f59e0b;
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  line-height: 1.4;
+}
+
+/* ── Item row with favorite toggle ──────────────────────────────────────── */
+.tama-journal-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tama-journal-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tama-fav-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+}
+
+.tama-fav-btn:hover {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  transform: scale(1.12);
+}
+
+.tama-fav-btn:active {
+  transform: scale(0.92);
+}
+
+.tama-fav-btn--active {
+  color: #fbbf24;
+}
+
 @media (max-width: 380px) {
   .tama-journal-card {
     padding: 1.5rem 1.25rem 2rem;
