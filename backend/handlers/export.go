@@ -165,6 +165,22 @@ func pdfDrawMonthSubHeader(pdf *fpdf.Fpdf, label string) {
 //   - Current font is 9 pt (so CellFormat uses the right metrics).
 //   - descLines is non-empty (at least one []byte element).
 //   - The caller has already handled the page break.
+// txDirection maps a transaction type to its export display label and whether
+// it is an inflow (income-like → green). Deposits to the savings pool are
+// inflows; withdrawals are outflows. This must check the explicit type rather
+// than assume the whole savings-pool category is an expense — otherwise a
+// positive top-up (savings_deposit) is mislabeled "Expense".
+func txDirection(t string) (label string, isIncome bool) {
+	switch t {
+	case "income", "savings_deposit":
+		return "Income", true
+	case "savings_withdrawal":
+		return "Expense", false
+	default: // "expense" and anything unknown
+		return "Expense", false
+	}
+}
+
 func pdfDrawDataRow(pdf *fpdf.Fpdf, date, cat, amt, txTypeLabel string, isIncome bool, fill bool, descLines [][]byte) {
 	nLines := len(descLines)
 	rowH := float64(nLines) * pdfLineH
@@ -334,10 +350,7 @@ func ExportTransactionsPDF(c *gin.Context) {
 			if cat == "" {
 				cat = "—"
 			}
-			typeLabel := "Expense"
-			if tx.Type == "income" {
-				typeLabel = "Income"
-			}
+			typeLabel, isIncome := txDirection(tx.Type)
 
 			pdfDrawDataRow(
 				pdf,
@@ -345,7 +358,7 @@ func ExportTransactionsPDF(c *gin.Context) {
 				cat,
 				fmt.Sprintf("%s%.2f", sym, tx.Amount),
 				typeLabel,
-				tx.Type == "income",
+				isIncome,
 				altRow,
 				descLines,
 			)

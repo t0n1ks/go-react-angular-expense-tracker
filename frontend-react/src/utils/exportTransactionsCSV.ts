@@ -2,7 +2,7 @@ interface ExportTransaction {
   date: string;
   category: { name: string };
   amount: number;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   description: string;
 }
 
@@ -45,7 +45,14 @@ export function exportTransactionsCSV(
       escapeField(dateStr),
       escapeField(tx.category?.name ?? ''),
       String(tx.amount),
-      escapeField(tx.type === 'expense' ? labels.expense : labels.income),
+      // Direction-aware: a savings_deposit is an inflow (Income), a
+      // savings_withdrawal is an outflow (Expense) — never label the whole
+      // savings pool the same way.
+      escapeField(
+        tx.type === 'income' || tx.type === 'savings_deposit'
+          ? labels.income
+          : labels.expense,
+      ),
       escapeField(tx.description ?? ''),
     ].join(',');
   });

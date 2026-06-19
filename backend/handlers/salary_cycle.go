@@ -234,6 +234,18 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 	currentWeekTo := currentWeekFrom.AddDate(0, 0, 7)
 	currentWeekSpent := sumVariableInRange(txs, cycle.FixedExpCategoryID, cycle.SavedMoneyCategoryID, currentWeekFrom, currentWeekTo)
 	currentWeekAllowance := baseWeekly + rollover
+
+	// Hard ceiling: the week's allowance can never authorise spending more,
+	// across the rest of the cycle, than the cycle's remaining variable balance.
+	// Without this, accumulated rollover/surplus (amplified when a manual income
+	// recomputes baseWeekly retroactively) lets "can spend this week" exceed the
+	// total left in the cycle — a mathematically impossible figure. Cap so that
+	// (allowance - currentWeekSpent) <= remaining cycle balance.
+	cycleRemaining := variableAllowance - variableExp
+	maxAllowance := cycleRemaining + currentWeekSpent
+	if currentWeekAllowance > maxAllowance {
+		currentWeekAllowance = maxAllowance
+	}
 	if currentWeekAllowance < 0 {
 		currentWeekAllowance = 0
 	}

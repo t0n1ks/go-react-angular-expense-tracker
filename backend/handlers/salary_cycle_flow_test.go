@@ -125,3 +125,85 @@ func TestStartCycleThenSavings_AfterHeal(t *testing.T) {
 	}
 	t.Logf("AddSavingsManual OK: %s", w2.Body.String())
 }
+
+// TestWeeklyAllowanceNeverExceedsCycleRemaining reproduces the live "impossible
+// numbers" bug: late in a 30-day cycle (week 4) with little early spending, the
+// accumulated rollover inflates baseWeekly+rollover so the weekly allowance
+// would let the user spend more, across the rest of the cycle, than the cycle's
+// remaining variable balance. The fix caps it so:
+//
+//	(current_week_allowance - current_week_spent) <= cycle remaining balance.
+//
+// Without the cap this test fails (allowance ≈ €933, net available ≈ €833 vs a
+// €700 cycle remaining). With it, net available == cycle remaining.
+func TestWeeklyAllowanceNeverExceedsCycleRemaining(t *testing.T) {
+	setupFlowDB(t)
+
+	user := models.User{Username: "bob", Password: "x"}
+	if err := database.DB.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	now := time.Now()
+	cycleStart := now.AddDate(0, 0, -29) // day 29 → week index 4
+	payday := cycleStart.AddDate(0, 0, 30)
+	cycle := models.SalaryCycle{
+		UserID:       user.ID,
+		BaseSalary:   1000,
+		TotalIncome:  1000,
+		NeedsPct:     50,
+		WantsPct:     30,
+		SavingsPct:   20, // variableAllowance = 1000 - 200 = 800
+		CycleStartAt: cycleStart,
+		NextPaydayAt: &payday, // daysTotal = 30
+		CreatedAt:    cycleStart,
+		UpdatedAt:    cycleStart,
+	}
+	if err := database.DB.Create(&cycle).Error; err != nil {
+		t.Fatalf("create cycle: %v", err)
+	}
+
+	incomeCat := models.Category{UserID: user.ID, Name: "Income"}
+	expenseCat := models.Category{UserID: user.ID, Name: "Groceries"}
+	database.DB.Create(&incomeCat)
+	database.DB.Create(&expenseCat)
+
+	// Salary at cycle start → variableAllowance = 800.
+	database.DB.Create(&models.Transaction{
+		UserID: user.ID, CategoryID: incomeCat.ID, Amount: 1000,
+		Description: "Salary", Date: cycleStart, Type: "income",
+		CreatedAt: cycleStart.Add(time.Millisecond), UpdatedAt: cycleStart,
+	})
+	// Weeks 0-3: no variable spending → full surplus rolls forward.
+	// Only the current week (week 4) has a €100 expense.
+	database.DB.Create(&models.Transaction{
+		UserID: user.ID, CategoryID: expenseCat.ID, Amount: 100,
+		Description: "Today's groceries", Date: now, Type: "expense",
+		CreatedAt: now, UpdatedAt: now,
+	})
+
+	stats := computeCycleStats(user.ID, cycle)
+
+	cycleRemaining := stats.VariableAllowance - stats.CycleVariableExpenses
+	netAvailable := stats.CurrentWeekAllowance - stats.CurrentWeekSpent
+
+	t.Logf("variableAllowance=%.2f variableExp=%.2f cycleRemaining=%.2f rollover=%.2f baseWeekly=%.2f weekAllowance=%.2f weekSpent=%.2f netAvailable=%.2f",
+		stats.VariableAllowance, stats.CycleVariableExpenses, cycleRemaining,
+		stats.Rollover, stats.BaseWeeklyAllowance, stats.CurrentWeekAllowance,
+		stats.CurrentWeekSpent, netAvailable)
+
+	if netAvailable > cycleRemaining+0.01 {
+		t.Errorf("weekly available exceeds cycle remaining: net available %.2f > cycle remaining %.2f",
+			netAvailable, cycleRemaining)
+	}
+	// The allowance itself must never exceed the full variable budget either.
+	if stats.CurrentWeekAllowance > stats.VariableAllowance+0.01 {
+		t.Errorf("week allowance %.2f exceeds variable allowance %.2f",
+			stats.CurrentWeekAllowance, stats.VariableAllowance)
+	}
+	// Sanity: there is still a cycle balance left, so the cap shouldn't have
+	// zeroed the allowance — the user can still spend the remainder this week.
+	if stats.CurrentWeekAllowance <= 0 {
+		t.Errorf("expected a positive capped allowance, got %.2f", stats.CurrentWeekAllowance)
+	}
+}
