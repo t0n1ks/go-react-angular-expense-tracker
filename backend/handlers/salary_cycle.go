@@ -394,7 +394,25 @@ func StartSalaryCycle(c *gin.Context) {
 		Find(&allUserCycles)
 
 	for i := range allUserCycles {
-		if isDateInCycleWindow(targetDate, allUserCycles[i]) {
+		if !isDateInCycleWindow(targetDate, allUserCycles[i]) {
+			continue
+		}
+		// An OPEN-ENDED cycle (next_payday_at == nil) covers every date from its
+		// start onwards, so a user who returns after a gap and deliberately starts
+		// a new cycle would otherwise be silently handed back that stale cycle —
+		// whose start could be months ago. Every cycle-scoped view (the category
+		// donut, weekly allowance, forecast) would then reach all the way back to
+		// the old start, effectively showing all-time data instead of the new
+		// cycle. When the new start is strictly AFTER an open-ended cycle's start,
+		// treat it as the beginning of a genuinely new period: fall through to
+		// create the new cycle (the old open-ended cycle is closed below). A
+		// same-day resubmit (targetDate == start) still returns the existing cycle,
+		// preserving idempotency.
+		if allUserCycles[i].NextPaydayAt == nil &&
+			targetDate.After(toDateOnly(allUserCycles[i].CycleStartAt)) {
+			continue
+		}
+		{
 			existing := allUserCycles[i]
 			log.Printf("start salary cycle: user=%v date=%v already covered by cycle id=%v (start=%v) — returning existing",
 				uid, targetDate.Format("2006-01-02"), existing.ID,
@@ -433,6 +451,19 @@ func StartSalaryCycle(c *gin.Context) {
 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&cycle).Error; err != nil {
+			return err
+		}
+
+		// Close any still-open-ended prior cycle so the newly created cycle is the
+		// sole one covering today. GetCurrentSalaryCycle returns the EARLIEST
+		// covering cycle, so without this the old open-ended cycle (start < new
+		// start, end = ∞) would keep being served as "current" and cycle-scoped
+		// views would show all-time data. Bound it to the day BEFORE the new start
+		// so the two windows never overlap on the boundary day.
+		closeAt := toDateOnly(cycleStart).AddDate(0, 0, -1)
+		if err := tx.Model(&models.SalaryCycle{}).
+			Where("user_id = ? AND next_payday_at IS NULL AND cycle_start_at < ?", uid, cycleStart).
+			Update("next_payday_at", closeAt).Error; err != nil {
 			return err
 		}
 
