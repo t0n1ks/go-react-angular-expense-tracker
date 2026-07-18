@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
+import { resolveCategoryWindow, isInWindow } from "../utils/categoryWindow";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -96,27 +97,24 @@ const Statistics: React.FC = () => {
     fetchAnalysis();
   }, [fetchData, fetchAnalysis]);
 
-  // Donut is strictly scoped to the active salary cycle (mirrors the dashboard's
-  // cycle window: [cycle_start_at, next_payday_at]). Cycle-less users fall back
-  // to all-time so the chart is never empty for them.
+  // Donut is scoped to the active salary-cycle window [cycle_start_at,
+  // next_payday_at]. resolveCategoryWindow validates that window and, for
+  // cycle-less or mis-dated users, falls back to the current calendar month
+  // (the same default the forecaster uses) — never to all-time.
   const categoryData = useMemo(() => {
-    const cycleStart =
-      hasActiveCycle && currentCycle ? new Date(currentCycle.cycle_start_at) : null;
-    const cycleEnd =
-      hasActiveCycle && currentCycle?.next_payday_at
-        ? new Date(currentCycle.next_payday_at)
-        : null;
-    const inCurrentCycle = (t: Transaction) => {
-      if (!cycleStart) return true; // no active cycle → all-time fallback
-      const ev = new Date(t.created_at ?? t.date);
-      if (ev < cycleStart) return false;
-      if (cycleEnd && ev > cycleEnd) return false;
-      return true;
-    };
+    const catWindow = resolveCategoryWindow({
+      hasActiveCycle,
+      cycleStartAt: currentCycle?.cycle_start_at,
+      nextPaydayAt: currentCycle?.next_payday_at,
+      now: new Date(),
+    });
 
     const map: Record<string, number> = {};
     transactions
-      .filter((t) => t.type === "expense" && inCurrentCycle(t))
+      .filter(
+        (t) =>
+          t.type === "expense" && isInWindow(new Date(t.created_at ?? t.date), catWindow),
+      )
       .forEach((t) => {
         const name = t.category?.name || "—";
         map[name] = (map[name] || 0) + Math.abs(Number(t.amount));
