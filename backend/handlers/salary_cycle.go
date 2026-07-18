@@ -860,6 +860,60 @@ func UpdateCycleNextPayday(c *gin.Context) {
 	})
 }
 
+// ── StopSalaryCycle ────────────────────────────────────────────────────────
+// POST /api/salary-cycle/stop
+// Soft-stops the currently active salary cycle (e.g. job loss). The cycle row,
+// its transactions, and the savings-pool history are ALL preserved — only the
+// active state flips (StoppedAt is set), so the user falls back to the no-salary
+// monthly budget and can start a fresh cycle later. No-op when nothing is active.
+func StopSalaryCycle(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	var cycles []models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at ASC").Find(&cycles).Error; err != nil {
+		log.Printf("stop cycle: user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
+		return
+	}
+
+	today := toDateOnly(time.Now())
+	var active *models.SalaryCycle
+	for i := range cycles {
+		if isDateInCycleWindow(today, cycles[i]) { // already excludes stopped cycles
+			active = &cycles[i]
+			break
+		}
+	}
+	if active == nil {
+		// Idempotent: nothing to stop.
+		c.JSON(http.StatusOK, gin.H{
+			"message": "No active salary cycle to stop", "stopped": false, "has_active_cycle": false,
+		})
+		return
+	}
+
+	now := time.Now()
+	if err := database.DB.Model(active).Update("stopped_at", now).Error; err != nil {
+		log.Printf("stop cycle: update user=%v cycle=%v err=%v", uid, active.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to stop cycle"})
+		return
+	}
+	InvalidateCycleCache(uid)
+	log.Printf("stop cycle: user=%v stopped cycle id=%v (start=%v)",
+		uid, active.ID, toDateOnly(active.CycleStartAt).Format("2006-01-02"))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Salary cycle stopped", "stopped": true,
+		"cycle_id": active.ID, "has_active_cycle": false,
+	})
+}
+
 // ── GetSalaryCycleHistory ─────────────────────────────────────────────────────
 
 func GetSalaryCycleHistory(c *gin.Context) {
@@ -1143,7 +1197,13 @@ func toDateOnly(t time.Time) time.Time {
 // isDateInCycleWindow reports whether date (should already be midnight UTC via
 // toDateOnly) falls in the inclusive range [CycleStartAt, NextPaydayAt].
 // An open-ended cycle (NextPaydayAt == nil) covers every date ≥ start.
+// A soft-stopped cycle is never active, so it covers no date — this is the single
+// point that makes stopped cycles inactive for the current-cycle lookup,
+// findActiveCycle, and the start-overlap guard alike.
 func isDateInCycleWindow(date time.Time, cycle models.SalaryCycle) bool {
+	if cycle.StoppedAt != nil {
+		return false
+	}
 	start := toDateOnly(cycle.CycleStartAt)
 	if date.Before(start) {
 		return false

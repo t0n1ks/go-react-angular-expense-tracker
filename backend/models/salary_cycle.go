@@ -25,6 +25,10 @@ type SalaryCycle struct {
 	SavedMoneyCategoryID  uint         `json:"saved_money_category_id"  gorm:"default:0"`
 	CycleStartAt    time.Time      `json:"cycle_start_at" gorm:"not null"`
 	NextPaydayAt    *time.Time     `json:"next_payday_at"`
+	// StoppedAt marks a soft-stopped cycle (e.g. job loss). A stopped cycle is
+	// never "active" — the user falls back to the no-salary monthly budget — but
+	// the row and all its history are preserved. nil = not stopped.
+	StoppedAt       *time.Time     `json:"stopped_at"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	FixedExpenses   []FixedExpense `json:"fixed_expenses" gorm:"foreignKey:SalaryCycleID"`
