@@ -59,6 +59,11 @@ yarn-error.log*
 
 # Build output for frontend projects
 /frontend-react/dist/
+
+# SQLite databases — contain real user data, never commit (generic + explicit)
+*.db
+*.sqlite
+*.sqlite3
 backend/expenses.db
 backend/test_expenses.db
 backend/tmp/
