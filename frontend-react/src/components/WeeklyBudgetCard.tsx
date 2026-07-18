@@ -4,6 +4,7 @@ import { CalendarDays, TrendingUp, TrendingDown, Info, Pencil } from 'lucide-rea
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { computeLegacyWeeklyAllowance, clampCanSpend } from '../utils/budgetMath';
 
 interface Transaction {
   id: number;
@@ -111,10 +112,16 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const daysRemainingLegacy = nextPayday
     ? Math.max(1, Math.ceil((nextPayday.getTime() - today.getTime()) / 86_400_000))
     : 30;
+  // Even-pace one-week share of the REMAINING budget, hard-bounded by what's
+  // actually left (see computeLegacyWeeklyAllowance). Replaces the old
+  // ÷(daysRemaining/7) formula that multiplied the remainder by up to 7×.
   const weeklyAllowanceLegacy = !hasCycle && nextPayday
-    ? Math.max(0, (monthlyBudget - legacySpentSincePayday) / (daysRemainingLegacy / 7))
+    ? computeLegacyWeeklyAllowance({
+        monthlyBudget,
+        spentSincePayday: legacySpentSincePayday,
+        daysRemaining: daysRemainingLegacy,
+      })
     : 0;
-  const baseLimitPerWeek = monthlyBudget / 4.3;
 
   const currentWeekStartStr = toLocalDateStr((() => {
     const d = new Date(today);
@@ -123,7 +130,9 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     d.setHours(0, 0, 0, 0);
     return d;
   })());
-  const lockKey = `weekly_lock_${user?.id ?? 'anon'}`;
+  // v2: versioned key so any stale v1 lock holding a pre-fix inflated allowance
+  // is abandoned (never read) on first load of the fixed build.
+  const lockKey = `weekly_lock_v2_${user?.id ?? 'anon'}`;
   let lockedAllowanceLegacy = 0;
   if (!hasCycle && nextPayday) {
     try {
@@ -144,7 +153,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
       lockedAllowanceLegacy = Math.max(0, weeklyAllowanceLegacy);
     }
   }
-  const savingsBonusLegacy = Math.max(0, lockedAllowanceLegacy - baseLimitPerWeek);
 
   const weekStart = (() => {
     const d = new Date(today);
@@ -170,7 +178,11 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     ? (cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget)
     : monthlyBudget;
   const displaySpentSincePayday = hasCycle ? cycleStats!.cycle_variable_expenses : legacySpentSincePayday;
-  const displayCanSpend = hasCycle ? cycleStats!.current_week_allowance : lockedAllowanceLegacy;
+  // Guardrail: even a persisted weekly lock can never authorise spending more
+  // than the budget still remaining in the period.
+  const displayCanSpend = hasCycle
+    ? cycleStats!.current_week_allowance
+    : clampCanSpend(lockedAllowanceLegacy, monthlyBudget, legacySpentSincePayday);
   const displayThisWeek = hasCycle ? cycleStats!.current_week_spent : weekSpentLegacy;
   const daysRemaining = hasCycle ? cycleStats!.days_remaining : daysRemainingLegacy;
   const showCard = hasCycle || nextPayday !== null;
@@ -336,12 +348,6 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
                   <Info size={14} />
                 </button>
               </div>
-
-              {!hasCycle && savingsBonusLegacy > 0.01 && (
-                <span className="weekly-budget-bonus-label">
-                  +{formatAmount(savingsBonusLegacy)} ({t('dashboard.weekly_savings_bonus')})
-                </span>
-              )}
 
               <AnimatePresence>
                 {showInsight && (
