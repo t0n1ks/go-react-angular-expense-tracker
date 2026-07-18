@@ -205,46 +205,51 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* Lite mode — track-only. Offered only to users without a salary cycle. */}
-      {!hasActiveCycle && (
-        <div className="settings-card">
-          <div className="settings-lite-header">
-            <h2 className="settings-card-title">{t('settings.lite_title')}</h2>
-            <div className="settings-lite-info-wrap" ref={liteInfoRef}>
-              <button
-                className="settings-lite-info-btn"
-                onClick={() => setShowLiteInfo(v => !v)}
-                aria-label={t('settings.lite_title')}
-                type="button"
-              >
-                <Info size={15} />
-              </button>
-              {showLiteInfo && (
-                <div className="settings-lite-info-popover">
-                  {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="settings-toggle-row">
-            <div className="settings-toggle-text">
-              <p className="toggle-label">{t('settings.lite_label')}</p>
-              <p className="toggle-desc">{t('settings.lite_desc')}</p>
-            </div>
-            <label className="toggle-switch">
-              <input
-                type="checkbox"
-                checked={local.liteMode}
-                onChange={e => setLocal(prev => ({ ...prev, liteMode: e.target.checked }))}
-              />
-              <span className="toggle-slider" />
-            </label>
+      {/* Lite mode — track-only. Shown always; disabled while a salary cycle is
+          active (stop the cycle to enable it). The info tooltip stays available
+          in both states. */}
+      <div className="settings-card">
+        <div className="settings-lite-header">
+          <h2 className="settings-card-title">{t('settings.lite_title')}</h2>
+          <div className="settings-lite-info-wrap" ref={liteInfoRef}>
+            <button
+              className="settings-lite-info-btn"
+              onClick={() => setShowLiteInfo(v => !v)}
+              aria-label={t('settings.lite_title')}
+              type="button"
+            >
+              <Info size={15} />
+            </button>
+            {showLiteInfo && (
+              <div className="settings-lite-info-popover">
+                {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        <div className={`settings-toggle-row${hasActiveCycle ? ' settings-toggle-row--disabled' : ''}`}>
+          <div className="settings-toggle-text">
+            <p className="toggle-label">{t('settings.lite_label')}</p>
+            <p className="toggle-desc">{t('settings.lite_desc')}</p>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={local.liteMode}
+              disabled={hasActiveCycle}
+              onChange={e => setLocal(prev => ({ ...prev, liteMode: e.target.checked }))}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        {hasActiveCycle && (
+          <p className="settings-lite-locked-hint">{t('settings.lite_locked_hint')}</p>
+        )}
+      </div>
 
       {/* Save */}
       <div className="settings-save-row">

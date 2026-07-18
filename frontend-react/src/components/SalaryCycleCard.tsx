@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X } from 'lucide-react';
+import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X, Ban } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import './SalaryCycleCard.css';
@@ -48,11 +48,28 @@ const todayDateStr = () => new Date().toISOString().slice(0, 10);
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const { t, i18n } = useTranslation();
   const { axiosInstance } = useAuth();
-  const { currentCycle, refreshCycle, formatAmount } = useSettings();
+  const { currentCycle, hasActiveCycle, refreshCycle, formatAmount } = useSettings();
 
   const today = todayDateStr();
 
   const [expanded, setExpanded] = useState(!currentCycle);
+  const [confirmStop, setConfirmStop] = useState(false);
+  const [stopping, setStopping] = useState(false);
+
+  // Soft-stop the active cycle (job loss). History is preserved; the user falls
+  // back to the no-salary monthly budget and can start a new cycle later.
+  const handleStop = async () => {
+    setStopping(true);
+    try {
+      await axiosInstance.post('/salary-cycle/stop');
+      await refreshCycle();
+      setConfirmStop(false);
+    } catch {
+      // leave the dialog open on failure
+    } finally {
+      setStopping(false);
+    }
+  };
 
   // When the active cycle is deleted (currentCycle → null), automatically
   // expand the form so the user can immediately start a new cycle.
@@ -204,6 +221,19 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
+
+      {/* Soft-stop control — only when a cycle is actually active. */}
+      {hasActiveCycle && (
+        <div className="sc-active-actions">
+          <button
+            type="button"
+            className="sc-stop-btn"
+            onClick={() => setConfirmStop(true)}
+          >
+            <Ban size={14} /> {t('salary_cycle.stop_btn')}
+          </button>
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {expanded && (
@@ -449,6 +479,51 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
             </button>
           </div>
           <p className="sc-tip-modal-body">{tipContent}</p>
+        </div>
+      </div>
+    )}
+
+    {/* ── Stop-cycle confirm (reversible, non-destructive) ──────────────── */}
+    {confirmStop && (
+      <div
+        className="sc-tip-overlay"
+        onClick={() => !stopping && setConfirmStop(false)}
+        role="dialog"
+        aria-modal
+      >
+        <div className="sc-tip-modal" onClick={e => e.stopPropagation()}>
+          <div className="sc-tip-modal-header">
+            <Ban size={16} className="sc-tip-modal-icon" />
+            <span className="sc-tip-modal-title">{t('salary_cycle.stop_confirm_title')}</span>
+            <button
+              type="button"
+              className="sc-tip-modal-close"
+              onClick={() => setConfirmStop(false)}
+              disabled={stopping}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="sc-tip-modal-body">{t('salary_cycle.stop_confirm_body')}</p>
+          <div className="sc-stop-confirm-actions">
+            <button
+              type="button"
+              className="sc-stop-cancel"
+              onClick={() => setConfirmStop(false)}
+              disabled={stopping}
+            >
+              {t('salary_cycle.stop_cancel')}
+            </button>
+            <button
+              type="button"
+              className="sc-stop-confirm"
+              onClick={handleStop}
+              disabled={stopping}
+            >
+              {stopping ? '…' : t('salary_cycle.stop_confirm_btn')}
+            </button>
+          </div>
         </div>
       </div>
     )}

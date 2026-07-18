@@ -79,6 +79,20 @@
     color: var(--color-text-heading);
 }
 
+/* Disabled Lite toggle (while a salary cycle is active) + its hint */
+.settings-toggle-row--disabled {
+    opacity: 0.55;
+}
+.settings-toggle-row--disabled .toggle-switch {
+    cursor: not-allowed;
+}
+.settings-lite-locked-hint {
+    margin: 0.6rem 0 0 0;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
 /* Currency selector */
 .currency-selector {
     display: flex;
