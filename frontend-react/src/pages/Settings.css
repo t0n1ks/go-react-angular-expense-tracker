@@ -28,8 +28,11 @@
     margin: 0 0 1.25rem 0;
 }
 
-/* Lite-mode header with info tooltip */
+/* Lite-mode header with info tooltip.
+   The header is the positioning context so the popover can span the card's
+   content width (left:0/right:0) and never clip off-screen on mobile/iOS. */
 .settings-lite-header {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -37,10 +40,6 @@
 }
 .settings-lite-header .settings-card-title {
     margin: 0;
-}
-.settings-lite-info-wrap {
-    position: relative;
-    display: inline-flex;
 }
 .settings-lite-info-btn {
     display: inline-flex;
@@ -59,14 +58,21 @@
 .settings-lite-info-popover {
     position: absolute;
     top: calc(100% + 8px);
+    /* Span the header (card content) width so it can never overflow the
+       viewport; capped on wide screens and left-aligned. */
     left: 0;
+    right: 0;
     z-index: 20;
-    width: min(320px, 78vw);
+    max-width: 420px;
     padding: 0.75rem 0.9rem;
+    /* Respect iOS notch / rounded-corner safe areas. */
+    padding-left: max(0.9rem, env(safe-area-inset-left));
+    padding-right: max(0.9rem, env(safe-area-inset-right));
     background: var(--color-bg-card);
     border: 1px solid var(--color-border-card);
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    overflow-wrap: break-word;
 }
 .settings-lite-info-popover p {
     font-size: 0.8rem;

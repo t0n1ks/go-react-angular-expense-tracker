@@ -19,6 +19,13 @@
     gap: 2rem;
 }
 
+/* Lite mode shows only the category donut — constrain it to a normal card width
+   (left-aligned) instead of letting the single item stretch across the full
+   grid, which left an awkward gap / oversized chart. */
+.charts-layout--lite {
+    grid-template-columns: minmax(0, 560px);
+}
+
 .stat-chart-card {
     background: var(--color-bg-card);
     border-radius: 1.5rem;

@@ -333,7 +333,7 @@ const Statistics: React.FC = () => {
     <div className="statistics-wrapper">
       <h1 className="statistics-title">{t("statistics.title")}</h1>
 
-      <div className="charts-layout">
+      <div className={`charts-layout${liteMode ? " charts-layout--lite" : ""}`}>
         <div className="stat-chart-card">
           <h2>
             <PieIcon size={22} color="#6366f1" /> {t("statistics.expenses_by_cat")}

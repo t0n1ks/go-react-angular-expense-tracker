@@ -209,25 +209,23 @@ const Settings: React.FC = () => {
           active (stop the cycle to enable it). The info tooltip stays available
           in both states. */}
       <div className="settings-card">
-        <div className="settings-lite-header">
+        <div className="settings-lite-header" ref={liteInfoRef}>
           <h2 className="settings-card-title">{t('settings.lite_title')}</h2>
-          <div className="settings-lite-info-wrap" ref={liteInfoRef}>
-            <button
-              className="settings-lite-info-btn"
-              onClick={() => setShowLiteInfo(v => !v)}
-              aria-label={t('settings.lite_title')}
-              type="button"
-            >
-              <Info size={15} />
-            </button>
-            {showLiteInfo && (
-              <div className="settings-lite-info-popover">
-                {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-              </div>
-            )}
-          </div>
+          <button
+            className="settings-lite-info-btn"
+            onClick={() => setShowLiteInfo(v => !v)}
+            aria-label={t('settings.lite_title')}
+            type="button"
+          >
+            <Info size={15} />
+          </button>
+          {showLiteInfo && (
+            <div className="settings-lite-info-popover">
+              {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={`settings-toggle-row${hasActiveCycle ? ' settings-toggle-row--disabled' : ''}`}>
