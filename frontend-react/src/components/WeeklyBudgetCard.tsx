@@ -394,9 +394,12 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
               )}
             </div>
 
-            {/* Row 2: Variable expenses only since cycle start */}
+            {/* Row 2: variable spend so far. No-salary users have no payday, so
+                the window is the calendar month → "Spent this month". */}
             <div className="weekly-budget-stat">
-              <span className="weekly-budget-stat-label">{t('dashboard.weekly_spent_since')}</span>
+              <span className="weekly-budget-stat-label">
+                {t(hasServerBudget ? 'dashboard.weekly_spent_month' : 'dashboard.weekly_spent_since')}
+              </span>
               <span
                 className="weekly-budget-stat-value"
                 style={{ color: displaySpentSincePayday > displayLimit ? '#ef4444' : 'var(--color-text-heading)' }}
@@ -549,7 +552,9 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
         </div>
       )}
 
-      {/* Footer: next payday display / inline edit */}
+      {/* Footer: next payday display / inline edit. Hidden for no-salary users —
+          they have no payday, so there is no row (and no empty space) to show. */}
+      {!hasServerBudget && (
       <div className="weekly-budget-footer">
         {editingPayday ? (
           <div className="weekly-budget-payday-form">
@@ -611,6 +616,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
           )
         )}
       </div>
+      )}
     </div>
   );
 };
