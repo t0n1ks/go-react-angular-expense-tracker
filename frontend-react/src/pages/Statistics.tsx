@@ -45,7 +45,7 @@ const TIMELINE_PERIODS = [
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -94,8 +94,9 @@ const Statistics: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    fetchAnalysis();
-  }, [fetchData, fetchAnalysis]);
+    // Lite mode hides all analytics below the donut and must not request them.
+    if (!liteMode) fetchAnalysis();
+  }, [fetchData, fetchAnalysis, liteMode]);
 
   // Donut is scoped to the active salary-cycle window [cycle_start_at,
   // next_payday_at]. resolveCategoryWindow validates that window and, for
@@ -344,6 +345,7 @@ const Statistics: React.FC = () => {
           )}
         </div>
 
+        {!liteMode && (
         <div className="stat-chart-card">
           <div className="stat-chart-head">
             <h2>
@@ -433,8 +435,10 @@ const Statistics: React.FC = () => {
             </div>
           )}
         </div>
+        )}
       </div>
 
+      {!liteMode && (
       <div className="forecast-row">
         {analysis && (
           <ForecastCard
@@ -491,7 +495,9 @@ const Statistics: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
+      {!liteMode && (
       <ForecastDetailModal
         open={forecastOpen}
         predictedBalance={displayedPredictedBalance}
@@ -502,6 +508,7 @@ const Statistics: React.FC = () => {
         periodLabel={periodLabel}
         onClose={() => setForecastOpen(false)}
       />
+      )}
     </div>
   );
 };

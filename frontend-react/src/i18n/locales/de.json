@@ -252,6 +252,15 @@
     "ai_advice_desc": "Datengestützte Tipps basierend auf deinen Ausgaben",
     "ai_humor": "Humor & Interaktion aktivieren",
     "ai_humor_desc": "Erhalte Witze und Fakten bei Inaktivität",
+    "lite_title": "Lite-Modus",
+    "lite_label": "Nur-Tracking-Modus",
+    "lite_desc": "Nur Ausgaben gegen ein Monatslimit verfolgen — Gehaltszyklus und Analysen ausblenden.",
+    "lite_info": [
+      "Der Lite-Modus ist für alle, die einfach nur ihre Ausgaben gegen ein Monatslimit verfolgen möchten.",
+      "Wenn aktiv, sind ausgeblendet: die Gehaltszyklus-Karte, der Sparpool, die 50/30/20-Aufteilung, Prognosen und die Analysen unter dem Kategorie-Donut.",
+      "Erhalten bleiben: deine Transaktionen, Kategorien, der Ausgaben-nach-Kategorie-Donut sowie UFO-Witze & -Fakten.",
+      "Nichts wird gelöscht — beim Ausschalten des Lite-Modus kehrt alles genau wie zuvor zurück."
+    ],
     "goals_title": "Finanzziele",
     "monthly_goal": "Monatliches Ausgabenziel",
     "monthly_goal_ph": "z.B. 2000",

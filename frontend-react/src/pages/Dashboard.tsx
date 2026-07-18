@@ -34,6 +34,7 @@ const Dashboard: React.FC = () => {
     currentCycle,
     cycleStats: serverCycleStats,
     refreshCycle,
+    liteMode,
   } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -171,9 +172,13 @@ const Dashboard: React.FC = () => {
     <div className="dashboard-wrapper">
       <h1 className="dashboard-title">{t('dashboard.title')}</h1>
 
-      <SalaryCycleCard onCycleStarted={handleCycleStarted} />
+      {/* Lite mode hides all salary-cycle / analytics cards; only the budget
+          card (and the UFO's jokes/facts) remain. Nothing is removed — turning
+          Lite off restores everything. */}
+      {!liteMode && <SalaryCycleCard onCycleStarted={handleCycleStarted} />}
 
       {/* ── Stats grid ───────────────────────────────────────────────────── */}
+      {!liteMode && (
       <div className="stats-grid">
 
         {/* Card 1: Variable Allowance (formerly "Current Balance") */}
@@ -299,6 +304,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Savings Forecast relocated to the Statistics/Analytics section to
           de-duplicate the dashboard (see Statistics.tsx → savings-forecast-card). */}

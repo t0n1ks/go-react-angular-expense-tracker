@@ -252,6 +252,15 @@
     "ai_advice_desc": "Get data-driven tips based on your spending patterns",
     "ai_humor": "Enable Humor & Interaction",
     "ai_humor_desc": "Receive fun facts and jokes when idle",
+    "lite_title": "Lite mode",
+    "lite_label": "Track-only mode",
+    "lite_desc": "Just track spending against a monthly limit — hide the salary-cycle and analytics features.",
+    "lite_info": [
+      "Lite mode is for people who just want to track spending against a monthly limit.",
+      "When on, these are hidden: the salary-cycle card, savings pool, 50/30/20 breakdown, forecasts, and the analytics below the category donut.",
+      "What stays: your transactions, categories, the Expenses-by-category donut, and UFO jokes & facts.",
+      "Nothing is deleted — turning Lite off restores everything exactly as before."
+    ],
     "goals_title": "Financial Goals",
     "monthly_goal": "Monthly Spending Goal",
     "monthly_goal_ph": "e.g. 2000",

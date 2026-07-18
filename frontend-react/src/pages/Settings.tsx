@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check, LogOut, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, Check, LogOut, Trash2, Info } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import './Settings.css';
@@ -34,6 +34,8 @@ const Settings: React.FC = () => {
     manualNextPayday,
     heartsCount,
     reputationScore,
+    liteMode,
+    hasActiveCycle,
     saveSettings,
   } = useSettings();
 
@@ -48,7 +50,10 @@ const Settings: React.FC = () => {
     manualNextPayday,
     heartsCount,
     reputationScore,
+    liteMode,
   });
+  const [showLiteInfo, setShowLiteInfo] = useState(false);
+  const liteInfoRef = useRef<HTMLDivElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
@@ -56,7 +61,8 @@ const Settings: React.FC = () => {
   const [deleteError, setDeleteError] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // Sync when context updates (e.g. after a salary cycle resets the goal)
+  // Sync when context updates (e.g. after a salary cycle resets the goal, or
+  // auto-disables Lite mode).
   useEffect(() => {
     setLocal(prev => ({
       ...prev,
@@ -68,9 +74,25 @@ const Settings: React.FC = () => {
       paydayMode,
       fixedPayday,
       manualNextPayday,
+      liteMode,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency, aiAdviceEnabled, aiHumorEnabled]);
+  }, [currency, aiAdviceEnabled, aiHumorEnabled, liteMode]);
+
+  // Dismiss the Lite info popover on outside click / Escape.
+  useEffect(() => {
+    if (!showLiteInfo) return;
+    const onClick = (e: MouseEvent) => {
+      if (liteInfoRef.current && !liteInfoRef.current.contains(e.target as Node)) setShowLiteInfo(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowLiteInfo(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showLiteInfo]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -182,6 +204,47 @@ const Settings: React.FC = () => {
           </label>
         </div>
       </div>
+
+      {/* Lite mode — track-only. Offered only to users without a salary cycle. */}
+      {!hasActiveCycle && (
+        <div className="settings-card">
+          <div className="settings-lite-header">
+            <h2 className="settings-card-title">{t('settings.lite_title')}</h2>
+            <div className="settings-lite-info-wrap" ref={liteInfoRef}>
+              <button
+                className="settings-lite-info-btn"
+                onClick={() => setShowLiteInfo(v => !v)}
+                aria-label={t('settings.lite_title')}
+                type="button"
+              >
+                <Info size={15} />
+              </button>
+              {showLiteInfo && (
+                <div className="settings-lite-info-popover">
+                  {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
+                    <p key={i}>{line}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="settings-toggle-row">
+            <div className="settings-toggle-text">
+              <p className="toggle-label">{t('settings.lite_label')}</p>
+              <p className="toggle-desc">{t('settings.lite_desc')}</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={local.liteMode}
+                onChange={e => setLocal(prev => ({ ...prev, liteMode: e.target.checked }))}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Save */}
       <div className="settings-save-row">

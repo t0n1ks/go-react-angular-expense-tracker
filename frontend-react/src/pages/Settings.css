@@ -28,6 +28,57 @@
     margin: 0 0 1.25rem 0;
 }
 
+/* Lite-mode header with info tooltip */
+.settings-lite-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+}
+.settings-lite-header .settings-card-title {
+    margin: 0;
+}
+.settings-lite-info-wrap {
+    position: relative;
+    display: inline-flex;
+}
+.settings-lite-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 50%;
+}
+.settings-lite-info-btn:hover {
+    color: #38bdf8;
+}
+.settings-lite-info-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 20;
+    width: min(320px, 78vw);
+    padding: 0.75rem 0.9rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-card);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.settings-lite-info-popover p {
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: var(--color-text-muted);
+    margin: 0 0 0.5rem 0;
+}
+.settings-lite-info-popover p:last-child {
+    margin-bottom: 0;
+    color: var(--color-text-heading);
+}
+
 /* Currency selector */
 .currency-selector {
     display: flex;

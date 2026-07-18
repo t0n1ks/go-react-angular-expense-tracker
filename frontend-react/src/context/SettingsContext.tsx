@@ -45,6 +45,7 @@ export interface UserSettings {
   manualNextPayday: string;
   heartsCount: number;
   reputationScore: number;
+  liteMode: boolean;
 }
 
 // Server-authoritative cycle aggregation. The Go backend owns all the
@@ -125,6 +126,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   manualNextPayday: '',
   heartsCount: 3,
   reputationScore: 0,
+  liteMode: false,
 };
 
 const loadFromStorage = (): UserSettings => {
@@ -223,6 +225,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           manualNextPayday: d.manual_next_payday ?? '',
           heartsCount: d.hearts_count ?? 3,
           reputationScore: d.reputation_score ?? 0,
+          liteMode: d.lite_mode ?? false,
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
@@ -264,6 +267,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       payday_mode: next.paydayMode,
       fixed_payday: next.fixedPayday,
       manual_next_payday: next.manualNextPayday,
+      lite_mode: next.liteMode,
     });
     // The monthly goal drives the no-cycle budget window; re-fetch so the
     // dashboard reflects a changed (or newly auto-generated) limit immediately.
