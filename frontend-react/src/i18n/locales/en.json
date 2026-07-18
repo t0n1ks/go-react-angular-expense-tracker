@@ -256,8 +256,9 @@
     "lite_label": "Track-only mode",
     "lite_desc": "Just track spending against a monthly limit — hide the salary-cycle and analytics features.",
     "lite_locked_hint": "Stop your salary cycle to enable Lite mode.",
-    "lite_info": [
-      "Lite mode is for people who just want to track spending against a monthly limit.",
+    "lite_info_short": "Lite mode is for people who just want to track spending against a monthly limit.",
+    "lite_more": "More",
+    "lite_info_more": [
       "When on, these are hidden: the salary-cycle card, savings pool, 50/30/20 breakdown, forecasts, and the analytics below the category donut.",
       "What stays: your transactions, categories, the Expenses-by-category donut, and UFO jokes & facts.",
       "Nothing is deleted — turning Lite off restores everything exactly as before."

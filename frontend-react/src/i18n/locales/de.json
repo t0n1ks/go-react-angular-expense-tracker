@@ -256,8 +256,9 @@
     "lite_label": "Nur-Tracking-Modus",
     "lite_desc": "Nur Ausgaben gegen ein Monatslimit verfolgen — Gehaltszyklus und Analysen ausblenden.",
     "lite_locked_hint": "Stoppe deinen Gehaltszyklus, um den Lite-Modus zu aktivieren.",
-    "lite_info": [
-      "Der Lite-Modus ist für alle, die einfach nur ihre Ausgaben gegen ein Monatslimit verfolgen möchten.",
+    "lite_info_short": "Der Lite-Modus ist für alle, die einfach nur ihre Ausgaben gegen ein Monatslimit verfolgen möchten.",
+    "lite_more": "Mehr",
+    "lite_info_more": [
       "Wenn aktiv, sind ausgeblendet: die Gehaltszyklus-Karte, der Sparpool, die 50/30/20-Aufteilung, Prognosen und die Analysen unter dem Kategorie-Donut.",
       "Erhalten bleiben: deine Transaktionen, Kategorien, der Ausgaben-nach-Kategorie-Donut sowie UFO-Witze & -Fakten.",
       "Nichts wird gelöscht — beim Ausschalten des Lite-Modus kehrt alles genau wie zuvor zurück."

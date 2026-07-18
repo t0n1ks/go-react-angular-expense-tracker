@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Settings as SettingsIcon, Check, LogOut, Trash2, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Check, LogOut, Trash2, Info, X } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import './Settings.css';
@@ -53,6 +53,7 @@ const Settings: React.FC = () => {
     liteMode,
   });
   const [showLiteInfo, setShowLiteInfo] = useState(false);
+  const [showLiteModal, setShowLiteModal] = useState(false);
   const liteInfoRef = useRef<HTMLDivElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -93,6 +94,14 @@ const Settings: React.FC = () => {
       document.removeEventListener('keydown', onKey);
     };
   }, [showLiteInfo]);
+
+  // Close the "More" modal on Escape (backdrop tap and ✕ are handled inline).
+  useEffect(() => {
+    if (!showLiteModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowLiteModal(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showLiteModal]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -221,9 +230,14 @@ const Settings: React.FC = () => {
           </button>
           {showLiteInfo && (
             <div className="settings-lite-info-popover">
-              {(t('settings.lite_info', { returnObjects: true }) as string[]).map((line, i) => (
-                <p key={i}>{line}</p>
-              ))}
+              <p>{t('settings.lite_info_short')}</p>
+              <button
+                type="button"
+                className="settings-lite-more-btn"
+                onClick={() => { setShowLiteInfo(false); setShowLiteModal(true); }}
+              >
+                {t('settings.lite_more')}
+              </button>
             </div>
           )}
         </div>
@@ -284,6 +298,31 @@ const Settings: React.FC = () => {
           {t('settings.delete_account')}
         </button>
       </div>
+
+      {/* Lite mode — full explanation modal (opened from the tooltip's "More") */}
+      {showLiteModal && (
+        <div
+          className="lite-modal-overlay"
+          onClick={() => setShowLiteModal(false)}
+          role="dialog"
+          aria-modal
+        >
+          <div className="lite-modal" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              className="lite-modal-close"
+              onClick={() => setShowLiteModal(false)}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+            <h3 className="lite-modal-title">{t('settings.lite_title')}</h3>
+            {(t('settings.lite_info_more', { returnObjects: true }) as string[]).map((line, i) => (
+              <p key={i} className="lite-modal-line">{line}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {deleteOpen && (
         <div className="delete-modal-overlay" onClick={closeDeleteModal}>
