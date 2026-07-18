@@ -35,6 +35,11 @@ var (
 // ScheduleBrainResync coalesces rapid mutations for a user into one debounced,
 // non-blocking push to the Python learner. Returns immediately.
 func ScheduleBrainResync(uid uint) {
+	// Lite mode suppresses all analytics/learning pushes to Python (centralized
+	// via userLiteMode). Advisor content is unaffected.
+	if userLiteMode(uid) {
+		return
+	}
 	resyncMu.Lock()
 	defer resyncMu.Unlock()
 	if t, ok := resyncTimers[uid]; ok {

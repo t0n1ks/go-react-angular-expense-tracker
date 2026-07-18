@@ -16,4 +16,7 @@ type User struct {
 	ManualNextPayday    string  `gorm:"default:''" json:"manual_next_payday"`
 	HeartsCount         int     `gorm:"default:3" json:"hearts_count"`
 	ReputationScore     int     `gorm:"default:0" json:"reputation_score"`
+	// LiteMode: opt-in "track-only" mode. Hides salary-cycle/analytics UI and
+	// suppresses Python analytics/forecast calls. Advisor (joke/fact) stays on.
+	LiteMode bool `gorm:"default:false" json:"lite_mode"`
 }

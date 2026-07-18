@@ -342,6 +342,33 @@ type analyzeBehaviorRequest struct {
 	SalaryCycle    *aiSalaryCycleInfo `json:"salary_cycle"`
 }
 
+// neutralAnalysisResponse is the safe, score-less analysis payload returned when
+// no real analysis is available — reused for the AI-offline fallbacks and for
+// the Lite-mode short-circuit.
+func neutralAnalysisResponse() gin.H {
+	return gin.H{
+		"tamagotchi_mood":                "content",
+		"smart_nudge":                    "",
+		"spending_tier":                  "pacing_good",
+		"risk_flags":                     []string{},
+		"financial_health_score":         nil,
+		"sustainability_score":           nil,
+		"predicted_end_of_month_balance": nil,
+	}
+}
+
+// userLiteMode reports whether the user opted into Lite mode. This is the single,
+// centralized gate for suppressing Python ANALYTICS/FORECAST calls (behaviour
+// analysis, ML forecast, learner resync). The advisor path (jokes/facts via
+// next-action & /content) is intentionally NOT gated by this.
+func userLiteMode(uid uint) bool {
+	var u models.User
+	if err := database.DB.Select("lite_mode").First(&u, uid).Error; err != nil {
+		return false
+	}
+	return u.LiteMode
+}
+
 func AnalyzeBehavior(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -353,6 +380,13 @@ func AnalyzeBehavior(c *gin.Context) {
 	var user models.User
 	if err := database.DB.First(&user, uid).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Lite mode: analytics/forecast are hidden in the UI and must not reach the
+	// Python service. Short-circuit with the neutral payload — Python is not hit.
+	if user.LiteMode {
+		c.JSON(http.StatusOK, neutralAnalysisResponse())
 		return
 	}
 
@@ -487,15 +521,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	if err != nil {
 		log.Printf("[ai] analyze: HTTP request failed — marking autonomous: %v", err)
 		atomic.StoreInt32(&brainStatus, 2)
-		c.JSON(http.StatusOK, gin.H{
-			"tamagotchi_mood":                "content",
-			"smart_nudge":                    "",
-			"spending_tier":                  "pacing_good",
-			"risk_flags":                     []string{},
-			"financial_health_score":         nil,
-			"sustainability_score":           nil,
-			"predicted_end_of_month_balance": nil,
-		})
+		c.JSON(http.StatusOK, neutralAnalysisResponse())
 		return
 	}
 	defer analyzeResp.Body.Close()
@@ -504,15 +530,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	if err != nil || analyzeResp.StatusCode < 200 || analyzeResp.StatusCode >= 300 {
 		log.Printf("[ai] analyze: bad response (status %d) — marking autonomous", analyzeResp.StatusCode)
 		atomic.StoreInt32(&brainStatus, 2)
-		c.JSON(http.StatusOK, gin.H{
-			"tamagotchi_mood":                "content",
-			"smart_nudge":                    "",
-			"spending_tier":                  "pacing_good",
-			"risk_flags":                     []string{},
-			"financial_health_score":         nil,
-			"sustainability_score":           nil,
-			"predicted_end_of_month_balance": nil,
-		})
+		c.JSON(http.StatusOK, neutralAnalysisResponse())
 		return
 	}
 

@@ -199,6 +199,7 @@ func GetProfile(c *gin.Context) {
 		"manual_next_payday":   user.ManualNextPayday,
 		"hearts_count":         user.HeartsCount,
 		"reputation_score":     user.ReputationScore,
+		"lite_mode":            user.LiteMode,
 	})
 }
 
@@ -218,6 +219,7 @@ func UpdateProfile(c *gin.Context) {
 		PaydayMode          string  `json:"payday_mode"`
 		FixedPayday         int     `json:"fixed_payday"`
 		ManualNextPayday    string  `json:"manual_next_payday"`
+		LiteMode            bool    `json:"lite_mode"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -248,6 +250,7 @@ func UpdateProfile(c *gin.Context) {
 		"payday_mode":          req.PaydayMode,
 		"fixed_payday":         req.FixedPayday,
 		"manual_next_payday":   req.ManualNextPayday,
+		"lite_mode":            req.LiteMode,
 	}
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})

@@ -669,6 +669,10 @@ func StartSalaryCycle(c *gin.Context) {
 			"monthly_spending_goal": fw.VarNeedsBudget + fw.VarWantsBudget,
 			"expected_salary":       totalIncome,
 			"payday_mode":           "smart",
+			// Starting a salary cycle means the track-only intent no longer
+			// applies — auto-disable Lite mode so the full UI returns. No data
+			// is deleted; the user can re-enable it after ending the cycle.
+			"lite_mode": false,
 		}
 		if req.NextPayday != "" {
 			profileUpdates["manual_next_payday"] = req.NextPayday
