@@ -4,6 +4,20 @@
     margin: 0 auto;
 }
 
+/* Lite mode: only the budget card + UFO remain. The full-dashboard spacing
+   between them reads as a big empty gap when the page is this sparse, so tighten
+   it here ONLY (full layout is untouched). Safe-area padding keeps the UFO clear
+   of the iOS home indicator. */
+.dashboard-wrapper--lite {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+.dashboard-wrapper--lite .weekly-budget-card {
+    margin-bottom: 1rem;
+}
+.dashboard-wrapper--lite .tama-screen {
+    margin-top: 0.5rem;
+}
+
 .dashboard-title {
     font-size: 1.875rem;
     font-weight: 700;

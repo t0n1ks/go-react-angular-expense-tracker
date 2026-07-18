@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
   return (
-    <div className="dashboard-wrapper">
+    <div className={`dashboard-wrapper${liteMode ? ' dashboard-wrapper--lite' : ''}`}>
       <h1 className="dashboard-title">{t('dashboard.title')}</h1>
 
       {/* Lite mode hides all salary-cycle / analytics cards; only the budget
