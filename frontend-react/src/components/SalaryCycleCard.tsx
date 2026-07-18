@@ -205,7 +205,16 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
           <div className="sc-icon">
             <Banknote size={20} />
           </div>
-          <div>
+          {/* Left-aligned text block: status is STACKED above the title (not
+              beside it) so a long title — German is the stress case — never
+              competes with the status for width. */}
+          <div className="sc-header-text">
+            {currentCycle && !expanded && (
+              <span className={`sc-status${hasActiveCycle ? ' sc-status--active' : ' sc-status--inactive'}`}>
+                <span className="sc-status-dot" />
+                {hasActiveCycle ? t('salary_cycle.status_active') : t('salary_cycle.status_inactive')}
+              </span>
+            )}
             <span className="sc-title">{t('salary_cycle.title')}</span>
             {currentCycle && !expanded && (
               <span className="sc-subtitle">
@@ -215,12 +224,6 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
           </div>
         </div>
         <div className="sc-header-right">
-          {currentCycle && !expanded && (
-            <span className={`sc-status${hasActiveCycle ? ' sc-status--active' : ' sc-status--inactive'}`}>
-              <span className="sc-status-dot" />
-              {hasActiveCycle ? t('salary_cycle.status_active') : t('salary_cycle.status_inactive')}
-            </span>
-          )}
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>

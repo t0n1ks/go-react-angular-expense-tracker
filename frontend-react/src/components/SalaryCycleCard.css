@@ -162,6 +162,18 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex: 1;
+  min-width: 0; /* let the text block shrink so a long title can wrap */
+  text-align: left;
+}
+
+/* Stacked, left-aligned text: status eyebrow · title · start date */
+.sc-header-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 2px;
 }
 
 .sc-header-right {
@@ -169,6 +181,7 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .sc-icon {
@@ -188,6 +201,8 @@
   font-weight: 600;
   color: var(--color-text-heading);
   display: block;
+  line-height: 1.25;
+  text-align: left;
 }
 
 .sc-subtitle {
