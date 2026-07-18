@@ -57,6 +57,17 @@ Clicking any transaction row or mobile card opens a **receipt-style overlay** sh
 - **Hearts system** — the backend awards one heart when a user stays within their daily spending limit for 60 consecutive days; max 5 hearts per account
 - **Reputation score** — foundation for future gamification; incremented by positive financial behaviour
 
+### Salary Cycle & Smart Budgeting
+Financer is organised around **salary cycles** rather than fixed calendar months — a cycle spans from the day you get paid to your next payday, matching how people actually budget.
+- **Start a cycle from your paycheck:** enter base salary + bonuses and a configurable **50 / 30 / 20** (needs / wants / savings) framework; the backend computes your needs, wants, and savings limits server-side. A deficit warning suggests a safer ratio when fixed costs exceed the needs budget.
+- **Dynamic variable allowance** = income − savings allocation − fixed expenses — the real amount left for discretionary spending, recomputed live from non-deleted transactions so any edit is reflected immediately.
+- **Rolling weekly allowance engine:** the cycle is divided into 7-day chunks; surplus or deficit from completed weeks rolls into the next week's limit, capped so accumulated rollover can never authorise spending more than the cycle's true remaining balance.
+- **Savings pool ("digital piggy bank"):** the planned savings allocation is auto-deposited on cycle start; users can add manual deposits/withdrawals, and a savings-history endpoint tracks the running pool balance. At the end of a cycle any leftover variable balance is resolved into the pool as a "pleasant bonus" or "penalty".
+- **Cycle-scoped views everywhere:** the dashboard cards, the Statistics **"Expenses by category" donut**, and the forecast are all strictly scoped to the active cycle window `[cycle_start_at, next_payday_at]` — starting a fresh cycle after a gap cleanly closes the previous open-ended cycle so stats never bleed back into old data.
+
+### Data Export
+- **PDF export** of transaction history via `GET /api/transactions/export/pdf` — a server-rendered report streamed with a `Content-Disposition` attachment header.
+
 ### Multi-language (i18n)
 Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial tips, error messages, tour steps. Language switcher in Settings persists across sessions. All arrays in locale files are typesafe via `{ returnObjects: true }`.
 
@@ -107,10 +118,13 @@ Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial t
 ```
 main.go                — Gin router, global middleware (rate limiting, security headers, body size cap)
 database/database.go   — GORM Open (SQLite or Postgres), AutoMigrate, username normalisation
-models/                — User, Category, Transaction structs
+models/                — User, Category, Transaction, SalaryCycle, FixedExpense structs
 handlers/user.go       — Register, Login, GetProfile, UpdateProfile, DeleteAccount; owns jwtSecret
 handlers/category.go   — Full CRUD for categories
 handlers/transaction.go — Full CRUD + daily/period summary endpoints
+handlers/salary_cycle.go — Salary-cycle lifecycle: start/current/history, weekly allowance, savings pool, 50/30/20 framework
+handlers/cyclecache.go — Per-user cycle-stats cache (TTL + write-invalidation) to bound DB load
+handlers/export.go     — Server-rendered PDF export of transaction history
 handlers/ai.go         — Proxy for all /api/ai/* routes → fin-guard-ai-service; language normalisation
 middleware/auth.go     — JWT validation; injects userID into Gin context
 middleware/ratelimit.go — Token-bucket rate limiter (per-IP for auth, per-user for AI endpoints)
@@ -134,8 +148,19 @@ middleware/security.go — Security response headers + request body size cap
 | Protected | GET | `/api/summary/daily` | — | daily totals |
 | Protected | GET | `/api/summary/period` | — | period aggregation |
 | Protected | GET | `/api/stats` | — | per-category breakdown |
+| Protected | GET | `/api/transactions/export/pdf` | — | streamed PDF report of transaction history |
+| Protected | POST | `/api/salary-cycle` | — | start a new salary cycle (or return the one covering today) |
+| Protected | GET | `/api/salary-cycle/current` | — | active cycle + live budget/allowance stats |
+| Protected | PATCH | `/api/salary-cycle/current` | — | update the cycle's next payday |
+| Protected | DELETE | `/api/salary-cycle/:id` | — | delete a cycle + its auto-generated transactions |
+| Protected | GET | `/api/salary-cycle/history` | — | recent cycles (up to 24) |
+| Protected | POST | `/api/salary-cycle/income` | — | add extra income to the active cycle |
+| Protected | GET | `/api/salary-cycle/savings-history` | — | savings-pool transactions + running balance |
+| Protected | POST | `/api/salary-cycle/savings` | — | manual savings deposit / withdrawal |
 | Protected | POST | `/api/ai/analyze` | 20 / min per user | full behavior analysis — scores, mood, nudge, ML forecast |
 | Protected | GET | `/api/ai/next-action` | 20 / min per user | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
+| Protected | GET | `/api/ai/content` | 20 / min per user | category-locked content for user-triggered UFO entities (Cow=joke, Star=fact) |
+| Protected | GET | `/api/ai/status` | — | AI-brain reachability probe for graceful UI degradation |
 | Protected | POST | `/api/ai/feedback` | — | accept / reject signal for AI apology-mode tracking |
 
 ### AI Brain (`fin-guard-ai-service`)
@@ -160,16 +185,18 @@ See the [fin-guard-ai-service README](https://github.com/t0n1ks/fin-guard-ai-ser
 ```
 context/
   AuthContext.tsx      — JWT storage, Axios instance with auth interceptor, login/logout
-  SettingsContext.tsx  — Currency, goals, AI toggles; synced with /api/profile
+  SettingsContext.tsx  — Currency, goals, AI toggles + active salary cycle & server-computed cycle stats; synced with /api/profile and /api/salary-cycle/current
   ThemeContext.tsx     — Light/dark toggle, persisted to localStorage
 pages/
-  Dashboard.tsx        — Stat cards + TamagotchiWidget + hasTxToday computation
+  Dashboard.tsx        — Cycle budget cards + weekly allowance + savings pool + TamagotchiWidget + hasTxToday computation
   Transactions.tsx     — Full CRUD · month accordion grouping · desktop table · mobile cards · undo-delete
   Categories.tsx       — Grid CRUD · smart word-wrap · undo-delete
-  Statistics.tsx       — Recharts pie + balance timeline + ML forecast card
+  Statistics.tsx       — Cycle-scoped "Expenses by category" donut + balance timeline + ML forecast + savings forecast card
   Settings.tsx         — Currency, language, 50/30/20 rule explainer, goals, delete account
 components/
   TamagotchiWidget.tsx     — UFO state machine, ResizeObserver positioning, in-widget tour
+  SalaryCycleCard.tsx      — Start-a-cycle form (salary, bonuses, 50/30/20, fixed expenses) + active-cycle summary
+  WeeklyBudgetCard.tsx     — Rolling 7-day allowance with surplus/deficit rollover
   ForecastCard.tsx         — Clickable ML forecast summary card with health bar
   ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left, health score
   TransactionDetailModal.tsx — Mini-receipt modal: full timestamp, description, category, amount
@@ -339,7 +366,7 @@ The production stack runs on three free tiers: Vercel + Render + Neon.tech.
 ## Roadmap
 
 - [ ] **Bank API integration** — Monobank / Plaid for automatic transaction import
-- [ ] **Export** — download history as CSV or PDF report with chart screenshots
+- [x] **Export** — PDF report of transaction history *(CSV and chart screenshots still planned)*
 - [ ] **Push notifications** — browser push for weekly budget summary and goal alerts
 - [ ] **More UFO events** — meteor showers, alien diplomats, financial horoscopes
 - [ ] **Additional UFO skins** — retro rocket, flying saucer variants, seasonal themes
