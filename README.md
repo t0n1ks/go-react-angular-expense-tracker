@@ -64,6 +64,7 @@ Financer is organised around **salary cycles** rather than fixed calendar months
 - **Rolling weekly allowance engine:** the cycle is divided into 7-day chunks; surplus or deficit from completed weeks rolls into the next week's limit, capped so accumulated rollover can never authorise spending more than the cycle's true remaining balance.
 - **Savings pool ("digital piggy bank"):** the planned savings allocation is auto-deposited on cycle start; users can add manual deposits/withdrawals, and a savings-history endpoint tracks the running pool balance. At the end of a cycle any leftover variable balance is resolved into the pool as a "pleasant bonus" or "penalty".
 - **Cycle-scoped views everywhere:** the dashboard cards, the Statistics **"Expenses by category" donut**, and the forecast are all strictly scoped to the active cycle window `[cycle_start_at, next_payday_at]` — starting a fresh cycle after a gap cleanly closes the previous open-ended cycle so stats never bleed back into old data.
+- **No salary? Just track a monthly limit.** Users who don't run a salary cycle get a **server-authoritative monthly budget** (`GET /api/budget/current`): the weekly "can spend" is computed on the server from their monthly spending limit, scoped to the current calendar month, and capped so it can never exceed what's actually left in the budget. If no limit is set, the dashboard offers a one-tap **auto-generate** default (500) that can be edited afterwards. No income, savings, or fixed-expense transactions are ever fabricated for these users.
 
 ### Data Export
 - **PDF export** of transaction history via `GET /api/transactions/export/pdf` — a server-rendered report streamed with a `Content-Disposition` attachment header.
@@ -123,6 +124,7 @@ handlers/user.go       — Register, Login, GetProfile, UpdateProfile, DeleteAcc
 handlers/category.go   — Full CRUD for categories
 handlers/transaction.go — Full CRUD + daily/period summary endpoints
 handlers/salary_cycle.go — Salary-cycle lifecycle: start/current/history, weekly allowance, savings pool, 50/30/20 framework
+handlers/budget.go     — Server-authoritative monthly budget window for users without a salary cycle (safe capped weekly allowance)
 handlers/cyclecache.go — Per-user cycle-stats cache (TTL + write-invalidation) to bound DB load
 handlers/export.go     — Server-rendered PDF export of transaction history
 handlers/ai.go         — Proxy for all /api/ai/* routes → fin-guard-ai-service; language normalisation
@@ -157,6 +159,7 @@ middleware/security.go — Security response headers + request body size cap
 | Protected | POST | `/api/salary-cycle/income` | — | add extra income to the active cycle |
 | Protected | GET | `/api/salary-cycle/savings-history` | — | savings-pool transactions + running balance |
 | Protected | POST | `/api/salary-cycle/savings` | — | manual savings deposit / withdrawal |
+| Protected | GET | `/api/budget/current` | — | monthly budget window + safe weekly allowance (no-salary users) |
 | Protected | POST | `/api/ai/analyze` | 20 / min per user | full behavior analysis — scores, mood, nudge, ML forecast |
 | Protected | GET | `/api/ai/next-action` | 20 / min per user | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
 | Protected | GET | `/api/ai/content` | 20 / min per user | category-locked content for user-triggered UFO entities (Cow=joke, Star=fact) |

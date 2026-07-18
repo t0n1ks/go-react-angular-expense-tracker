@@ -73,6 +73,24 @@ export interface CycleStats {
   rollover: number;
 }
 
+// Server-authoritative monthly budget for users WITHOUT a salary cycle. Mirrors
+// the Go BudgetWindow struct (GET /api/budget/current). All money math (the
+// safe, capped weekly allowance) is done server-side — the client only renders.
+export interface BudgetWindow {
+  has_goal: boolean;
+  default_goal: number;
+  monthly_budget: number;
+  window_start: string;
+  window_end: string;
+  spent_this_window: number;
+  remaining: number;
+  current_week_allowance: number;
+  current_week_spent: number;
+  days_total: number;
+  days_elapsed: number;
+  days_remaining: number;
+}
+
 interface SettingsContextType extends UserSettings {
   settings: UserSettings;
   isLoading: boolean;
@@ -83,6 +101,8 @@ interface SettingsContextType extends UserSettings {
   cycleStats: CycleStats | null;
   hasActiveCycle: boolean;
   refreshCycle: () => Promise<void>;
+  budgetWindow: BudgetWindow | null;
+  refreshBudget: () => Promise<void>;
 }
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -140,27 +160,45 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
   const [cycleStats, setCycleStats] = useState<CycleStats | null>(null);
   const [hasActiveCycle, setHasActiveCycle] = useState<boolean>(false);
+  const [budgetWindow, setBudgetWindow] = useState<BudgetWindow | null>(null);
+
+  // Fetches the server budget window (no-salary path). Safe to call anytime;
+  // callers gate it on there being no active cycle.
+  const refreshBudget = useCallback(async () => {
+    try {
+      const res = await axiosInstance.get('/budget/current');
+      setBudgetWindow(res.data ?? null);
+    } catch { /* keep last value */ }
+  }, [axiosInstance]);
 
   const refreshCycle = useCallback(async () => {
     try {
       const res = await axiosInstance.get('/salary-cycle/current');
       const cycle: SalaryCycle | null = res.data.cycle ?? null;
+      const active: boolean = res.data.has_active_cycle ?? false;
       setCurrentCycle(cycle);
       setCycleStats(res.data.cycle_stats ?? null);
-      setHasActiveCycle(res.data.has_active_cycle ?? false);
+      setHasActiveCycle(active);
       if (cycle) {
         localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
       } else {
         localStorage.removeItem(CYCLE_KEY);
       }
+      // The monthly budget window only governs the period when no cycle does.
+      if (!active) {
+        await refreshBudget();
+      } else {
+        setBudgetWindow(null);
+      }
     } catch { /* keep cached */ }
-  }, [axiosInstance]);
+  }, [axiosInstance, refreshBudget]);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setSettings(DEFAULT_SETTINGS);
       setCurrentCycle(null);
       setCycleStats(null);
+      setBudgetWindow(null);
       localStorage.removeItem(CYCLE_KEY);
       return;
     }
@@ -190,13 +228,21 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
 
         const cycle: SalaryCycle | null = cycleRes.data.cycle ?? null;
+        const active: boolean = cycleRes.data.has_active_cycle ?? false;
         setCurrentCycle(cycle);
         setCycleStats(cycleRes.data.cycle_stats ?? null);
-        setHasActiveCycle(cycleRes.data.has_active_cycle ?? false);
+        setHasActiveCycle(active);
         if (cycle) {
           localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
         } else {
           localStorage.removeItem(CYCLE_KEY);
+        }
+        // No cycle governs the period → load the server monthly budget window.
+        if (!active) {
+          const budgetRes = await axiosInstance.get('/budget/current');
+          if (!cancelled) setBudgetWindow(budgetRes.data ?? null);
+        } else {
+          setBudgetWindow(null);
         }
       } catch { /* keep cached/default */ } finally {
         if (!cancelled) setIsLoading(false);
@@ -219,6 +265,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       fixed_payday: next.fixedPayday,
       manual_next_payday: next.manualNextPayday,
     });
+    // The monthly goal drives the no-cycle budget window; re-fetch so the
+    // dashboard reflects a changed (or newly auto-generated) limit immediately.
+    if (!hasActiveCycle) await refreshBudget();
   };
 
   const currencySymbol = CURRENCY_SYMBOLS[settings.currency] ?? '$';
@@ -237,6 +286,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     cycleStats,
     hasActiveCycle,
     refreshCycle,
+    budgetWindow,
+    refreshBudget,
   };
 
   return (

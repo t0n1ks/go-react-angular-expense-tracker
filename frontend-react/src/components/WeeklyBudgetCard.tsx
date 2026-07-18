@@ -46,8 +46,10 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const { t } = useTranslation();
   const {
     paydayMode, fixedPayday, manualNextPayday, settings, saveSettings,
-    refreshCycle, currentCycle, cycleStats,
+    refreshCycle, currentCycle, cycleStats, budgetWindow,
   } = useSettings();
+  const [budgetInput, setBudgetInput] = useState('');
+  const [savingBudget, setSavingBudget] = useState(false);
   const { user } = useAuth();
   const { axiosInstance } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
@@ -172,20 +174,43 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     })
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  // ── Unified display values (cycle → server; legacy → client) ──────────────
-  // Use variable_allowance if available (new field), fall back to net_discretionary_budget
-  const displayLimit = hasCycle
-    ? (cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget)
-    : monthlyBudget;
-  const displaySpentSincePayday = hasCycle ? cycleStats!.cycle_variable_expenses : legacySpentSincePayday;
-  // Guardrail: even a persisted weekly lock can never authorise spending more
-  // than the budget still remaining in the period.
-  const displayCanSpend = hasCycle
-    ? cycleStats!.current_week_allowance
-    : clampCanSpend(lockedAllowanceLegacy, monthlyBudget, legacySpentSincePayday);
-  const displayThisWeek = hasCycle ? cycleStats!.current_week_spent : weekSpentLegacy;
-  const daysRemaining = hasCycle ? cycleStats!.days_remaining : daysRemainingLegacy;
-  const showCard = hasCycle || nextPayday !== null;
+  // ── Unified display values ────────────────────────────────────────────────
+  // Priority: (1) salary cycle → server cycle stats (unchanged); (2) no cycle
+  // but a monthly goal is set → server budget window (GET /api/budget/current,
+  // safe & capped server-side); (3) fallback → the Phase-1 client math, used
+  // only when the budget endpoint is unavailable, so nothing breaks offline.
+  const hasServerBudget = !hasCycle && !!budgetWindow?.has_goal;
+  // A no-cycle user who has not set (or auto-generated) a monthly limit yet.
+  const needsBudgetSetup = !hasCycle && !!budgetWindow && !budgetWindow.has_goal;
+
+  let displayLimit: number;
+  let displaySpentSincePayday: number;
+  let displayCanSpend: number;
+  let displayThisWeek: number;
+  let daysRemaining: number;
+  if (hasCycle) {
+    // Use variable_allowance if available (new field), else net_discretionary_budget.
+    displayLimit = cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget;
+    displaySpentSincePayday = cycleStats!.cycle_variable_expenses;
+    displayCanSpend = cycleStats!.current_week_allowance;
+    displayThisWeek = cycleStats!.current_week_spent;
+    daysRemaining = cycleStats!.days_remaining;
+  } else if (hasServerBudget) {
+    displayLimit = budgetWindow!.monthly_budget;
+    displaySpentSincePayday = budgetWindow!.spent_this_window;
+    displayCanSpend = budgetWindow!.current_week_allowance;
+    displayThisWeek = budgetWindow!.current_week_spent;
+    daysRemaining = budgetWindow!.days_remaining;
+  } else {
+    displayLimit = monthlyBudget;
+    displaySpentSincePayday = legacySpentSincePayday;
+    // Guardrail: even a persisted weekly lock can never authorise spending more
+    // than the budget still remaining in the period.
+    displayCanSpend = clampCanSpend(lockedAllowanceLegacy, monthlyBudget, legacySpentSincePayday);
+    displayThisWeek = weekSpentLegacy;
+    daysRemaining = daysRemainingLegacy;
+  }
+  const showCard = hasCycle || hasServerBudget || nextPayday !== null;
 
   const isOver = showCard && displayThisWeek > displayCanSpend;
   const pct = displayCanSpend > 0 ? Math.min((displayThisWeek / displayCanSpend) * 100, 100) : 0;
@@ -246,6 +271,19 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     if (!pendingDate) return;
     await saveSettings({ ...settings, manualNextPayday: pendingDate });
     setEditingPayday(false);
+  };
+
+  // No-salary budget setup: persist a monthly spending limit. saveSettings
+  // re-fetches the server budget window so the card fills in immediately.
+  const applyMonthlyBudget = async (amount: number) => {
+    if (!(amount > 0) || savingBudget) return;
+    setSavingBudget(true);
+    try {
+      await saveSettings({ ...settings, monthlySpendingGoal: Math.round(amount * 100) / 100 });
+      setBudgetInput('');
+    } finally {
+      setSavingBudget(false);
+    }
   };
 
   const handleCyclePaydaySave = async () => {
@@ -415,6 +453,39 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
             <div className="weekly-budget-bar-fill" style={{ width: `${pct}%`, background: barColor }} />
           </div>
         </>
+      ) : needsBudgetSetup ? (
+        <div className="weekly-budget-setup">
+          <p className="weekly-budget-setup-text">{t('dashboard.budget_setup_prompt')}</p>
+          <div className="weekly-budget-setup-form">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="1"
+              className="weekly-budget-setup-input"
+              placeholder={t('dashboard.budget_setup_placeholder')}
+              value={budgetInput}
+              onChange={e => setBudgetInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') applyMonthlyBudget(parseFloat(budgetInput)); }}
+              disabled={savingBudget}
+            />
+            <button
+              className="weekly-budget-action-btn weekly-budget-action-btn--save"
+              onClick={() => applyMonthlyBudget(parseFloat(budgetInput))}
+              disabled={savingBudget || !(parseFloat(budgetInput) > 0)}
+              type="button"
+            >
+              {t('dashboard.weekly_save')}
+            </button>
+          </div>
+          <button
+            className="weekly-budget-autogen-btn"
+            onClick={() => applyMonthlyBudget(budgetWindow!.default_goal)}
+            disabled={savingBudget}
+            type="button"
+          >
+            {t('dashboard.budget_setup_autogen', { amount: formatAmount(budgetWindow!.default_goal) })}
+          </button>
+        </div>
       ) : (
         <div className="weekly-budget-no-cycle">
           <p className="weekly-budget-no-cycle-text">{t('dashboard.weekly_no_cycle')}</p>

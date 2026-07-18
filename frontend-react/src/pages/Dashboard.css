@@ -331,6 +331,57 @@
     margin: 0;
 }
 
+/* No-salary monthly-budget setup (auto-generate / set a limit) */
+.weekly-budget-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.5rem 0 0.4rem;
+}
+.weekly-budget-setup-text {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+.weekly-budget-setup-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.weekly-budget-setup-input {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 10px;
+    font-size: 0.85rem;
+    border: 1px solid var(--color-border-card);
+    border-radius: 8px;
+    background: var(--color-bg-card);
+    color: var(--color-text-heading);
+    outline: none;
+}
+.weekly-budget-setup-input:focus {
+    border-color: #38bdf8;
+}
+.weekly-budget-autogen-btn {
+    align-self: flex-start;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid var(--color-border-card);
+    background: transparent;
+    color: var(--color-text-heading);
+    cursor: pointer;
+}
+.weekly-budget-autogen-btn:hover:not(:disabled) {
+    border-color: #38bdf8;
+}
+.weekly-budget-autogen-btn:disabled,
+.weekly-budget-setup-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Footer with next payday info */
 .weekly-budget-footer {
     margin-top: 0.6rem;
