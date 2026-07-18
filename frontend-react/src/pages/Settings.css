@@ -479,19 +479,26 @@
 /* Save area */
 .settings-save-row {
     display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 0.5rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    /* Clear, intentional separation from the last settings card above, matching
+       the page's vertical rhythm. */
+    margin-top: 1.75rem;
 }
 
 .btn-save-settings {
     display: inline-flex;
     align-items: center;
-    padding: 0.625rem 1.5rem;
+    justify-content: center;
+    /* Span the same left/right edges as the settings cards so it reads as the
+       page's primary action, not a small floating button. */
+    width: 100%;
+    padding: 0.8rem 1.5rem;
     background: var(--color-btn-primary);
     color: #fff;
     border: none;
-    border-radius: 0.75rem;
+    border-radius: 0.9rem;
     font-size: 0.9rem;
     font-weight: 600;
     font-family: inherit;
@@ -512,6 +519,7 @@
 .settings-save-error {
     font-size: 0.82rem;
     color: var(--color-error-text);
+    text-align: center;
 }
 
 /* Logout section */
