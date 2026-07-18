@@ -18,6 +18,23 @@
     margin-top: 0.5rem;
 }
 
+/* Lite dashboard is content-short. The shared layout reserves full-viewport
+   height (.app-container / .main-content: min-height:100dvh + flex-grow) which,
+   with the fixed-nav clearance padding, left a scrollable empty band below the
+   UFO. Scoped to the Lite dashboard via the <body> class (Dashboard toggles it),
+   let those containers fit the actual content instead — the full dashboard and
+   every other page keep their exact layout. Nav-clearance padding + iOS
+   safe-area are preserved so the UFO stays reachable above the bottom nav. */
+body.dashboard-lite .app-container,
+body.dashboard-lite .main-content {
+    min-height: 0;
+}
+/* Match the app background so the space between the shorter content and the
+   fixed bottom nav shows no color seam. */
+body.dashboard-lite {
+    background: var(--color-bg-main);
+}
+
 .dashboard-title {
     font-size: 1.875rem;
     font-weight: 700;

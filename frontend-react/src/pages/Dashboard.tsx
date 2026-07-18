@@ -166,6 +166,15 @@ const Dashboard: React.FC = () => {
     runAnalyze(); // real-time AI prediction refresh
   }, [fetchData, refreshCycle, runAnalyze]);
 
+  // Lite dashboard is content-short. Tag <body> so the shared layout can fit the
+  // actual content instead of reserving full-viewport height (which produced a
+  // scrollable empty band below the UFO). Removed when Lite turns off / on leave.
+  useEffect(() => {
+    if (!liteMode) return;
+    document.body.classList.add('dashboard-lite');
+    return () => document.body.classList.remove('dashboard-lite');
+  }, [liteMode]);
+
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
   return (
