@@ -381,6 +381,17 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+/* Inline edit of the monthly limit on the budget card's limit row */
+.weekly-budget-limit-edit {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+.weekly-budget-limit-edit .weekly-budget-setup-input {
+    width: 6.5rem;
+    padding: 3px 8px;
+    font-size: 0.82rem;
+}
 
 /* Footer with next payday info */
 .weekly-budget-footer {

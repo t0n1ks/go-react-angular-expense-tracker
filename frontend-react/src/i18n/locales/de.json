@@ -109,6 +109,7 @@
     "budget_setup_prompt": "Lege ein monatliches Ausgabenlimit fest, um deine Ausgaben zu verfolgen.",
     "budget_setup_placeholder": "Monatliches Limit",
     "budget_setup_autogen": "Standard verwenden ({{amount}})",
+    "budget_edit_limit": "Monatslimit bearbeiten",
     "weekly_edit_payday": "Nächsten Zahltag bearbeiten",
     "weekly_set_next_payday": "Nächsten Zahltag festlegen",
     "weekly_save": "Speichern",

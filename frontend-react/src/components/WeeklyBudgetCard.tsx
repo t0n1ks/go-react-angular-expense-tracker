@@ -50,6 +50,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   } = useSettings();
   const [budgetInput, setBudgetInput] = useState('');
   const [savingBudget, setSavingBudget] = useState(false);
+  const [editingBudget, setEditingBudget] = useState(false);
   const { user } = useAuth();
   const { axiosInstance } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
@@ -273,18 +274,27 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     setEditingPayday(false);
   };
 
-  // No-salary budget setup: persist a monthly spending limit. saveSettings
-  // re-fetches the server budget window so the card fills in immediately.
+  // No-salary budget setup / edit: persist a monthly spending limit. saveSettings
+  // re-fetches the server budget window so the card updates immediately.
   const applyMonthlyBudget = async (amount: number) => {
     if (!(amount > 0) || savingBudget) return;
     setSavingBudget(true);
     try {
       await saveSettings({ ...settings, monthlySpendingGoal: Math.round(amount * 100) / 100 });
       setBudgetInput('');
+      setEditingBudget(false);
     } finally {
       setSavingBudget(false);
     }
   };
+
+  // Open the inline editor pre-filled with the current limit so a user can
+  // freely CHANGE it after it's been set (the missing control this fixes).
+  const openBudgetEdit = () => {
+    setBudgetInput(String(budgetWindow?.monthly_budget ?? ''));
+    setEditingBudget(true);
+  };
+  const cancelBudgetEdit = () => { setEditingBudget(false); setBudgetInput(''); };
 
   const handleCyclePaydaySave = async () => {
     if (!pendingDate) return;
@@ -331,10 +341,57 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
         <>
           <div className="weekly-budget-body">
 
-            {/* Row 1: Net discretionary budget (50/30 portion minus fixed) */}
+            {/* Row 1: Net discretionary budget (50/30 portion minus fixed).
+                For the no-salary server budget it's the editable monthly limit. */}
             <div className="weekly-budget-stat">
               <span className="weekly-budget-stat-label">{t('dashboard.weekly_budget_limit')}</span>
-              <span className="weekly-budget-stat-value">{formatAmount(displayLimit)}</span>
+              {hasServerBudget && editingBudget ? (
+                <span className="weekly-budget-limit-edit">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    className="weekly-budget-setup-input"
+                    value={budgetInput}
+                    onChange={e => setBudgetInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') applyMonthlyBudget(parseFloat(budgetInput));
+                      if (e.key === 'Escape') cancelBudgetEdit();
+                    }}
+                    disabled={savingBudget}
+                    autoFocus
+                  />
+                  <button
+                    className="weekly-budget-action-btn weekly-budget-action-btn--save"
+                    onClick={() => applyMonthlyBudget(parseFloat(budgetInput))}
+                    disabled={savingBudget || !(parseFloat(budgetInput) > 0)}
+                    type="button"
+                  >
+                    {t('dashboard.weekly_save')}
+                  </button>
+                  <button
+                    className="weekly-budget-action-btn weekly-budget-action-btn--cancel"
+                    onClick={cancelBudgetEdit}
+                    type="button"
+                  >
+                    {t('dashboard.weekly_cancel')}
+                  </button>
+                </span>
+              ) : (
+                <span className="weekly-budget-stat-value">
+                  {formatAmount(displayLimit)}
+                  {hasServerBudget && (
+                    <button
+                      className="wbc-edit-payday-btn"
+                      onClick={openBudgetEdit}
+                      title={t('dashboard.budget_edit_limit')}
+                      type="button"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
 
             {/* Row 2: Variable expenses only since cycle start */}

@@ -109,6 +109,7 @@
     "budget_setup_prompt": "Задайте месячный лимит расходов, чтобы отслеживать траты.",
     "budget_setup_placeholder": "Месячный лимит",
     "budget_setup_autogen": "Использовать по умолчанию ({{amount}})",
+    "budget_edit_limit": "Изменить месячный лимит",
     "weekly_edit_payday": "Изменить следующую выплату",
     "weekly_set_next_payday": "Указать следующую выплату",
     "weekly_save": "Сохранить",

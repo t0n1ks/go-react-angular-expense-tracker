@@ -109,6 +109,7 @@
     "budget_setup_prompt": "Set a monthly spending limit to track how much you spend.",
     "budget_setup_placeholder": "Monthly limit",
     "budget_setup_autogen": "Use default ({{amount}})",
+    "budget_edit_limit": "Edit monthly limit",
     "weekly_edit_payday": "Edit next payday",
     "weekly_set_next_payday": "Set next payday",
     "weekly_save": "Save",

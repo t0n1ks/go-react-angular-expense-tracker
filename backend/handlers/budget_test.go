@@ -1,12 +1,54 @@
 package handlers
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
+
+// A user can set a monthly limit, then EDIT it: the new value persists and the
+// server-computed weekly allowance recomputes accordingly. Regression guard for
+// the Phase-2.5 "can't change the amount after setting it" bug.
+func TestEditMonthlyLimit_PersistsAndRecomputes(t *testing.T) {
+	setupFlowDB(t)
+	user := models.User{Username: "editor", Password: "x"}
+	database.DB.Create(&user)
+
+	now := time.Now()
+
+	// Set the limit to 500 via the real profile handler.
+	if w := callHandler(user.ID, map[string]any{"monthly_spending_goal": 500.0, "currency": "EUR"}, UpdateProfile); w.Code != http.StatusOK {
+		t.Fatalf("set limit: %d %s", w.Code, w.Body.String())
+	}
+	var u1 models.User
+	database.DB.First(&u1, user.ID)
+	if u1.MonthlySpendingGoal != 500 {
+		t.Fatalf("limit not persisted: got %.2f", u1.MonthlySpendingGoal)
+	}
+	before := computeBudgetWindow(user.ID, u1.MonthlySpendingGoal, now)
+
+	// EDIT the limit to 300.
+	if w := callHandler(user.ID, map[string]any{"monthly_spending_goal": 300.0, "currency": "EUR"}, UpdateProfile); w.Code != http.StatusOK {
+		t.Fatalf("edit limit: %d %s", w.Code, w.Body.String())
+	}
+	var u2 models.User
+	database.DB.First(&u2, user.ID)
+	if u2.MonthlySpendingGoal != 300 {
+		t.Fatalf("edited limit not persisted: got %.2f", u2.MonthlySpendingGoal)
+	}
+	after := computeBudgetWindow(user.ID, u2.MonthlySpendingGoal, now)
+
+	if after.MonthlyBudget != 300 {
+		t.Errorf("budget window should reflect edited limit, got %.2f", after.MonthlyBudget)
+	}
+	if !(after.CurrentWeekAllowance < before.CurrentWeekAllowance) {
+		t.Errorf("weekly allowance should recompute lower after cutting the limit: 500→%.2f, 300→%.2f",
+			before.CurrentWeekAllowance, after.CurrentWeekAllowance)
+	}
+}
 
 // A no-salary user with a monthly goal gets a safe, month-scoped budget window.
 func TestBudgetWindow_SafeAllowanceAndWindow(t *testing.T) {
