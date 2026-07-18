@@ -646,6 +646,8 @@
     "success": "New cycle started!",
     "error": "Failed to start cycle. Please try again.",
     "active_cycle": "Active Cycle",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
     "stop_btn": "Stop cycle",
     "stop_confirm_title": "Stop salary cycle?",
     "stop_confirm_body": "Stop your salary cycle? Your history is kept — you can start a new one anytime.",

@@ -596,6 +596,8 @@
     "success": "Neuer Zyklus gestartet!",
     "error": "Fehler. Bitte erneut versuchen.",
     "active_cycle": "Aktiver Zyklus",
+    "status_active": "Aktiv",
+    "status_inactive": "Inaktiv",
     "stop_btn": "Zyklus stoppen",
     "stop_confirm_title": "Gehaltszyklus stoppen?",
     "stop_confirm_body": "Deinen Gehaltszyklus stoppen? Dein Verlauf bleibt erhalten — du kannst jederzeit einen neuen starten.",

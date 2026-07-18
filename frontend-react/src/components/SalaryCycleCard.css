@@ -82,7 +82,8 @@
 .sc-active-actions {
   display: flex;
   justify-content: flex-end;
-  padding: 0 1.25rem 0.9rem;
+  padding: 0.7rem 1.5rem;
+  border-top: 1px solid var(--color-border-card);
 }
 .sc-stop-btn {
   display: inline-flex;
@@ -196,14 +197,34 @@
   margin-top: 1px;
 }
 
-.sc-active-badge {
-  font-size: 0.7rem;
+/* Compact dot + word status (replaces the bulky pill — better legibility on
+   mobile). Green = active, grey = inactive/stopped. */
+.sc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+.sc-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sc-status--active {
   color: #10b981;
-  background: rgba(16,185,129,0.12);
-  border: 1px solid rgba(16,185,129,0.25);
-  border-radius: 20px;
-  padding: 2px 8px;
+}
+.sc-status--active .sc-status-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+.sc-status--inactive {
+  color: var(--color-text-muted);
+}
+.sc-status--inactive .sc-status-dot {
+  background: var(--color-text-muted);
 }
 
 /* ── Body (collapsible) ──────────────────────────────────────────────────── */

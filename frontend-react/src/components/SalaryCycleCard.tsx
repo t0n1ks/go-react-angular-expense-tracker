@@ -216,7 +216,10 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
         </div>
         <div className="sc-header-right">
           {currentCycle && !expanded && (
-            <span className="sc-active-badge">{t('salary_cycle.active_cycle')}</span>
+            <span className={`sc-status${hasActiveCycle ? ' sc-status--active' : ' sc-status--inactive'}`}>
+              <span className="sc-status-dot" />
+              {hasActiveCycle ? t('salary_cycle.status_active') : t('salary_cycle.status_inactive')}
+            </span>
           )}
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
