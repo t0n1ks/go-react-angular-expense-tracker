@@ -117,6 +117,9 @@ func main() {
 		protected.POST("/salary-cycle/income", handlers.AddCycleIncome)
 		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
 		protected.POST("/salary-cycle/savings", handlers.AddSavingsManual)
+
+		// Server-authoritative monthly budget for users without a salary cycle.
+		protected.GET("/budget/current", handlers.GetCurrentBudget)
 	}
 
 	port := os.Getenv("PORT")
