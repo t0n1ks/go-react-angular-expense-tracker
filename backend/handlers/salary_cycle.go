@@ -17,15 +17,15 @@ import (
 
 // BudgetFramework is the computed 50/30/20 (or custom ratio) allocation.
 type BudgetFramework struct {
-	TotalIncome     float64 `json:"total_income"`
-	NeedsLimit      float64 `json:"needs_limit"`
-	WantsLimit      float64 `json:"wants_limit"`
-	SavingsLimit    float64 `json:"savings_limit"`
-	FixedNeedsTotal float64 `json:"fixed_needs_total"`
-	FixedWantsTotal float64 `json:"fixed_wants_total"`
-	VarNeedsBudget  float64 `json:"var_needs_budget"`
-	VarWantsBudget  float64 `json:"var_wants_budget"`
-	DeficitWarning  bool    `json:"deficit_warning"`
+	TotalIncome      float64 `json:"total_income"`
+	NeedsLimit       float64 `json:"needs_limit"`
+	WantsLimit       float64 `json:"wants_limit"`
+	SavingsLimit     float64 `json:"savings_limit"`
+	FixedNeedsTotal  float64 `json:"fixed_needs_total"`
+	FixedWantsTotal  float64 `json:"fixed_wants_total"`
+	VarNeedsBudget   float64 `json:"var_needs_budget"`
+	VarWantsBudget   float64 `json:"var_wants_budget"`
+	DeficitWarning   bool    `json:"deficit_warning"`
 	SuggestedProfile *string `json:"suggested_profile"`
 }
 
@@ -115,8 +115,8 @@ type CycleStats struct {
 	PreviousSavings float64 `json:"previous_savings"`
 
 	// Cycle timing
-	DaysTotal    int `json:"days_total"`
-	DaysElapsed  int `json:"days_elapsed"`
+	DaysTotal     int `json:"days_total"`
+	DaysElapsed   int `json:"days_elapsed"`
 	DaysRemaining int `json:"days_remaining"`
 
 	// Rolling cycle-week engine (7-day chunks from cycle_start_at)
@@ -375,6 +375,13 @@ func StartSalaryCycle(c *gin.Context) {
 		parsed, err := time.Parse("2006-01-02", req.NextPayday)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid next_payday_date format. Use YYYY-MM-DD"})
+			return
+		}
+		// Shared invariant with the edit gate: a cycle must be at least 7 days.
+		if toDateOnly(parsed).Before(toDateOnly(cycleStart).AddDate(0, 0, MinCycleDays)) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": validationMessage(errCycleTooShort), "code": errCycleTooShort,
+			})
 			return
 		}
 		cycle.NextPaydayAt = &parsed
@@ -793,8 +800,121 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	c.JSON(http.StatusOK, payload)
 }
 
-// ── UpdateCycleNextPayday ─────────────────────────────────────────────────────
+// ── Cycle end-date (next payday) editing — §4 rules ───────────────────────────
 
+// MinCycleDays is the hard floor on cycle length. An end date earlier than
+// start + MinCycleDays is rejected outright (a "pocket-money for the week"
+// cycle is legitimate; anything shorter is not).
+const MinCycleDays = 7
+
+// MaxCycleDays bounds an open-ended edit when no later cycle constrains it.
+const MaxCycleDays = 180
+
+// Structured validation codes the UI maps to localized hints.
+const (
+	errCycleTooShort   = "CYCLE_TOO_SHORT"          // end < start + 7d
+	errEndBeforeLastTx = "CYCLE_END_BEFORE_LAST_TX" // end < last recorded expense
+	errEndTooLate      = "CYCLE_END_TOO_LATE"       // end crosses into the next cycle / > max
+	errNoActiveCycle   = "NO_ACTIVE_CYCLE"          // nothing editable
+)
+
+// cycleEndBounds computes the inclusive [min, max] range a cycle's next payday
+// may be moved to (§4.3):
+//
+//	min = max(start + 7d, latest transaction in the cycle)   — never orphan a tx
+//	max = (next cycle's start − 1d) if a later cycle exists, else start + 180d
+func cycleEndBounds(cycle models.SalaryCycle, allCycles []models.SalaryCycle, lastTx *time.Time) (minEnd, maxEnd time.Time) {
+	start := toDateOnly(cycle.CycleStartAt)
+
+	minEnd = start.AddDate(0, 0, MinCycleDays)
+	if lastTx != nil {
+		lt := toDateOnly(*lastTx)
+		if lt.After(minEnd) {
+			minEnd = lt
+		}
+	}
+
+	maxEnd = start.AddDate(0, 0, MaxCycleDays)
+	for _, other := range allCycles {
+		if other.ID == cycle.ID {
+			continue
+		}
+		os := toDateOnly(other.CycleStartAt)
+		if os.After(start) {
+			cap := os.AddDate(0, 0, -1) // no overlap with the next cycle
+			if cap.Before(maxEnd) {
+				maxEnd = cap
+			}
+		}
+	}
+	return minEnd, maxEnd
+}
+
+// validateCycleEnd is the single authoritative gate for a new end date. It
+// returns "" when valid, otherwise a structured error code.
+func validateCycleEnd(cycle models.SalaryCycle, newEnd time.Time, lastTx *time.Time, minEnd, maxEnd time.Time) string {
+	start := toDateOnly(cycle.CycleStartAt)
+	nd := toDateOnly(newEnd)
+
+	if nd.Before(start.AddDate(0, 0, MinCycleDays)) {
+		return errCycleTooShort
+	}
+	if lastTx != nil && nd.Before(toDateOnly(*lastTx)) {
+		return errEndBeforeLastTx
+	}
+	if nd.After(maxEnd) {
+		return errEndTooLate
+	}
+	return ""
+}
+
+// latestTxInCycle returns the created_at of the most recent live transaction
+// that belongs to the cycle window [start, nextCycleStart), or nil if none.
+func latestTxInCycle(uid uint, cycle models.SalaryCycle, allCycles []models.SalaryCycle) *time.Time {
+	start := cycle.CycleStartAt
+	q := database.DB.Model(&models.Transaction{}).
+		Where("user_id = ? AND created_at >= ?", uid, start)
+	// Cap at the next cycle's start so we only consider this cycle's own tx.
+	var upper *time.Time
+	for _, other := range allCycles {
+		if other.ID == cycle.ID {
+			continue
+		}
+		if other.CycleStartAt.After(start) && (upper == nil || other.CycleStartAt.Before(*upper)) {
+			cs := other.CycleStartAt
+			upper = &cs
+		}
+	}
+	if upper != nil {
+		q = q.Where("created_at < ?", *upper)
+	}
+	var latest models.Transaction
+	if err := q.Order("created_at DESC").First(&latest).Error; err != nil {
+		return nil // no transaction in the window (or not found)
+	}
+	return &latest.CreatedAt
+}
+
+func validationMessage(code string) string {
+	switch code {
+	case errCycleTooShort:
+		return "A cycle must be at least 7 days long"
+	case errEndBeforeLastTx:
+		return "The end date can't be before your last recorded expense"
+	case errEndTooLate:
+		return "The end date can't overlap your next cycle"
+	case errNoActiveCycle:
+		return "No active salary cycle to edit"
+	default:
+		return "Invalid end date"
+	}
+}
+
+// UpdateCycleNextPayday — PATCH /api/salary-cycle/current
+// Edits ONLY the active cycle's end date (start is immutable). Runs every change
+// through validateCycleEnd. With "preview": true it validates + computes the
+// PROJECTED stats without persisting (§4.6); otherwise it applies the change
+// atomically and returns fresh stats (§4.4). Idempotent when unchanged.
 func UpdateCycleNextPayday(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -805,45 +925,96 @@ func UpdateCycleNextPayday(c *gin.Context) {
 
 	var req struct {
 		NextPayday string `json:"next_payday" binding:"required"`
+		Preview    bool   `json:"preview"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	newDate, err := time.Parse("2006-01-02", req.NextPayday)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid next_payday format. Use YYYY-MM-DD"})
 		return
 	}
 
-	var cycle models.SalaryCycle
+	// Resolve the ACTIVE cycle (covers today, not stopped). Only it is editable
+	// (§4.1 / closed-period lock). isDateInCycleWindow already excludes stopped.
+	var allCycles []models.SalaryCycle
 	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").
-		First(&cycle).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
-			return
+		Order("cycle_start_at ASC").Find(&allCycles).Error; err != nil {
+		log.Printf("patch cycle payday: fetch user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
+		return
+	}
+	today := toDateOnly(time.Now())
+	var cycle *models.SalaryCycle
+	for i := range allCycles {
+		if isDateInCycleWindow(today, allCycles[i]) {
+			cycle = &allCycles[i]
+			break
 		}
-		log.Printf("patch cycle payday: find user=%v err=%v", uid, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycle"})
+	}
+	if cycle == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": validationMessage(errNoActiveCycle), "code": errNoActiveCycle})
 		return
 	}
 
-	// Timezone-safe date comparison: compare YYYY-MM-DD strings at UTC midnight.
-	cycleStartDateStr := cycle.CycleStartAt.UTC().Format("2006-01-02")
-	startDateOnly, _ := time.Parse("2006-01-02", cycleStartDateStr)
-	if !newDate.After(startDateOnly) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "next_payday must be after the cycle start date"})
+	lastTx := latestTxInCycle(uid, *cycle, allCycles)
+	minEnd, maxEnd := cycleEndBounds(*cycle, allCycles, lastTx)
+
+	if code := validateCycleEnd(*cycle, newDate, lastTx, minEnd, maxEnd); code != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":    validationMessage(code),
+			"code":     code,
+			"min_date": minEnd.Format("2006-01-02"),
+			"max_date": maxEnd.Format("2006-01-02"),
+		})
 		return
 	}
 
+	// Projected stats on an in-memory copy with the new end — used for BOTH the
+	// preview response and (after persisting) the applied response.
+	preview := *cycle
+	preview.NextPaydayAt = &newDate
+	projected := computeCycleStats(uid, preview)
+
+	txInWindow := int64(0)
+	database.DB.Model(&models.Transaction{}).
+		Where("user_id = ? AND created_at >= ? AND created_at <= ?", uid, cycle.CycleStartAt, newDate).
+		Count(&txInWindow)
+
+	if req.Preview {
+		c.JSON(http.StatusOK, gin.H{
+			"preview":        true,
+			"next_payday_at": newDate.Format("2006-01-02"),
+			"min_date":       minEnd.Format("2006-01-02"),
+			"max_date":       maxEnd.Format("2006-01-02"),
+			"cycle_stats":    projected,
+			"tx_in_window":   txInWindow,
+			"days_total":     projected.DaysTotal,
+		})
+		return
+	}
+
+	// Idempotent no-op when unchanged — no write, no audit.
+	if cycle.NextPaydayAt != nil && toDateOnly(*cycle.NextPaydayAt).Equal(toDateOnly(newDate)) {
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Next payday unchanged",
+			"next_payday_at": newDate.Format("2006-01-02"),
+			"cycle_stats":    projected,
+		})
+		return
+	}
+
+	// Apply atomically: nothing is half-written, and NO transaction is deleted or
+	// moved — only the cycle window changes (§4.4).
 	now := time.Now()
-	if err := database.DB.Model(&cycle).Updates(map[string]any{
-		"next_payday_at": newDate,
-		"updated_at":     now,
-	}).Error; err != nil {
-		log.Printf("patch cycle payday: update user=%v err=%v", uid, err)
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&models.SalaryCycle{}).Where("id = ?", cycle.ID).
+			Updates(map[string]any{"next_payday_at": newDate, "updated_at": now}).Error
+	})
+	if err != nil {
+		log.Printf("patch cycle payday: apply user=%v err=%v", uid, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update next payday"})
 		return
 	}
@@ -854,9 +1025,12 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		log.Printf("patch cycle payday: profile sync user=%v err=%v", uid, err)
 	}
 
+	freshCycle := *cycle
+	freshCycle.NextPaydayAt = &newDate
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Next payday updated",
 		"next_payday_at": newDate.Format("2006-01-02"),
+		"cycle_stats":    computeCycleStats(uid, freshCycle),
 	})
 }
 
