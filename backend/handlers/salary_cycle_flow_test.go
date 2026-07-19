@@ -27,7 +27,7 @@ func setupFlowDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{}, &models.SalaryCycleAudit{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	// Close the handle before t.TempDir cleanup, or Windows refuses to unlink

@@ -33,7 +33,7 @@ func Connect() {
 
 	log.Println("Database connected successfully")
 
-	err = DB.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{})
+	err = DB.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{}, &models.SalaryCycleAudit{})
 	if err != nil {
 		log.Fatalf("Failed to run database migration: %v", err)
 	}

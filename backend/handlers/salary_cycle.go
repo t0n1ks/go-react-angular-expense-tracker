@@ -910,6 +910,19 @@ func validationMessage(code string) string {
 	}
 }
 
+// writeCycleAudit appends an immutable audit record. Called INSIDE the same
+// transaction as the mutation so the change and its audit commit atomically.
+func writeCycleAudit(tx *gorm.DB, uid, cycleID uint, field, oldVal, newVal string, ts time.Time) error {
+	return tx.Create(&models.SalaryCycleAudit{
+		UserID:        uid,
+		SalaryCycleID: cycleID,
+		Field:         field,
+		OldValue:      oldVal,
+		NewValue:      newVal,
+		CreatedAt:     ts,
+	}).Error
+}
+
 // UpdateCycleNextPayday — PATCH /api/salary-cycle/current
 // Edits ONLY the active cycle's end date (start is immutable). Runs every change
 // through validateCycleEnd. With "preview": true it validates + computes the
@@ -1009,9 +1022,16 @@ func UpdateCycleNextPayday(c *gin.Context) {
 	// Apply atomically: nothing is half-written, and NO transaction is deleted or
 	// moved — only the cycle window changes (§4.4).
 	now := time.Now()
+	oldEnd := ""
+	if cycle.NextPaydayAt != nil {
+		oldEnd = toDateOnly(*cycle.NextPaydayAt).Format("2006-01-02")
+	}
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		return tx.Model(&models.SalaryCycle{}).Where("id = ?", cycle.ID).
-			Updates(map[string]any{"next_payday_at": newDate, "updated_at": now}).Error
+		if err := tx.Model(&models.SalaryCycle{}).Where("id = ?", cycle.ID).
+			Updates(map[string]any{"next_payday_at": newDate, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		return writeCycleAudit(tx, uid, cycle.ID, "next_payday_at", oldEnd, newDate.Format("2006-01-02"), now)
 	})
 	if err != nil {
 		log.Printf("patch cycle payday: apply user=%v err=%v", uid, err)
