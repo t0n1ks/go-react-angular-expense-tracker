@@ -470,9 +470,46 @@ body.dashboard-lite {
 /* Inline date picker form */
 .weekly-budget-payday-form {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+.weekly-budget-payday-controls {
+    display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+/* Live validation feedback (§4.5): 1px green/red outline via theme tokens. */
+.weekly-budget-date-input--valid {
+    border-color: var(--color-success-border);
+    outline: 1px solid var(--color-success-border);
+}
+.weekly-budget-date-input--invalid {
+    border-color: var(--color-error-border-auth);
+    outline: 1px solid var(--color-error-border-auth);
+}
+.wbc-save--valid {
+    outline: 1px solid var(--color-success-border);
+    outline-offset: 1px;
+}
+.wbc-save--invalid {
+    outline: 1px solid var(--color-error-border-auth);
+    outline-offset: 1px;
+}
+
+/* Preview of the pending end-date change (§4.6). */
+.wbc-payday-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+.wbc-payday-hint {
+    font-size: 0.78rem;
+    color: var(--color-error-text);
 }
 
 .weekly-budget-date-input {

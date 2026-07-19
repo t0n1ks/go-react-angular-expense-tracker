@@ -55,7 +55,13 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const { axiosInstance } = useAuth();
   const [editingPayday, setEditingPayday] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
-  const [paydayEditError, setPaydayEditError] = useState('');
+  // Live server-validated preview of an end-date edit (§4.5/4.6).
+  const [payErr, setPayErr] = useState<{ code: string; message: string } | null>(null);
+  const [payPreview, setPayPreview] = useState<
+    { minDate: string; maxDate: string; txInWindow: number; daysTotal: number; canSpend: number } | null
+  >(null);
+  const [checkingPayday, setCheckingPayday] = useState(false);
+  const [savingPayday, setSavingPayday] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
   const insightRef = useRef<HTMLDivElement>(null);
 
@@ -296,21 +302,40 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   };
   const cancelBudgetEdit = () => { setEditingBudget(false); setBudgetInput(''); };
 
+  // Apply (idempotency: guarded while in-flight and blocked while invalid).
   const handleCyclePaydaySave = async () => {
-    if (!pendingDate) return;
-    setPaydayEditError('');
+    if (!pendingDate || savingPayday || payErr) return;
+    setSavingPayday(true);
     try {
       await axiosInstance.patch('/salary-cycle/current', { next_payday: pendingDate });
       await refreshCycle();
       setEditingPayday(false);
+      setPayPreview(null);
+      setPayErr(null);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })
-        ?.response?.data?.error ?? 'Failed to update payday';
-      setPaydayEditError(msg);
+      const d = (err as { response?: { data?: { code?: string; error?: string } } })?.response?.data;
+      setPayErr({ code: d?.code ?? 'INVALID', message: d?.error ?? 'Failed to update payday' });
+    } finally {
+      setSavingPayday(false);
     }
   };
 
-  const handleCancel = () => { setEditingPayday(false); setPendingDate(''); setPaydayEditError(''); };
+  const handleCancel = () => {
+    setEditingPayday(false);
+    setPendingDate('');
+    setPayErr(null);
+    setPayPreview(null);
+  };
+
+  // Map a server validation code to a localized inline hint.
+  const paydayHint = (code: string): string => {
+    switch (code) {
+      case 'CYCLE_TOO_SHORT': return t('dashboard.cycle_err_too_short');
+      case 'CYCLE_END_BEFORE_LAST_TX': return t('dashboard.cycle_err_before_last_tx');
+      case 'CYCLE_END_TOO_LATE': return t('dashboard.cycle_err_too_late');
+      default: return payErr?.message ?? '';
+    }
+  };
 
   useEffect(() => {
     if (!showInsight) return;
@@ -325,6 +350,54 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [showInsight]);
+
+  // Debounced server preview of the pending end date (§4.6): reflects validity
+  // (green/red) and the projected window length / tx-count / weekly allowance
+  // WITHOUT persisting. The server is the single source of truth (§4.4).
+  useEffect(() => {
+    if (!editingPayday || !hasCycle || !pendingDate) {
+      setPayErr(null);
+      setPayPreview(null);
+      return;
+    }
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      setCheckingPayday(true);
+      try {
+        const { data } = await axiosInstance.patch('/salary-cycle/current', {
+          next_payday: pendingDate,
+          preview: true,
+        });
+        if (cancelled) return;
+        setPayErr(null);
+        setPayPreview({
+          minDate: data.min_date,
+          maxDate: data.max_date,
+          txInWindow: data.tx_in_window ?? 0,
+          daysTotal: data.days_total ?? 0,
+          canSpend: data.cycle_stats?.current_week_allowance ?? 0,
+        });
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const d = (err as {
+          response?: { data?: { code?: string; error?: string; min_date?: string; max_date?: string } };
+        })?.response?.data;
+        // Keep the bounds (returned even on rejection) so the picker can guide.
+        setPayPreview(
+          d?.min_date
+            ? { minDate: d.min_date, maxDate: d.max_date ?? '', txInWindow: 0, daysTotal: 0, canSpend: 0 }
+            : null,
+        );
+        setPayErr({ code: d?.code ?? 'INVALID', message: d?.error ?? '' });
+      } finally {
+        if (!cancelled) setCheckingPayday(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [editingPayday, hasCycle, pendingDate, axiosInstance]);
 
   return (
     <div className="weekly-budget-card">
@@ -558,23 +631,46 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
       <div className="weekly-budget-footer">
         {editingPayday ? (
           <div className="weekly-budget-payday-form">
-            <input
-              type="date"
-              className="weekly-budget-date-input"
-              value={pendingDate}
-              min={tomorrowStr}
-              onChange={e => { setPendingDate(e.target.value); setPaydayEditError(''); }}
-            />
-            <button
-              className="weekly-budget-action-btn weekly-budget-action-btn--save"
-              onClick={hasCycle ? handleCyclePaydaySave : handleSave}
-            >
-              {t('dashboard.weekly_save')}
-            </button>
-            <button className="weekly-budget-action-btn weekly-budget-action-btn--cancel" onClick={handleCancel}>
-              {t('dashboard.weekly_cancel')}
-            </button>
-            {paydayEditError && <span className="wbc-payday-error">{paydayEditError}</span>}
+            <div className="weekly-budget-payday-controls">
+              <input
+                type="date"
+                className={`weekly-budget-date-input${
+                  hasCycle && payErr ? ' weekly-budget-date-input--invalid'
+                  : hasCycle && payPreview && !checkingPayday ? ' weekly-budget-date-input--valid' : ''
+                }`}
+                value={pendingDate}
+                min={(hasCycle && payPreview?.minDate) || tomorrowStr}
+                max={hasCycle && payPreview?.maxDate ? payPreview.maxDate : undefined}
+                onChange={e => setPendingDate(e.target.value)}
+              />
+              <button
+                className={`weekly-budget-action-btn weekly-budget-action-btn--save${
+                  hasCycle && payErr ? ' wbc-save--invalid'
+                  : hasCycle && payPreview && !checkingPayday ? ' wbc-save--valid' : ''
+                }`}
+                onClick={hasCycle ? handleCyclePaydaySave : handleSave}
+                disabled={hasCycle && (!!payErr || checkingPayday || savingPayday)}
+                type="button"
+              >
+                {savingPayday ? '…' : t('dashboard.weekly_save')}
+              </button>
+              <button className="weekly-budget-action-btn weekly-budget-action-btn--cancel" onClick={handleCancel} type="button">
+                {t('dashboard.weekly_cancel')}
+              </button>
+            </div>
+
+            {/* Preview of the pending change (§4.6) — no surprise recompute. */}
+            {hasCycle && payPreview && !payErr && (
+              <div className="wbc-payday-preview">
+                <span>{t('dashboard.weekly_preview_length', { days: payPreview.daysTotal })}</span>
+                <span>{t('dashboard.weekly_preview_tx', { count: payPreview.txInWindow })}</span>
+                <span>{t('dashboard.weekly_preview_allowance', { amount: formatAmount(payPreview.canSpend) })}</span>
+              </div>
+            )}
+            {/* Inline validation hint (§4.5) */}
+            {hasCycle && payErr && (
+              <span className="wbc-payday-hint">{paydayHint(payErr.code)}</span>
+            )}
           </div>
         ) : hasCycle ? (
           nextPayday ? (
