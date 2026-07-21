@@ -114,6 +114,7 @@
     "cycle_err_too_short": "Цикл має тривати щонайменше 7 днів",
     "cycle_err_before_last_tx": "Дата завершення не може бути раніше вашої останньої витрати",
     "cycle_err_too_late": "Дата завершення не може перетинатися з наступним циклом",
+    "cycle_err_overlap": "Цикл не може перетинатися з іншим циклом",
     "weekly_preview_length": "Нова тривалість: {{days}} дн.",
     "weekly_preview_tx": "Транзакцій у цьому періоді: {{count}}",
     "weekly_preview_allowance": "Очікуваний тижневий бюджет: {{amount}}",

@@ -114,6 +114,7 @@
     "cycle_err_too_short": "Ein Zyklus muss mindestens 7 Tage lang sein",
     "cycle_err_before_last_tx": "Das Enddatum darf nicht vor deiner letzten erfassten Ausgabe liegen",
     "cycle_err_too_late": "Das Enddatum darf sich nicht mit deinem nächsten Zyklus überschneiden",
+    "cycle_err_overlap": "Ein Zyklus darf sich nicht mit einem anderen überschneiden",
     "weekly_preview_length": "Neue Länge: {{days}} Tage",
     "weekly_preview_tx": "{{count}} Transaktionen in diesem Zeitraum",
     "weekly_preview_allowance": "Voraussichtliches Wochenbudget: {{amount}}",

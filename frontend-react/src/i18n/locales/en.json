@@ -114,6 +114,7 @@
     "cycle_err_too_short": "A cycle must be at least 7 days",
     "cycle_err_before_last_tx": "The end date can't be before your last recorded expense",
     "cycle_err_too_late": "The end date can't overlap your next cycle",
+    "cycle_err_overlap": "A cycle can't overlap another cycle",
     "weekly_preview_length": "New length: {{days}} days",
     "weekly_preview_tx": "{{count}} transactions in this window",
     "weekly_preview_allowance": "Projected weekly allowance: {{amount}}",

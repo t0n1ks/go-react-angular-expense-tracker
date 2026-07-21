@@ -62,6 +62,7 @@ const CyclePaydayEditor: React.FC = () => {
       case 'CYCLE_TOO_SHORT': return t('dashboard.cycle_err_too_short');
       case 'CYCLE_END_BEFORE_LAST_TX': return t('dashboard.cycle_err_before_last_tx');
       case 'CYCLE_END_TOO_LATE': return t('dashboard.cycle_err_too_late');
+      case 'CYCLE_OVERLAP': return t('dashboard.cycle_err_overlap');
       default: return payErr?.message ?? '';
     }
   };

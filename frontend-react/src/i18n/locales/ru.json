@@ -114,6 +114,7 @@
     "cycle_err_too_short": "Цикл должен длиться не менее 7 дней",
     "cycle_err_before_last_tx": "Дата окончания не может быть раньше вашего последнего расхода",
     "cycle_err_too_late": "Дата окончания не может пересекаться со следующим циклом",
+    "cycle_err_overlap": "Цикл не может пересекаться с другим циклом",
     "weekly_preview_length": "Новая длина: {{days}} дн.",
     "weekly_preview_tx": "Транзакций в этом периоде: {{count}}",
     "weekly_preview_allowance": "Ожидаемый недельный бюджет: {{amount}}",

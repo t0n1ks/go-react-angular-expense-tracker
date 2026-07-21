@@ -199,8 +199,15 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
       setNextPayday('');
       setFixedExpenses([]);
       setRatioProfile('50/30/20');
-    } catch {
-      setErrorMsg(t('salary_cycle.error'));
+    } catch (err: unknown) {
+      // Map the server's structured code to a specific, localized hint instead
+      // of a generic "try again" (§4).
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      const hint =
+        code === 'CYCLE_TOO_SHORT' ? t('dashboard.cycle_err_too_short')
+        : code === 'CYCLE_OVERLAP' ? t('dashboard.cycle_err_overlap')
+        : t('salary_cycle.error');
+      setErrorMsg(hint);
     } finally {
       setSaving(false);
     }
