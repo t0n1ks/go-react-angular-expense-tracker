@@ -104,10 +104,23 @@ const Dashboard: React.FC = () => {
   const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
 
   const savingsCatId = currentCycle?.saved_money_category_id ?? 0;
+  // When a cycle exists (active OR stopped), scope the client-side fallback to
+  // that cycle's own window. Otherwise stopping a cycle would flip these figures
+  // to an ALL-TIME sum (inflating "Income" for multi-cycle users). No cycle at
+  // all → all-time, as before.
+  const inCycleWindow = (tx: Transaction): boolean => {
+    if (!currentCycle) return true;
+    const ev = new Date(tx.created_at ?? tx.date).getTime();
+    if (ev < new Date(currentCycle.cycle_start_at).getTime()) return false;
+    if (currentCycle.next_payday_at && ev > new Date(currentCycle.next_payday_at).getTime()) return false;
+    return true;
+  };
   const legacyIncome = transactions
-    .filter(t => t.type === 'income' && !(savingsCatId > 0 && Number(t.category?.id) === savingsCatId))
+    .filter(t => t.type === 'income' && !(savingsCatId > 0 && Number(t.category?.id) === savingsCatId) && inCycleWindow(t))
     .reduce((acc, t) => acc + Number(t.amount), 0);
-  const legacyExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+  const legacyExpense = transactions
+    .filter(t => t.type === 'expense' && inCycleWindow(t))
+    .reduce((acc, t) => acc + Number(t.amount), 0);
 
   const cycleIncome        = hasCycle ? cycleStats!.cycle_income        : legacyIncome;
   const cycleExpenses      = hasCycle ? cycleStats!.cycle_expenses      : legacyExpense;
