@@ -741,6 +741,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 			"budget_framework": nil,
 			"cycle_stats":      nil,
 			"has_active_cycle": false,
+			"resumable_cycle":  nil,
 		}
 		setCachedCycle(uid, payload)
 		c.JSON(http.StatusOK, payload)
@@ -790,11 +791,23 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		DeficitWarning:  cycle.VarNeedsBudget < 0,
 	}
 
+	// A stopped cycle whose window still covers today can be resumed. Surfaced so
+	// the UI can offer "Resume" (or show it disabled when another cycle is active).
+	var resumable interface{}
+	if rc := findResumableCycle(allCycles, today); rc != nil {
+		resumable = gin.H{
+			"id":             rc.ID,
+			"cycle_start_at": rc.CycleStartAt,
+			"next_payday_at": rc.NextPaydayAt,
+		}
+	}
+
 	payload := gin.H{
 		"cycle":            cycle,
 		"budget_framework": fw,
 		"cycle_stats":      cycleStatsPayload, // nil → JSON null when no active cycle
 		"has_active_cycle": hasActive,
+		"resumable_cycle":  resumable, // nil → JSON null when nothing is resumable
 	}
 	setCachedCycle(uid, payload)
 	c.JSON(http.StatusOK, payload)
@@ -1105,6 +1118,114 @@ func StopSalaryCycle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Salary cycle stopped", "stopped": true,
 		"cycle_id": active.ID, "has_active_cycle": false,
+	})
+}
+
+// windowCoversToday reports whether `today` (midnight UTC) falls within a cycle's
+// own date window [start, next_payday], IGNORING its stopped state. Used to
+// decide resume eligibility (isDateInCycleWindow can't be reused because it
+// treats every stopped cycle as covering no date). Open-ended cycles (no
+// next_payday) cover every date from start onward.
+func windowCoversToday(cycle models.SalaryCycle, today time.Time) bool {
+	start := toDateOnly(cycle.CycleStartAt)
+	if today.Before(start) {
+		return false
+	}
+	if cycle.NextPaydayAt == nil {
+		return true
+	}
+	return !today.After(toDateOnly(*cycle.NextPaydayAt))
+}
+
+// findResumableCycle returns the most-recently-started STOPPED cycle whose window
+// still covers today (i.e. it could be reactivated), or nil.
+func findResumableCycle(cycles []models.SalaryCycle, today time.Time) *models.SalaryCycle {
+	var target *models.SalaryCycle
+	for i := range cycles {
+		c := &cycles[i]
+		if c.StoppedAt == nil || !windowCoversToday(*c, today) {
+			continue
+		}
+		if target == nil || c.CycleStartAt.After(target.CycleStartAt) {
+			target = c
+		}
+	}
+	return target
+}
+
+// ── ResumeSalaryCycle ──────────────────────────────────────────────────────
+// POST /api/salary-cycle/resume
+// Reactivates a soft-stopped cycle by clearing StoppedAt. Non-destructive: the
+// stop preserved all data, so nothing is recreated or moved. Allowed only when
+// today is within the cycle's own window AND no other cycle is currently active
+// (the one-active-cycle invariant). Idempotent.
+func ResumeSalaryCycle(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	var cycles []models.SalaryCycle
+	if err := database.DB.Where("user_id = ?", uid).
+		Order("cycle_start_at ASC").Find(&cycles).Error; err != nil {
+		log.Printf("resume cycle: user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
+		return
+	}
+
+	today := toDateOnly(time.Now())
+
+	// Is any (non-stopped) cycle active right now?
+	var activeNow *models.SalaryCycle
+	for i := range cycles {
+		if isDateInCycleWindow(today, cycles[i]) { // excludes stopped cycles
+			activeNow = &cycles[i]
+			break
+		}
+	}
+	target := findResumableCycle(cycles, today)
+
+	if activeNow != nil {
+		// Already active and nothing stopped to resume → idempotent no-op.
+		if target == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "A cycle is already active", "resumed": true,
+				"cycle_id": activeNow.ID, "has_active_cycle": true,
+			})
+			return
+		}
+		// A stopped cycle is resumable, but another cycle is active → block
+		// (never two active cycles / no overlap).
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Stop the current cycle first", "code": "ANOTHER_CYCLE_ACTIVE",
+			"resumed": false, "has_active_cycle": true,
+		})
+		return
+	}
+
+	if target == nil {
+		// Nothing to resume (no stopped cycle whose window still covers today).
+		c.JSON(http.StatusOK, gin.H{
+			"message": "No resumable cycle", "resumed": false, "has_active_cycle": false,
+		})
+		return
+	}
+
+	if err := database.DB.Model(target).
+		Updates(map[string]any{"stopped_at": nil, "updated_at": time.Now()}).Error; err != nil {
+		log.Printf("resume cycle: update user=%v cycle=%v err=%v", uid, target.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resume cycle"})
+		return
+	}
+	InvalidateCycleCache(uid)
+	log.Printf("resume cycle: user=%v resumed cycle id=%v (start=%v)",
+		uid, target.ID, toDateOnly(target.CycleStartAt).Format("2006-01-02"))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Salary cycle resumed", "resumed": true,
+		"cycle_id": target.ID, "has_active_cycle": true,
 	})
 }
 

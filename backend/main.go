@@ -115,6 +115,7 @@ func main() {
 		protected.DELETE("/salary-cycle/:id", handlers.DeleteSalaryCycle)
 		protected.GET("/salary-cycle/history", handlers.GetSalaryCycleHistory)
 		protected.POST("/salary-cycle/stop", handlers.StopSalaryCycle)
+		protected.POST("/salary-cycle/resume", handlers.ResumeSalaryCycle)
 		protected.POST("/salary-cycle/income", handlers.AddCycleIncome)
 		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
 		protected.POST("/salary-cycle/savings", handlers.AddSavingsManual)
