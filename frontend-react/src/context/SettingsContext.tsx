@@ -34,6 +34,13 @@ export interface SalaryCycle {
   fixed_expenses: FixedExpenseItem[];
 }
 
+// A stopped cycle whose window still covers today — offered for "Resume".
+export interface ResumableCycle {
+  id: number;
+  cycle_start_at: string;
+  next_payday_at: string | null;
+}
+
 export interface UserSettings {
   currency: Currency;
   aiAdviceEnabled: boolean;
@@ -101,6 +108,7 @@ interface SettingsContextType extends UserSettings {
   currentCycle: SalaryCycle | null;
   cycleStats: CycleStats | null;
   hasActiveCycle: boolean;
+  resumableCycle: ResumableCycle | null;
   refreshCycle: () => Promise<void>;
   budgetWindow: BudgetWindow | null;
   refreshBudget: () => Promise<void>;
@@ -162,6 +170,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
   const [cycleStats, setCycleStats] = useState<CycleStats | null>(null);
   const [hasActiveCycle, setHasActiveCycle] = useState<boolean>(false);
+  const [resumableCycle, setResumableCycle] = useState<ResumableCycle | null>(null);
   const [budgetWindow, setBudgetWindow] = useState<BudgetWindow | null>(null);
 
   // Fetches the server budget window (no-salary path). Safe to call anytime;
@@ -181,6 +190,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setCurrentCycle(cycle);
       setCycleStats(res.data.cycle_stats ?? null);
       setHasActiveCycle(active);
+      setResumableCycle(res.data.resumable_cycle ?? null);
       if (cycle) {
         localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
       } else {
@@ -200,6 +210,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setSettings(DEFAULT_SETTINGS);
       setCurrentCycle(null);
       setCycleStats(null);
+      setResumableCycle(null);
       setBudgetWindow(null);
       localStorage.removeItem(CYCLE_KEY);
       return;
@@ -235,6 +246,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setCurrentCycle(cycle);
         setCycleStats(cycleRes.data.cycle_stats ?? null);
         setHasActiveCycle(active);
+        setResumableCycle(cycleRes.data.resumable_cycle ?? null);
         if (cycle) {
           localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
         } else {
@@ -289,6 +301,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     currentCycle,
     cycleStats,
     hasActiveCycle,
+    resumableCycle,
     refreshCycle,
     budgetWindow,
     refreshBudget,

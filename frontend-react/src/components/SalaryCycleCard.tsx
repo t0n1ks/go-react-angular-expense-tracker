@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X, Ban } from 'lucide-react';
+import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X, Ban, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import './SalaryCycleCard.css';
@@ -48,13 +48,15 @@ const todayDateStr = () => new Date().toISOString().slice(0, 10);
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const { t, i18n } = useTranslation();
   const { axiosInstance } = useAuth();
-  const { currentCycle, hasActiveCycle, refreshCycle, formatAmount } = useSettings();
+  const { currentCycle, hasActiveCycle, resumableCycle, refreshCycle, formatAmount } = useSettings();
 
   const today = todayDateStr();
 
-  const [expanded, setExpanded] = useState(!currentCycle);
+  const [expanded, setExpanded] = useState(!hasActiveCycle);
   const [confirmStop, setConfirmStop] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [confirmResume, setConfirmResume] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   // Soft-stop the active cycle (job loss). History is preserved; the user falls
   // back to the no-salary monthly budget and can start a new cycle later.
@@ -71,11 +73,26 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
     }
   };
 
-  // When the active cycle is deleted (currentCycle → null), automatically
-  // expand the form so the user can immediately start a new cycle.
+  // Resume a stopped-but-resumable cycle — non-destructive, just clears the
+  // stopped flag server-side; all data is already intact.
+  const handleResume = async () => {
+    setResuming(true);
+    try {
+      await axiosInstance.post('/salary-cycle/resume');
+      await refreshCycle();
+      setConfirmResume(false);
+    } catch {
+      // leave the dialog open on failure
+    } finally {
+      setResuming(false);
+    }
+  };
+
+  // Collapse to the summary when a cycle is active; auto-expand when there's no
+  // active cycle so the Resume / create actions are immediately visible.
   useEffect(() => {
-    if (!currentCycle) setExpanded(true);
-  }, [currentCycle]);
+    setExpanded(!hasActiveCycle);
+  }, [hasActiveCycle]);
 
   const [baseSalary, setBaseSalary] = useState('');
   const [bonuses, setBonuses] = useState('');
@@ -192,6 +209,15 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
     ? new Date(currentCycle.cycle_start_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
 
+  const fmtShort = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
+  const activeWindowLabel = currentCycle
+    ? `${fmtShort(currentCycle.cycle_start_at)} – ${currentCycle.next_payday_at ? fmtShort(currentCycle.next_payday_at) : '…'}`
+    : '';
+  const resumeRange = resumableCycle
+    ? `${fmtShort(resumableCycle.cycle_start_at)}–${resumableCycle.next_payday_at ? fmtShort(resumableCycle.next_payday_at) : '…'}`
+    : '';
+
   return (
     <>
     <div className="sc-card">
@@ -228,19 +254,6 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
         </div>
       </button>
 
-      {/* Soft-stop control — only when a cycle is actually active. */}
-      {hasActiveCycle && (
-        <div className="sc-active-actions">
-          <button
-            type="button"
-            className="sc-stop-btn"
-            onClick={() => setConfirmStop(true)}
-          >
-            <Ban size={14} /> {t('salary_cycle.stop_btn')}
-          </button>
-        </div>
-      )}
-
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -251,7 +264,56 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <p className="sc-hint">{t('salary_cycle.subtitle')}</p>
+            {hasActiveCycle ? (
+              /* ── Active-cycle panel: info + end-date editing (commit 3) + stop.
+                 The stop action lives ONLY here, never on the collapsed card. */
+              <div className="sc-active-panel">
+                <div className="sc-active-info">
+                  <div className="sc-active-info-row">
+                    <span className="sc-active-info-label">{t('salary_cycle.window_label')}</span>
+                    <span className="sc-active-info-value">{activeWindowLabel}</span>
+                  </div>
+                  {currentCycle && (
+                    <div className="sc-active-info-row">
+                      <span className="sc-active-info-label">{t('salary_cycle.income_label')}</span>
+                      <span className="sc-active-info-value">{formatAmount(currentCycle.total_income)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* A stopped cycle is resumable but this one is active → the one-
+                    active-cycle rule blocks it; explain how to enable Resume. */}
+                {resumableCycle && (
+                  <p className="sc-resume-blocked-hint">{t('salary_cycle.resume_blocked_hint')}</p>
+                )}
+
+                {/* END_DATE_EDITOR_SLOT — commit 3 inserts <CyclePaydayEditor/> here */}
+
+                <div className="sc-panel-actions">
+                  <button type="button" className="sc-stop-btn" onClick={() => setConfirmStop(true)}>
+                    <Ban size={14} /> {t('salary_cycle.stop_btn')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {resumableCycle && (
+                  <div className="sc-resume-block">
+                    <p className="sc-resume-caption">
+                      {t('salary_cycle.resume_caption', { range: resumeRange })}
+                    </p>
+                    <button
+                      type="button"
+                      className="sc-resume-btn"
+                      onClick={() => setConfirmResume(true)}
+                    >
+                      <RotateCcw size={15} /> {t('salary_cycle.resume_btn')}
+                    </button>
+                    <div className="sc-divider" />
+                    <h3 className="sc-or-heading">{t('salary_cycle.or_create_new')}</h3>
+                  </div>
+                )}
+                <p className="sc-hint">{t('salary_cycle.subtitle')}</p>
 
             {/* ── Salary inputs ── */}
             <div className="sc-row">
@@ -458,6 +520,8 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
               <Rocket size={16} />
               {saving ? '…' : t('salary_cycle.start_btn')}
             </button>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -528,6 +592,51 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
               disabled={stopping}
             >
               {stopping ? '…' : t('salary_cycle.stop_confirm_btn')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Resume-cycle confirm (non-destructive) ────────────────────────── */}
+    {confirmResume && (
+      <div
+        className="sc-tip-overlay"
+        onClick={() => !resuming && setConfirmResume(false)}
+        role="dialog"
+        aria-modal
+      >
+        <div className="sc-tip-modal" onClick={e => e.stopPropagation()}>
+          <div className="sc-tip-modal-header">
+            <RotateCcw size={16} className="sc-tip-modal-icon" />
+            <span className="sc-tip-modal-title">{t('salary_cycle.resume_confirm_title')}</span>
+            <button
+              type="button"
+              className="sc-tip-modal-close"
+              onClick={() => setConfirmResume(false)}
+              disabled={resuming}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="sc-tip-modal-body">{t('salary_cycle.resume_confirm_body')}</p>
+          <div className="sc-stop-confirm-actions">
+            <button
+              type="button"
+              className="sc-stop-cancel"
+              onClick={() => setConfirmResume(false)}
+              disabled={resuming}
+            >
+              {t('salary_cycle.stop_cancel')}
+            </button>
+            <button
+              type="button"
+              className="sc-resume-confirm"
+              onClick={handleResume}
+              disabled={resuming}
+            >
+              {resuming ? '…' : t('salary_cycle.resume_confirm_btn')}
             </button>
           </div>
         </div>
