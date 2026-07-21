@@ -227,6 +227,103 @@
   color: var(--color-text-muted);
 }
 
+/* ── Cycle end-date (next payday) editor, in the active panel ─────────────── */
+.cpe-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cpe-label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+.cpe-date {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-heading);
+}
+.cpe-edit-btn {
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.cpe-edit-btn:hover {
+  color: #38bdf8;
+}
+.cpe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cpe-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cpe-input {
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  border: 1px solid var(--color-border-card);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+  color: var(--color-text-heading);
+  outline: none;
+}
+.cpe-input--valid {
+  border-color: var(--color-success-border);
+  outline: 1px solid var(--color-success-border);
+}
+.cpe-input--invalid {
+  border-color: var(--color-error-border-auth);
+  outline: 1px solid var(--color-error-border-auth);
+}
+.cpe-save,
+.cpe-cancel {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-card);
+  cursor: pointer;
+}
+.cpe-save {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #fff;
+}
+.cpe-save--valid {
+  outline: 1px solid var(--color-success-border);
+  outline-offset: 1px;
+}
+.cpe-save--invalid {
+  outline: 1px solid var(--color-error-border-auth);
+  outline-offset: 1px;
+}
+.cpe-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cpe-cancel {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+.cpe-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+.cpe-hint {
+  font-size: 0.78rem;
+  color: var(--color-error-text);
+}
+
 /* ── Salary Cycle Card ───────────────────────────────────────────────────── */
 .sc-card {
   background-color: var(--color-bg-card);

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X, Ban, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
+import CyclePaydayEditor from './CyclePaydayEditor';
 import './SalaryCycleCard.css';
 
 // Clickable info icon — opens a dismissible modal with the full explanation.
@@ -287,7 +288,9 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
                   <p className="sc-resume-blocked-hint">{t('salary_cycle.resume_blocked_hint')}</p>
                 )}
 
-                {/* END_DATE_EDITOR_SLOT — commit 3 inserts <CyclePaydayEditor/> here */}
+                {/* End-date (next payday) editing — moved here from the budget
+                    card, with all its Phase 3 validation. */}
+                <CyclePaydayEditor />
 
                 <div className="sc-panel-actions">
                   <button type="button" className="sc-stop-btn" onClick={() => setConfirmStop(true)}>
