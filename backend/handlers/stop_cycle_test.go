@@ -17,9 +17,10 @@ func TestStopCycle_SoftStopPreservesDataAndAllowsRestart(t *testing.T) {
 	user := models.User{Username: "jobloss", Password: "x"}
 	database.DB.Create(&user)
 
-	// Start a cycle today.
+	// Start a cycle covering today (a few days back so the active-cycle lookup is
+	// robust to the UTC/local midnight boundary).
 	startCycle(t, user.ID,
-		time.Now().Format("2006-01-02"),
+		time.Now().AddDate(0, 0, -3).Format("2006-01-02"),
 		time.Now().AddDate(0, 0, 30).Format("2006-01-02"))
 
 	// Sanity: it's active.
@@ -74,18 +75,21 @@ func TestStopCycle_SoftStopPreservesDataAndAllowsRestart(t *testing.T) {
 		t.Errorf("second stop should be a no-op (stopped=false), got %v", stopResp2["stopped"])
 	}
 
-	// Re-employment: a brand-new cycle can be started and is active again.
-	startCycle(t, user.ID,
-		time.Now().Format("2006-01-02"),
-		time.Now().AddDate(0, 0, 30).Format("2006-01-02"))
+	// Reactivation under the no-overlap rule (§3): the stopped cycle still covers
+	// today, so a new *active* cycle can't be started overlapping it — the user
+	// resumes the stopped cycle instead, which reactivates it with data intact.
+	wRes := callHandler(user.ID, nil, ResumeSalaryCycle)
+	if wRes.Code != http.StatusOK || decode(wRes)["resumed"] != true {
+		t.Fatalf("resume after stop: want 200 resumed=true, got %d %s", wRes.Code, wRes.Body.String())
+	}
 	cur3 := getCurrent(t, user.ID)
 	if cur3["has_active_cycle"] != true {
-		t.Errorf("expected a new active cycle after restart, got %v", cur3["has_active_cycle"])
+		t.Errorf("expected an active cycle after resume, got %v", cur3["has_active_cycle"])
 	}
-	// The stopped cycle plus the new one both persist in history.
+	// The cycle row persisted through stop → resume.
 	var finalCycleCount int64
 	database.DB.Model(&models.SalaryCycle{}).Where("user_id = ?", user.ID).Count(&finalCycleCount)
-	if finalCycleCount < cycleCountBefore+1 {
-		t.Errorf("expected the stopped cycle to remain alongside the new one, count=%d", finalCycleCount)
+	if finalCycleCount < cycleCountBefore {
+		t.Errorf("cycle should persist through stop/resume, count=%d", finalCycleCount)
 	}
 }

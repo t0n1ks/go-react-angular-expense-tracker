@@ -40,7 +40,7 @@ func TestCycleCacheInvalidatedOnTxCreate(t *testing.T) {
 	startBody := map[string]any{
 		"base_salary": 3000.0, "language": "en",
 		"needs_pct": 50.0, "wants_pct": 30.0, "savings_pct": 20.0,
-		"received_at_date": time.Now().Format("2006-01-02"),
+		"received_at_date": time.Now().AddDate(0, 0, -3).Format("2006-01-02"),
 		"next_payday_date": time.Now().AddDate(0, 0, 30).Format("2006-01-02"),
 	}
 	if w := callHandler(user.ID, startBody, StartSalaryCycle); w.Code != http.StatusCreated {

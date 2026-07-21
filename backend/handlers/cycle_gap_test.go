@@ -58,9 +58,10 @@ func TestGap_ClosedOldCycle(t *testing.T) {
 		time.Now().AddDate(0, 0, -90).Format("2006-01-02"),
 		time.Now().AddDate(0, 0, -60).Format("2006-01-02"))
 
-	// New cycle today, next payday in 30 days.
+	// New cycle covering today (started a few days back so the active-cycle
+	// lookup is robust to the UTC/local midnight boundary).
 	startCycle(t, user.ID,
-		time.Now().Format("2006-01-02"),
+		time.Now().AddDate(0, 0, -3).Format("2006-01-02"),
 		time.Now().AddDate(0, 0, 30).Format("2006-01-02"))
 
 	cur := getCurrent(t, user.ID)
@@ -86,9 +87,10 @@ func TestGap_OpenEndedOldCycle(t *testing.T) {
 	firstCycle := firstOut["cycle"].(map[string]any)
 	t.Logf("old cycle id=%v next_payday=%v", firstCycle["id"], firstCycle["next_payday_at"])
 
-	// New cycle today, next payday in 30 days.
+	// New cycle covering today (started yesterday so it's robust to the
+	// UTC/local midnight boundary while still "recent").
 	secondOut := startCycle(t, user.ID,
-		time.Now().Format("2006-01-02"),
+		time.Now().AddDate(0, 0, -1).Format("2006-01-02"),
 		time.Now().AddDate(0, 0, 30).Format("2006-01-02"))
 	secondCycle := secondOut["cycle"].(map[string]any)
 	t.Logf("returned-from-start cycle id=%v start=%v", secondCycle["id"], secondCycle["cycle_start_at"])

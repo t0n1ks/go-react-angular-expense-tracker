@@ -79,14 +79,24 @@ func TestResume_BlockedOutsideWindow(t *testing.T) {
 	}
 }
 
-// Resume is blocked (409) when another cycle is currently active.
+// Resume's one-active-cycle guard is defensive under the no-overlap rule (two
+// overlapping cycles can't normally be created). Insert an overlapping active
+// cycle directly to exercise the guard: resume must be blocked (409).
 func TestResume_BlockedWhenAnotherActive(t *testing.T) {
 	setupFlowDB(t)
-	u := startEditUser(t, "twoactive") // cycle A active: start-3, end+30
-
+	u := startEditUser(t, "twoactive")      // cycle A active: start-3, end+30
 	callHandler(u.ID, nil, StopSalaryCycle) // stop A (still resumable)
-	// Start cycle B (active, covers today). A stays stopped-but-resumable.
-	startCycle(t, u.ID, dstr(-1), dstr(30))
+
+	// Directly insert an active cycle B covering today (bypasses the create-time
+	// no-overlap guard, which would otherwise reject an overlapping cycle).
+	bStart := time.Now().AddDate(0, 0, -1)
+	bEnd := time.Now().AddDate(0, 0, 30)
+	database.DB.Create(&models.SalaryCycle{
+		UserID: u.ID, BaseSalary: 1000, TotalIncome: 1000,
+		NeedsPct: 50, WantsPct: 30, SavingsPct: 20,
+		CycleStartAt: bStart, NextPaydayAt: &bEnd,
+		CreatedAt: bStart, UpdatedAt: bStart,
+	})
 
 	w := callHandler(u.ID, nil, ResumeSalaryCycle)
 	if w.Code != http.StatusConflict || decode(w)["code"] != "ANOTHER_CYCLE_ACTIVE" {

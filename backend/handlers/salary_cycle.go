@@ -445,6 +445,42 @@ func StartSalaryCycle(c *gin.Context) {
 		}
 	}
 
+	// ── No-overlap rule (§3) ──────────────────────────────────────────────────
+	// A new cycle may not overlap any existing BOUNDED cycle's [start, next_payday]
+	// window (stopped or active alike — the user still lives on that period).
+	// Open-ended prior cycles are auto-closed below (they have no committed end),
+	// so they are excluded here. The idempotent same-period resubmit is already
+	// handled by the guard above.
+	newStart := targetDate
+	newOpen := cycle.NextPaydayAt == nil
+	var newEnd time.Time
+	if !newOpen {
+		newEnd = toDateOnly(*cycle.NextPaydayAt)
+	}
+	for i := range allUserCycles {
+		ex := allUserCycles[i]
+		if ex.NextPaydayAt == nil {
+			continue // open-ended prior cycle → closed below, not an overlap
+		}
+		exStart := toDateOnly(ex.CycleStartAt)
+		exEnd := toDateOnly(*ex.NextPaydayAt)
+		// [newStart,newEnd] overlaps [exStart,exEnd] iff newStart<=exEnd AND
+		// exStart<=newEnd. A new open-ended cycle has newEnd = +∞.
+		if newStart.After(exEnd) {
+			continue
+		}
+		if !newOpen && exStart.After(newEnd) {
+			continue
+		}
+		log.Printf("start salary cycle: user=%v new [%v..%v] overlaps cycle id=%v [%v..%v] — rejected",
+			uid, newStart.Format("2006-01-02"), req.NextPayday, ex.ID,
+			exStart.Format("2006-01-02"), exEnd.Format("2006-01-02"))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": validationMessage(errCycleOverlap), "code": errCycleOverlap,
+		})
+		return
+	}
+
 	// No overlap — safe to create a new cycle.
 	// The most-recent existing cycle (last in ASC slice) is the "previous" one
 	// for end-of-cycle surplus/deficit resolution.
@@ -829,6 +865,7 @@ const (
 	errEndBeforeLastTx = "CYCLE_END_BEFORE_LAST_TX" // end < last recorded expense
 	errEndTooLate      = "CYCLE_END_TOO_LATE"       // end crosses into the next cycle / > max
 	errNoActiveCycle   = "NO_ACTIVE_CYCLE"          // nothing editable
+	errCycleOverlap    = "CYCLE_OVERLAP"            // new cycle overlaps an existing one
 )
 
 // cycleEndBounds computes the inclusive [min, max] range a cycle's next payday
@@ -918,6 +955,8 @@ func validationMessage(code string) string {
 		return "The end date can't overlap your next cycle"
 	case errNoActiveCycle:
 		return "No active salary cycle to edit"
+	case errCycleOverlap:
+		return "A cycle can't overlap another cycle"
 	default:
 		return "Invalid end date"
 	}
