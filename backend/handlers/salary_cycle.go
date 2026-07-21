@@ -794,7 +794,7 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 	// A stopped cycle whose window still covers today can be resumed. Surfaced so
 	// the UI can offer "Resume" (or show it disabled when another cycle is active).
 	var resumable interface{}
-	if rc := findResumableCycle(allCycles, today); rc != nil {
+	if rc := findResumableCycle(uid, allCycles, today); rc != nil {
 		resumable = gin.H{
 			"id":             rc.ID,
 			"cycle_start_at": rc.CycleStartAt,
@@ -1137,14 +1137,34 @@ func windowCoversToday(cycle models.SalaryCycle, today time.Time) bool {
 	return !today.After(toDateOnly(*cycle.NextPaydayAt))
 }
 
-// findResumableCycle returns the most-recently-started STOPPED cycle whose window
-// still covers today (i.e. it could be reactivated), or nil.
-func findResumableCycle(cycles []models.SalaryCycle, today time.Time) *models.SalaryCycle {
+// cycleHasLiveIncome reports whether a cycle still has at least one live
+// (non-deleted) income transaction in its window. A cycle whose data was removed
+// via "delete from history" (its Salary income is soft-deleted) fails this, so
+// it is treated as gone and must NOT be offered for resume — resuming it would
+// revive an empty/inconsistent cycle (income €0 but €X of cycle info).
+func cycleHasLiveIncome(uid uint, cycle models.SalaryCycle) bool {
+	q := database.DB.Model(&models.Transaction{}).
+		Where("user_id = ? AND type = ? AND created_at >= ?", uid, "income", cycle.CycleStartAt)
+	if cycle.NextPaydayAt != nil {
+		q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
+	}
+	var n int64
+	q.Count(&n)
+	return n > 0
+}
+
+// findResumableCycle returns the most-recently-started STOPPED cycle that could
+// be reactivated — its window still covers today AND its data is intact (not
+// deleted from history) — or nil.
+func findResumableCycle(uid uint, cycles []models.SalaryCycle, today time.Time) *models.SalaryCycle {
 	var target *models.SalaryCycle
 	for i := range cycles {
 		c := &cycles[i]
 		if c.StoppedAt == nil || !windowCoversToday(*c, today) {
 			continue
+		}
+		if !cycleHasLiveIncome(uid, *c) {
+			continue // deleted / emptied — nothing to restore
 		}
 		if target == nil || c.CycleStartAt.After(target.CycleStartAt) {
 			target = c
@@ -1185,7 +1205,7 @@ func ResumeSalaryCycle(c *gin.Context) {
 			break
 		}
 	}
-	target := findResumableCycle(cycles, today)
+	target := findResumableCycle(uid, cycles, today)
 
 	if activeNow != nil {
 		// Already active and nothing stopped to resume → idempotent no-op.
