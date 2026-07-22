@@ -142,9 +142,9 @@ const Register: React.FC = () => {
             <button type="submit" className="auth-submit-button-reg">
               {t('auth.register_btn')}
             </button>
-            <div className="flex items-center justify-center gap-[7px] text-[11px] text-gray-400 leading-relaxed">
-              <ShieldCheck size={14} className="flex-none text-gray-400" />
-              <span className="min-w-0 text-left">
+            <div className="consent-line">
+              <ShieldCheck size={15} className="consent-icon" aria-hidden="true" />
+              <span className="consent-text">
                 {t('auth.disclaimer_short')}{' '}
                 <button
                   type="button"

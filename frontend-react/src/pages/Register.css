@@ -217,6 +217,31 @@
   text-align: left;
 }
 
+/* ── Consent line (shield icon + disclaimer text) ───────────────────────────── */
+
+.consent-line {
+  display: flex;
+  align-items: center;          /* shield vertically centered against the block */
+  justify-content: center;
+  gap: 8px;
+  max-width: 300px;             /* constrains wrap to a balanced 2-ish lines */
+  margin: 0 auto;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #94a3b8);
+  text-align: left;
+}
+
+.consent-icon {
+  flex: none;                   /* never shrinks or wraps into the text */
+  color: inherit;
+  opacity: 0.85;
+}
+
+.consent-text {
+  min-width: 0;                 /* allows the text to wrap instead of overflow */
+}
+
 /* ── Disclaimer privacy-policy link ─────────────────────────────────────────── */
 
 .privacy-policy-link {
