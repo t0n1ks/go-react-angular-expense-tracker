@@ -124,12 +124,11 @@ body {
      distinction is carried by the canvas star colours, not the background. */
   --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
   --color-auth-card-bg: #ffffff;
-  /* Frosted-glass auth card: translucent white over the navy starfield. Kept
-     fairly opaque so text stays legible over any star; -solid is the
-     no-backdrop-filter fallback; -border is the faint luminous edge. */
-  --color-auth-card-glass: rgba(255, 255, 255, 0.74);
-  --color-auth-card-glass-solid: rgba(255, 255, 255, 0.95);
-  --color-auth-card-glass-border: rgba(255, 255, 255, 0.6);
+  /* Clean matte auth card: a solid, non-glossy panel (no transparency) over the
+     navy starfield, with exactly one thin border. Light theme = soft light matte
+     so the dark title/labels stay crisp. */
+  --color-auth-card-matte: #eef1f7;
+  --color-auth-card-border: rgba(15, 23, 42, 0.10);
   --color-auth-title: #1a202c;
   --color-auth-label: #4a5568;
   --color-auth-link-login: #667eea;
@@ -235,10 +234,9 @@ body {
   --color-auth-page-login: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%);
   --color-auth-page-register: linear-gradient(135deg, #0a2a27 0%, #1a2e0a 100%);
   --color-auth-card-bg: #1e2a3a;
-  /* Frosted-glass auth card: translucent slate-navy over the starfield. */
-  --color-auth-card-glass: rgba(30, 42, 58, 0.66);
-  --color-auth-card-glass-solid: rgba(30, 42, 58, 0.94);
-  --color-auth-card-glass-border: rgba(148, 163, 184, 0.22);
+  /* Clean matte auth card: refined dark-slate matte, muted and non-glossy. */
+  --color-auth-card-matte: #161c28;
+  --color-auth-card-border: rgba(148, 163, 184, 0.16);
   --color-auth-title: #e2e8f0;
   --color-auth-label: #94a3b8;
   --color-auth-link-login: #a5b4fc;
