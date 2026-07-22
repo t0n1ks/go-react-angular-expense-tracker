@@ -11,7 +11,8 @@
 }
 
 .auth-card-reg {
-    background: var(--color-auth-card-matte);
+    background-color: var(--color-auth-card-matte);
+    background-image: var(--auth-grain); /* same subtle matte-stone grain as Login */
     padding: 40px;
     border-radius: 16px;
     border: 1px solid var(--color-auth-card-border);
@@ -63,7 +64,7 @@
         font-size: 14px;
     }
     .auth-link {
-        font-size: 13px;
+        font-size: 12.5px;
     }
 }
 

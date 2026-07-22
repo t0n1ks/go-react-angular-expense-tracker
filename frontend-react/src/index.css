@@ -123,6 +123,11 @@ body {
   /* Neutral deep-space navy — identical on Login & Register; the per-page
      distinction is carried by the canvas star colours, not the background. */
   --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
+
+  /* Barely-there matte grain for the auth cards — fine grayscale SVG noise at
+     ~5% alpha. Adds an "expensive matte surface" feel without changing the card
+     colour or looking like a literal stone texture. Shared by both cards. */
+  --auth-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
   --color-auth-card-bg: #ffffff;
   /* Clean matte auth card: a solid, non-glossy panel (no transparency) over the
      navy starfield, with exactly one thin border. Light theme = soft light matte

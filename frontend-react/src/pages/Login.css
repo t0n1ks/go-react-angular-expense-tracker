@@ -11,7 +11,8 @@
 }
 
 .auth-card {
-    background: var(--color-auth-card-matte);
+    background-color: var(--color-auth-card-matte);
+    background-image: var(--auth-grain); /* subtle matte-stone grain */
     padding: 40px;
     border-radius: 16px;
     border: 1px solid var(--color-auth-card-border);
@@ -55,16 +56,25 @@
     }
     /* Trim a few font sizes just enough that longer languages fit cleanly, while
        staying comfortably readable. Entered text (16px) and labels are untouched;
-       only the title, placeholder and footer link shrink slightly. */
+       only the greeting, placeholder and footer link shrink slightly. The greeting
+       and link must sit on ONE line in EN/DE/RU/UK down to ~344px. */
     .auth-title {
-        font-size: 24px;
-        margin-bottom: 24px;
+        font-size: 20px;
+        margin-bottom: 20px;
     }
     .auth-input::placeholder {
         font-size: 14px;
     }
     .auth-link {
-        font-size: 13px;
+        font-size: 12.5px;
+    }
+}
+
+/* Narrowest phones: trim the card's own side padding so the greeting and the
+   long footer link have room to stay on one line. */
+@media (max-width: 430px) {
+    .auth-card {
+        padding: 32px 24px;
     }
 }
 
@@ -73,6 +83,31 @@
     font-weight: 800;
     margin-bottom: 30px;
     color: var(--color-auth-title);
+}
+
+/* Engraved "FINANCER" wordmark — Login only. Same tone as the card so it reads
+   as carved from the same matte material; depth is faked entirely with shadow:
+   a soft dark inner-top shadow + a faint light bottom edge (intaglio/deboss).
+   No lighter fill, no metallic sheen, no glow. */
+.auth-wordmark {
+    font-size: clamp(1.25rem, 5.5vw, 1.55rem);
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em; /* compensate trailing letter-spacing so it stays centered */
+    line-height: 1;
+    text-align: center;
+    color: var(--color-auth-card-matte);
+    text-shadow:
+        0 -1px 1px rgba(0, 0, 0, 0.55),
+        0 1px 1px rgba(255, 255, 255, 0.07);
+    margin-bottom: 14px;
+    user-select: none;
+}
+
+@media (max-width: 640px) {
+    .auth-wordmark {
+        margin-bottom: 10px;
+    }
 }
 
 .auth-form {

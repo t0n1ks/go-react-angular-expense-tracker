@@ -67,6 +67,7 @@ const Login: React.FC = () => {
     <div className="auth-page">
       <StarfieldBackground palette={LOGIN_STAR_PALETTE} />
       <div className="auth-card">
+        <div className="auth-wordmark">FINANCER</div>
         <h2 className="auth-title">{t('auth.login_title')}</h2>
 
         {error && (
