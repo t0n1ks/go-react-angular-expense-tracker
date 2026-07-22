@@ -143,7 +143,9 @@ const Register: React.FC = () => {
               {t('auth.register_btn')}
             </button>
             <div className="consent-line">
-              <ShieldCheck size={15} className="consent-icon" aria-hidden="true" />
+              <span className="consent-icon-wrap">
+                <ShieldCheck size={15} className="consent-icon" aria-hidden="true" />
+              </span>
               <span className="consent-text">
                 {t('auth.disclaimer_short')}{' '}
                 <button

@@ -241,7 +241,7 @@
 
 .consent-line {
   display: flex;
-  align-items: center;          /* shield vertically centered against the block */
+  align-items: flex-start;      /* anchor the icon to the first text line, not the block */
   justify-content: center;
   gap: 8px;
   max-width: 300px;             /* constrains wrap to a balanced 2-ish lines */
@@ -252,8 +252,16 @@
   text-align: left;
 }
 
-.consent-icon {
+/* One line-height tall, so the icon centers on the FIRST line's cap height
+   (on the capital letter of the top word) rather than floating between lines. */
+.consent-icon-wrap {
   flex: none;                   /* never shrinks or wraps into the text */
+  height: 1.5em;                /* == the consent line-height */
+  display: inline-flex;
+  align-items: center;
+}
+
+.consent-icon {
   color: inherit;
   opacity: 0.85;
 }
