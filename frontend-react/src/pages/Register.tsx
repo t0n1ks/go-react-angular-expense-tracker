@@ -16,6 +16,9 @@ interface AxiosErrorResponse {
   };
 }
 
+// Light-green / yellow-green stars, echoing the green "Зарегистрироваться" button.
+const REGISTER_STAR_PALETTE = ['#a3e635', '#bef264', '#84cc16', '#d9f99d', '#5eead4'];
+
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -86,7 +89,7 @@ const Register: React.FC = () => {
   return (
     <>
     <div className="auth-page-reg">
-      <StarfieldBackground />
+      <StarfieldBackground palette={REGISTER_STAR_PALETTE} />
       <div className="auth-card-reg">
         <h2 className="auth-title-reg">{t('auth.register_title')}</h2>
 

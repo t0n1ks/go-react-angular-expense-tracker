@@ -14,6 +14,9 @@ interface AxiosErrorResponse {
   };
 }
 
+// Yellow + purple stars, echoing the purple "Войти" gradient button.
+const LOGIN_STAR_PALETTE = ['#facc15', '#fde047', '#a855f7', '#c084fc', '#818cf8'];
+
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -62,7 +65,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="auth-page">
-      <StarfieldBackground />
+      <StarfieldBackground palette={LOGIN_STAR_PALETTE} />
       <div className="auth-card">
         <h2 className="auth-title">{t('auth.login_title')}</h2>
 
