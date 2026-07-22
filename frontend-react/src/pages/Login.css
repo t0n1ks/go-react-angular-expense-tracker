@@ -36,12 +36,18 @@
         justify-content: flex-start;
         overflow-y: auto;
         box-sizing: border-box;
-        padding:
-            max(32px, env(safe-area-inset-top))
-            20px
-            max(32px, env(safe-area-inset-bottom));
+        padding-top: max(32px, env(safe-area-inset-top));
+        padding-bottom: max(32px, env(safe-area-inset-bottom));
+        padding-left: max(24px, env(safe-area-inset-left));
+        padding-right: max(24px, env(safe-area-inset-right));
     }
     .auth-card {
+        /* Fill exactly the container's content box (so the container's side
+           padding becomes real, symmetric gaps). align-self:stretch + width:auto
+           avoids the width:100%+padding overflow that pushed the card off-screen. */
+        width: auto;
+        align-self: stretch;
+        box-sizing: border-box;
         margin-block: auto;
     }
 }
