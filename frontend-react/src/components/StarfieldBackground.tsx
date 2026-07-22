@@ -83,8 +83,16 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
     const DIM_SPEED_FACTOR = 0.7;   // at full dim, drift runs at 30% speed
     const DIM_OPACITY_FACTOR = 0.5; // …and at 50% opacity
 
-    // ~1 particle per 14000 css px², clamped — far fewer on small/mobile screens.
-    const particleCount = () => Math.max(18, Math.min(110, Math.round((width * height) / 14000)));
+    // Density scales with screen area, always clamped so we never jank.
+    // On narrow (phone) viewports the form fills the middle, leaving only thin
+    // top/bottom bands of visible sky — so pack those denser (own divisor + cap)
+    // to keep them alive. Desktop density is unchanged.
+    const NARROW_MAX = 640;
+    const particleCount = () => {
+      const area = width * height;
+      if (width < NARROW_MAX) return Math.max(40, Math.min(80, Math.round(area / 6500)));
+      return Math.max(18, Math.min(110, Math.round(area / 14000)));
+    };
 
     const makeParticles = () => {
       const pal = paletteRef.current.length ? paletteRef.current : DEFAULT_PALETTE;
