@@ -6,6 +6,8 @@
     justify-content: center;
     background: var(--color-auth-page-register);
     font-family: 'Inter', sans-serif;
+    position: relative;
+    overflow: hidden;
 }
 
 .auth-card-reg {
@@ -16,6 +18,8 @@
     width: 100%;
     max-width: 400px;
     text-align: center;
+    position: relative;
+    z-index: 1;
 }
 
 @media (max-width: 430px) {

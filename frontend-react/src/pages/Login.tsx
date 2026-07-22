@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import PasswordField from '../components/PasswordField';
+import StarfieldBackground from '../components/StarfieldBackground';
 import './Login.css';
 
 interface AxiosErrorResponse {
@@ -61,6 +62,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="auth-page">
+      <StarfieldBackground />
       <div className="auth-card">
         <h2 className="auth-title">{t('auth.login_title')}</h2>
 

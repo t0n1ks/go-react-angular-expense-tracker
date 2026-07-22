@@ -1,0 +1,185 @@
+import { useEffect, useRef } from 'react';
+
+/**
+ * Reactive cosmic starfield rendered on a single <canvas> behind the auth card.
+ *
+ * A single canvas (not hundreds of DOM nodes) keeps it cheap. Particles drift
+ * gently and constantly, and are pushed away from the pointer (mouse or touch)
+ * like pepper scattering on water. Two–three parallax depth layers give a sense
+ * of space: far stars are small, slow and barely react; near stars are larger,
+ * faster and react strongly.
+ *
+ * The card on top is opaque, so particles read as a subtle accent toward the
+ * edges and the form stays high-contrast. The canvas is aria-hidden and never
+ * captures pointer events, so it can't interfere with input focus or scrolling.
+ *
+ * Future option (deferred — do NOT build here): a UFO object that follows the
+ * cursor and knocks stars around. This base must be confirmed smooth first.
+ */
+export interface StarfieldBackgroundProps {
+  /** Star colours, sampled per particle. Themed per page (Login vs Register). */
+  palette?: string[];
+  className?: string;
+}
+
+const DEFAULT_PALETTE = ['#c7d2fe', '#a5b4fc', '#e9d5ff'];
+
+// Parallax depth layers: far → near. radius / drift speed / repulsion strength /
+// base opacity all grow toward the viewer.
+const LAYERS = [
+  { r: 0.8, speed: 0.05, repel: 0.35, opacity: 0.32 }, // far
+  { r: 1.4, speed: 0.13, repel: 0.9, opacity: 0.55 },  // mid
+  { r: 2.2, speed: 0.24, repel: 1.6, opacity: 0.8 },   // near
+];
+
+const REPEL_RADIUS = 120; // px around the pointer within which stars scatter
+const PUSH_FRICTION = 0.9; // per-frame decay of the scatter impulse
+
+interface Particle {
+  x: number; y: number;
+  vx: number; vy: number;     // constant gentle drift
+  pushx: number; pushy: number; // transient pointer-repulsion impulse (decays)
+  r: number;
+  repel: number;
+  opacity: number;
+  color: string;
+}
+
+export default function StarfieldBackground({ palette = DEFAULT_PALETTE, className }: StarfieldBackgroundProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Keep the latest palette without re-running the effect (which owns the loop).
+  const paletteRef = useRef(palette);
+  paletteRef.current = palette;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let width = 0, height = 0;
+    let rectLeft = 0, rectTop = 0;
+    let particles: Particle[] = [];
+    let raf = 0;
+    let lastT = performance.now();
+    const pointer = { x: -9999, y: -9999, active: false };
+
+    // ~1 particle per 14000 css px², clamped — far fewer on small/mobile screens.
+    const particleCount = () => Math.max(18, Math.min(110, Math.round((width * height) / 14000)));
+
+    const makeParticles = () => {
+      const pal = paletteRef.current.length ? paletteRef.current : DEFAULT_PALETTE;
+      particles = Array.from({ length: particleCount() }, () => {
+        const layer = LAYERS[Math.floor(Math.random() * LAYERS.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const speed = layer.speed * (0.5 + Math.random());
+        return {
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          pushx: 0, pushy: 0,
+          r: layer.r * (0.7 + Math.random() * 0.6),
+          repel: layer.repel,
+          opacity: layer.opacity * (0.6 + Math.random() * 0.4),
+          color: pal[Math.floor(Math.random() * pal.length)],
+        };
+      });
+    };
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      width = rect.width; height = rect.height;
+      rectLeft = rect.left; rectTop = rect.top;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); // cap DPR for perf
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      makeParticles();
+    };
+
+    // Cache the canvas offset so pointermove doesn't force a layout read each move.
+    const syncRect = () => {
+      const rect = canvas.getBoundingClientRect();
+      rectLeft = rect.left; rectTop = rect.top;
+    };
+
+    // Pointer Events unify mouse, touch-drag and pen. Listeners are passive
+    // (we never preventDefault) so touch scrolling and focus are unaffected.
+    const onPointerMove = (e: PointerEvent) => {
+      pointer.x = e.clientX - rectLeft;
+      pointer.y = e.clientY - rectTop;
+      pointer.active = true;
+    };
+    const onPointerLeave = () => { pointer.active = false; pointer.x = -9999; pointer.y = -9999; };
+
+    const frame = (now: number) => {
+      const dt = Math.min(50, now - lastT) / 16.6667; // normalize to ~60fps steps
+      lastT = now;
+      ctx.clearRect(0, 0, width, height);
+
+      for (const p of particles) {
+        if (pointer.active) {
+          const dx = p.x - pointer.x;
+          const dy = p.y - pointer.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < REPEL_RADIUS * REPEL_RADIUS && d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const f = (1 - d / REPEL_RADIUS) * p.repel;
+            p.pushx += (dx / d) * f;
+            p.pushy += (dy / d) * f;
+          }
+        }
+
+        p.x += (p.vx + p.pushx) * dt;
+        p.y += (p.vy + p.pushy) * dt;
+        p.pushx *= PUSH_FRICTION;
+        p.pushy *= PUSH_FRICTION;
+
+        // Toroidal wrap keeps the field evenly populated forever.
+        if (p.x < -5) p.x = width + 5; else if (p.x > width + 5) p.x = -5;
+        if (p.y < -5) p.y = height + 5; else if (p.y > height + 5) p.y = -5;
+
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(frame);
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('scroll', syncRect, { passive: true });
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerleave', onPointerLeave);
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('scroll', syncRect);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerleave', onPointerLeave);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={className}
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
+    />
+  );
+}

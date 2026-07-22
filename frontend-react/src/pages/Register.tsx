@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck } from 'lucide-react';
 import PasswordField from '../components/PasswordField';
+import StarfieldBackground from '../components/StarfieldBackground';
 import './Register.css';
 
 interface AxiosErrorResponse {
@@ -85,6 +86,7 @@ const Register: React.FC = () => {
   return (
     <>
     <div className="auth-page-reg">
+      <StarfieldBackground />
       <div className="auth-card-reg">
         <h2 className="auth-title-reg">{t('auth.register_title')}</h2>
 
