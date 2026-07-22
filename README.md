@@ -33,6 +33,10 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 - **In-widget guided tour:** highlights sidebar nav items via `classList.add('tour-highlight-active')` without leaving the widget; first-login greeting persisted in `localStorage`
 - **128+ localised content entries** — humor, financial facts, actionable tips, and hungry messages
 
+### Cosmic auth pages
+- **Reactive canvas starfield** behind the Login and Register cards: a single `<canvas>` with gently drifting stars on 2–3 parallax depth layers that scatter away from the pointer (mouse or touch-drag). Per-page palettes match each button gradient — yellow/purple for Login, light-green for Register.
+- **Distraction-free & accessible:** the field dims and slows while an input is focused, honours `prefers-reduced-motion` (calm static fallback), pauses on hidden tabs (Page Visibility API), and scales its particle count to screen size. *(Deferred future option: a UFO that knocks stars around as it follows the cursor.)*
+
 ### Transaction History — Month Accordion
 The Transactions page groups history by calendar month behind collapsible accordion headers. Each header shows the localized month name (`Intl.DateTimeFormat`), transaction count, and net balance (income − expenses) so users get an at-a-glance summary without expanding. Current month starts expanded; all past months start collapsed. Timezone-safe date parsing prevents UTC-offset shifts from misassigning transactions to the wrong month.
 
@@ -212,6 +216,7 @@ components/
   TransactionDetailModal.tsx — Mini-receipt modal: full timestamp, description, category, amount
   Layout.tsx           — Sidebar (desktop) + bottom nav (mobile), theme toggle
   DeleteSnackbar.tsx   — Framer Motion toast with undo + dismiss
+  StarfieldBackground.tsx — Reactive canvas starfield behind the Login/Register cards (drift + pointer repulsion + parallax; focus-dim, reduced-motion & tab-visibility aware)
 hooks/
   useAIAssistant.ts    — Weekly pacing tiers, idle humor queue, session fingerprint dedup
 utils/

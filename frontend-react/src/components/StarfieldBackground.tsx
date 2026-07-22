@@ -64,6 +64,19 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
     let lastT = performance.now();
     const pointer = { x: -9999, y: -9999, active: false };
 
+    // Accessibility: honour the OS "reduce motion" setting — no drift/repulsion,
+    // just a calm static field.
+    const motionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduced = motionMq.matches;
+
+    // Focus-dim: while an input is focused (entering credentials) the field
+    // eases toward dimmer + slower so it never distracts. `dim` glides toward
+    // `targetDim` each frame for a smooth, non-abrupt transition.
+    let dim = 0;
+    let targetDim = 0;
+    const DIM_SPEED_FACTOR = 0.7;   // at full dim, drift runs at 30% speed
+    const DIM_OPACITY_FACTOR = 0.5; // …and at 50% opacity
+
     // ~1 particle per 14000 css px², clamped — far fewer on small/mobile screens.
     const particleCount = () => Math.max(18, Math.min(110, Math.round((width * height) / 14000)));
 
@@ -96,6 +109,7 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       makeParticles();
+      if (reduced) drawStatic(); // running loop redraws itself; static field won't
     };
 
     // Cache the canvas offset so pointermove doesn't force a layout read each move.
@@ -113,11 +127,29 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
     };
     const onPointerLeave = () => { pointer.active = false; pointer.x = -9999; pointer.y = -9999; };
 
+    // Draw every particle at its current position — used for the reduced-motion
+    // static field (no drift, no repulsion).
+    const drawStatic = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (const p of particles) {
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+
     const frame = (now: number) => {
       const dt = Math.min(50, now - lastT) / 16.6667; // normalize to ~60fps steps
       lastT = now;
-      ctx.clearRect(0, 0, width, height);
 
+      dim += (targetDim - dim) * 0.08; // ease toward the focus-dim target
+      const speedMul = 1 - dim * DIM_SPEED_FACTOR;
+      const opacityMul = 1 - dim * DIM_OPACITY_FACTOR;
+
+      ctx.clearRect(0, 0, width, height);
       for (const p of particles) {
         if (pointer.active) {
           const dx = p.x - pointer.x;
@@ -131,8 +163,8 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
           }
         }
 
-        p.x += (p.vx + p.pushx) * dt;
-        p.y += (p.vy + p.pushy) * dt;
+        p.x += (p.vx + p.pushx) * dt * speedMul;
+        p.y += (p.vy + p.pushy) * dt * speedMul;
         p.pushx *= PUSH_FRICTION;
         p.pushy *= PUSH_FRICTION;
 
@@ -140,7 +172,7 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
         if (p.x < -5) p.x = width + 5; else if (p.x > width + 5) p.x = -5;
         if (p.y < -5) p.y = height + 5; else if (p.y > height + 5) p.y = -5;
 
-        ctx.globalAlpha = p.opacity;
+        ctx.globalAlpha = p.opacity * opacityMul;
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -150,19 +182,53 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
       raf = requestAnimationFrame(frame);
     };
 
+    const startLoop = () => {
+      if (raf) return; // already running
+      if (reduced) { drawStatic(); return; } // calm static field, no RAF
+      lastT = performance.now(); // avoid a dt jump after a pause
+      raf = requestAnimationFrame(frame);
+    };
+    const stopLoop = () => {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    };
+
+    // Focus-dim: dim while a text input has focus, restore when focus leaves.
+    const isField = (el: EventTarget | null) =>
+      el instanceof HTMLElement && el.matches('input, textarea, select');
+    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) targetDim = 1; };
+    const onFocusOut = (e: FocusEvent) => { if (isField(e.target)) targetDim = 0; };
+
+    // Page Visibility: pause when the tab is hidden, resume on return.
+    const onVisibility = () => { if (document.hidden) stopLoop(); else startLoop(); };
+
+    // React to the OS reduce-motion setting changing live.
+    const onMotionChange = () => {
+      reduced = motionMq.matches;
+      stopLoop();
+      startLoop();
+    };
+
     resize();
     window.addEventListener('resize', resize);
     window.addEventListener('scroll', syncRect, { passive: true });
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerleave', onPointerLeave);
-    raf = requestAnimationFrame(frame);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    document.addEventListener('visibilitychange', onVisibility);
+    motionMq.addEventListener('change', onMotionChange);
+    startLoop();
 
     return () => {
-      cancelAnimationFrame(raf);
+      stopLoop();
       window.removeEventListener('resize', resize);
       window.removeEventListener('scroll', syncRect);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerleave', onPointerLeave);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      document.removeEventListener('visibilitychange', onVisibility);
+      motionMq.removeEventListener('change', onMotionChange);
     };
   }, []);
 
