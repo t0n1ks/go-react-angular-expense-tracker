@@ -11,9 +11,10 @@ import {
   currentMonthKey,
   formatMonthLabel,
 } from '../utils/groupTransactionsByMonth';
+import { categoryLabel } from '../utils/categoryLabel';
 import './Transactions.css';
 
-interface Category { id: number; name: string; }
+interface Category { id: number; name: string; translation_key?: string | null; }
 interface Transaction {
   id: number;
   amount: number;
@@ -505,7 +506,7 @@ const Transactions: React.FC = () => {
                         ) : (
                           <tr key={tr.id} className="tx-row-clickable" onClick={() => setSelectedTx(tr)}>
                             <td>{new Date(tr.date).toLocaleDateString()}</td>
-                            <td><span className="category-tag">{tr.category?.name || t('transactions.no_category')}</span></td>
+                            <td><span className="category-tag">{categoryLabel(tr.category, t, t('transactions.no_category'))}</span></td>
                             <td>{tr.description || '—'}</td>
                             <td>
                               <span className={`type-badge ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'type-income' : 'type-expense'}`}>
@@ -643,7 +644,7 @@ const Transactions: React.FC = () => {
                                         <label className="tx-card-edit-label">{t('transactions.category')}</label>
                                         <select className="form-input tx-card-edit-input" value={editState.category_id}
                                           onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                          {categories.map(c => <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>)}
                                         </select>
                                       </div>
                                     </>
@@ -666,7 +667,7 @@ const Transactions: React.FC = () => {
                               ) : (
                                 <>
                                   <div className="tx-card-top">
-                                    <span className="tx-card-category">{tr.category?.name || t('transactions.no_category')}</span>
+                                    <span className="tx-card-category">{categoryLabel(tr.category, t, t('transactions.no_category'))}</span>
                                     <span className={`tx-card-amount ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'amount-income' : 'amount-expense'}`}>
                                       {tr.type === 'income' || tr.type === 'savings_deposit' ? '+' : '-'}{formatAmount(tr.amount)}
                                     </span>

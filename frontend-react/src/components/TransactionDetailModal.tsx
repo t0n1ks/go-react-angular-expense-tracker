@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../context/SettingsContext";
+import { categoryLabel } from "../utils/categoryLabel";
 import "./TransactionDetailModal.css";
 
 interface Category {
   id: number;
   name: string;
+  translation_key?: string | null;
 }
 
 interface Transaction {
@@ -100,7 +102,7 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose }) => {
               <div className="txd-row">
                 <Tag size={15} className="txd-icon" />
                 <span className="txd-label">{t("transactions.detail_category")}</span>
-                <span className="txd-value">{tx.category?.name || "—"}</span>
+                <span className="txd-value">{categoryLabel(tx.category, t, "—")}</span>
               </div>
 
               <div className="txd-row">

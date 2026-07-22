@@ -3,11 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
+import { categoryLabel } from '../utils/categoryLabel';
 import './Categories.css';
 
 interface Category {
   id: number;
   name: string;
+  translation_key?: string | null;
 }
 
 const Categories: React.FC = () => {
@@ -149,9 +151,9 @@ const Categories: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <span className="category-name">{category.name}</span>
+                  <span className="category-name">{categoryLabel(category, t)}</span>
                   <div className="category-actions">
-                    <button onClick={() => { setIsEditing(category.id); setEditName(category.name); }} className="action-btn edit-btn" title={t('common.edit') ?? 'Edit'}><Edit size={18}/></button>
+                    <button onClick={() => { setIsEditing(category.id); setEditName(categoryLabel(category, t)); }} className="action-btn edit-btn" title={t('common.edit') ?? 'Edit'}><Edit size={18}/></button>
                     <button onClick={() => handleDeleteCategory(category)} className="action-btn delete-btn" title={t('common.delete') ?? 'Delete'}><Trash2 size={18}/></button>
                   </div>
                 </>

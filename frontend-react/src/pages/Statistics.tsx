@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow } from "../utils/categoryWindow";
+import { categoryLabel } from "../utils/categoryLabel";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -25,7 +26,7 @@ interface Transaction {
   income_type?: string;
   date: string;
   created_at?: string;
-  category?: { id?: number; name: string };
+  category?: { id?: number; name: string; translation_key?: string | null };
 }
 
 interface AnalysisResult {
@@ -113,18 +114,20 @@ const Statistics: React.FC = () => {
     const map: Record<string, number> = {};
     transactions
       .filter(
-        (t) =>
-          t.type === "expense" && isInWindow(new Date(t.created_at ?? t.date), catWindow),
+        (tx) =>
+          tx.type === "expense" && isInWindow(new Date(tx.created_at ?? tx.date), catWindow),
       )
-      .forEach((t) => {
-        const name = t.category?.name || "—";
-        map[name] = (map[name] || 0) + Math.abs(Number(t.amount));
+      .forEach((tx) => {
+        // Default categories localize via their key; user categories show as typed.
+        const name = categoryLabel(tx.category, t, "—");
+        map[name] = (map[name] || 0) + Math.abs(Number(tx.amount));
       });
 
     return Object.keys(map)
       .map((name) => ({ name, value: map[name] }))
       .sort((a, b) => b.value - a.value);
-  }, [transactions, hasActiveCycle, currentCycle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, hasActiveCycle, currentCycle, i18n.language]);
 
   // ── Balance Dynamics ──────────────────────────────────────────────────────
   // True cumulative cash flow over time: income adds, expense subtracts. Savings
