@@ -320,7 +320,7 @@ const Transactions: React.FC = () => {
               onChange={e => setFormState({...formState, category_id: e.target.value})} required>
               <option value="" disabled>{t('transactions.select_cat')}</option>
               {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>
               ))}
             </select>
           </div>
@@ -438,7 +438,7 @@ const Transactions: React.FC = () => {
                                     <select className="form-input edit-input" value={editState.category_id}
                                       onChange={e => setEditState({...editState, category_id: e.target.value})}>
                                       {categories.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                        <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>
                                       ))}
                                     </select>
                                   </div>
