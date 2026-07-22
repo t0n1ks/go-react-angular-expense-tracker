@@ -120,6 +120,9 @@ body {
   /* Auth pages */
   --color-auth-page-login: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --color-auth-page-register: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+  /* Neutral deep-space navy — identical on Login & Register; the per-page
+     distinction is carried by the canvas star colours, not the background. */
+  --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
   --color-auth-card-bg: #ffffff;
   --color-auth-title: #1a202c;
   --color-auth-label: #4a5568;

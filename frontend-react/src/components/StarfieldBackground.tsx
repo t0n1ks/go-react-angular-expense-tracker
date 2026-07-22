@@ -35,6 +35,11 @@ const LAYERS = [
 const REPEL_RADIUS = 120; // px around the pointer within which stars scatter
 const PUSH_FRICTION = 0.9; // per-frame decay of the scatter impulse
 
+// Faint cool-toned nebula glow for depth. Neutral indigo so it works under both
+// pages' star colours; peak opacity is deliberately tiny — a hint, not a cloud.
+const NEBULA_COLOR = '120, 135, 210';
+const NEBULA_ALPHA = 0.16;
+
 interface Particle {
   x: number; y: number;
   vx: number; vy: number;     // constant gentle drift
@@ -60,6 +65,7 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
     let width = 0, height = 0;
     let rectLeft = 0, rectTop = 0;
     let particles: Particle[] = [];
+    let nebula: CanvasGradient | null = null; // cached; rebuilt on resize
     let raf = 0;
     let lastT = performance.now();
     const pointer = { x: -9999, y: -9999, active: false };
@@ -108,8 +114,24 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Soft radial nebula anchored toward one corner, sized to the viewport.
+      const cx = width * 0.22, cy = height * 0.18;
+      const radius = Math.max(width, height) * 0.6;
+      nebula = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      nebula.addColorStop(0, `rgba(${NEBULA_COLOR}, 0.6)`);
+      nebula.addColorStop(1, `rgba(${NEBULA_COLOR}, 0)`);
       makeParticles();
       if (reduced) drawStatic(); // running loop redraws itself; static field won't
+    };
+
+    // Very faint depth glow, drawn behind the stars. Alpha folds in the focus-dim
+    // multiplier so it calms while typing, just like the stars.
+    const drawNebula = (opacityMul: number) => {
+      if (!nebula) return;
+      ctx.globalAlpha = NEBULA_ALPHA * opacityMul;
+      ctx.fillStyle = nebula;
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalAlpha = 1;
     };
 
     // Cache the canvas offset so pointermove doesn't force a layout read each move.
@@ -131,6 +153,7 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
     // static field (no drift, no repulsion).
     const drawStatic = () => {
       ctx.clearRect(0, 0, width, height);
+      drawNebula(1);
       for (const p of particles) {
         ctx.globalAlpha = p.opacity;
         ctx.fillStyle = p.color;
@@ -150,6 +173,7 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
       const opacityMul = 1 - dim * DIM_OPACITY_FACTOR;
 
       ctx.clearRect(0, 0, width, height);
+      drawNebula(opacityMul);
       for (const p of particles) {
         if (pointer.active) {
           const dx = p.x - pointer.x;

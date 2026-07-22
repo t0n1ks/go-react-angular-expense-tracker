@@ -4,7 +4,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-auth-page-login);
+    background: var(--color-auth-space-bg);
     font-family: 'Inter', sans-serif;
     position: relative;
     overflow: hidden;
