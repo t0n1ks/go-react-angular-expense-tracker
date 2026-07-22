@@ -25,6 +25,26 @@
     z-index: 1;
 }
 
+/* Mobile / narrow: breathing room so the (taller) register card reads as a
+   floating island with the glow visible, without shrinking the fields. Vertical
+   air is a bit tighter than Login since there are more fields; auto-margin
+   centering keeps it fully scrollable on small phones if it doesn't quite fit. */
+@media (max-width: 640px) {
+    .auth-page-reg {
+        flex-direction: column;
+        justify-content: flex-start;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding:
+            max(20px, env(safe-area-inset-top))
+            18px
+            max(20px, env(safe-area-inset-bottom));
+    }
+    .auth-card-reg {
+        margin-block: auto;
+    }
+}
+
 @media (max-width: 430px) {
     .auth-card-reg {
         padding: 28px 20px;

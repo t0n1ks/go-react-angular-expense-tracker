@@ -25,6 +25,27 @@
     z-index: 1;
 }
 
+/* Mobile / narrow: give the card breathing room so it reads as a floating
+   island (not an edge-to-edge fill) and the edge glow stays visible. Only the
+   spacing around the card changes — text and fields keep their full sizes.
+   Auto-margin centering (instead of justify/align center) keeps the card fully
+   reachable/scrollable if it's ever taller than the viewport. */
+@media (max-width: 640px) {
+    .auth-page {
+        flex-direction: column;
+        justify-content: flex-start;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding:
+            max(32px, env(safe-area-inset-top))
+            20px
+            max(32px, env(safe-area-inset-bottom));
+    }
+    .auth-card {
+        margin-block: auto;
+    }
+}
+
 .auth-title {
     font-size: 28px;
     font-weight: 800;
