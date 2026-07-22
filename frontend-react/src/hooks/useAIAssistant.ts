@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isCycleFresh, salaryMarkerKey } from '../utils/salaryMessage';
 
 // ─── Weekly tier fingerprint ──────────────────────────────────────────────────
 
@@ -78,6 +79,10 @@ interface Options {
   language: string;
   aiServiceMode: 'online' | 'autonomous' | 'initializing';
   userId?: number;
+  // Active cycle identity — the "new cycle started / funds received" message is
+  // tied to this (not to loose income transactions) and shown once per cycle.
+  cycleId?: number;
+  cycleStartAt?: string | null;
 }
 
 export function useAIAssistant({
@@ -88,6 +93,8 @@ export function useAIAssistant({
   language,
   aiServiceMode,
   userId,
+  cycleId,
+  cycleStartAt,
 }: Options) {
   const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -146,10 +153,34 @@ export function useAIAssistant({
 
   // ── Weekly pacing analysis (autonomous fallback only) ────────────────────
   useEffect(() => {
-    if (!aiAdviceEnabled || transactions.length === 0) return;
+    if (!aiAdviceEnabled) return;
     if (aiServiceMode === 'online') return; // Brain handles proactive content when service is reachable
 
     const now = new Date();
+
+    // ── "New cycle started / funds received" — fire ONCE per cycle, only at its
+    // real start. Tied to the ACTIVE cycle (not loose income transactions) and
+    // persisted in localStorage so it never repeats on reload/reopen and never
+    // fires mid-cycle. A cycle counts as "just started" only within a short
+    // window after its start date. Checked before the "no transactions" guard so
+    // it still greets a brand-new cycle that has no spending yet.
+    if (cycleId && cycleStartAt) {
+      const fresh = isCycleFresh(cycleStartAt, now);
+      const markerKey = salaryMarkerKey(userId, cycleId);
+      let alreadyShown = false;
+      try { alreadyShown = localStorage.getItem(markerKey) === '1'; } catch { /* ignore */ }
+      if (fresh && !alreadyShown) {
+        const msg = pickFromKey('salary_just_in');
+        if (msg) {
+          enqueue({ text: msg });
+          try { localStorage.setItem(markerKey, '1'); } catch { /* ignore */ }
+        }
+        return; // the cycle-start message takes precedence this pass
+      }
+    }
+
+    if (transactions.length === 0) return;
+
     const monday = getMonday(now);
     const weekKey = getWeekKey(now);
 
@@ -158,13 +189,6 @@ export function useAIAssistant({
       return tx.type === 'expense' && d >= monday;
     });
     const weekSpending = thisWeekExp.reduce((s, tx) => s + Math.abs(Number(tx.amount)), 0);
-
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-    const salaryJustIn = transactions.some(tx =>
-      tx.type === 'income' &&
-      (!tx.income_type || tx.income_type === 'one_time') &&
-      new Date(tx.date) >= threeDaysAgo,
-    );
 
     const catMap: Record<string, number> = {};
     thisWeekExp.forEach(tx => {
@@ -182,12 +206,10 @@ export function useAIAssistant({
     const dayOfWeek = now.getDay();
     const isPastWednesday = dayOfWeek === 0 || dayOfWeek >= 3;
 
-    type Tier = 'salary_just_in' | 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
+    type Tier = 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
     let tier: Tier | null = null;
 
-    if (salaryJustIn) {
-      tier = 'salary_just_in';
-    } else if (weeklyLimit > 0 && pace > 1.2) {
+    if (weeklyLimit > 0 && pace > 1.2) {
       tier = 'pacing_over';
     } else if (weeklyLimit > 0 && pace > 0.8) {
       tier = 'pacing_warn';
@@ -209,7 +231,7 @@ export function useAIAssistant({
       && (maxSingleExpense >= weeklyLimit * SIGNIFICANT_FRACTION || weekSpending > weeklyLimit);
     if (!significant && !adviceCooldownElapsed(userId)) return;
 
-    const fp = `${weekKey}:${tier}:s${salaryJustIn ? 1 : 0}`;
+    const fp = `${weekKey}:${tier}`;
     if (getStoredFp() === fp) return;
     storeFp(fp);
 
@@ -225,7 +247,7 @@ export function useAIAssistant({
       enqueue({ text: msg });
       markAdviceShown(userId);
     }
-  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey, userId]);
+  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey, userId, cycleId, cycleStartAt]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {

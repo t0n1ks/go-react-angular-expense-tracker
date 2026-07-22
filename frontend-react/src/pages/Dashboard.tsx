@@ -155,6 +155,8 @@ const Dashboard: React.FC = () => {
     language: analyzeLang,
     aiServiceMode,
     userId: user?.id,
+    cycleId: currentCycle?.id,
+    cycleStartAt: currentCycle?.cycle_start_at,
   });
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
