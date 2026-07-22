@@ -13,7 +13,7 @@
 .auth-card-reg {
     background: var(--color-auth-card-matte);
     padding: 40px;
-    border-radius: 24px;
+    border-radius: 16px;
     border: 1px solid var(--color-auth-card-border);
     /* A single soft, thin warm-white glow hugging the edge — like an LED rim,
        not a big dark halo. Tight blur, small spread, low opacity. */
@@ -37,17 +37,33 @@
         box-sizing: border-box;
         padding-top: max(20px, env(safe-area-inset-top));
         padding-bottom: max(20px, env(safe-area-inset-bottom));
-        padding-left: max(24px, env(safe-area-inset-left));
-        padding-right: max(24px, env(safe-area-inset-right));
+        /* Slightly smaller side gaps than desktop so fields have room for longer
+           (e.g. Russian) placeholder text — still a clear island. */
+        padding-left: max(16px, env(safe-area-inset-left));
+        padding-right: max(16px, env(safe-area-inset-right));
     }
     .auth-card-reg {
-        /* Fill exactly the container's content box (so the container's side
-           padding becomes real, symmetric gaps). align-self:stretch + width:auto
-           avoids the width:100%+padding overflow that pushed the card off-screen. */
-        width: auto;
-        align-self: stretch;
+        /* border-box so width:100% includes the card's own padding and fits the
+           padded container exactly (giving real, symmetric side gaps); max-width
+           (from the base rule) caps it on wider phones and margin:auto keeps it
+           centered on both axes; min-width:0 lets it shrink on the narrowest
+           screens instead of being floored by the password input's intrinsic width. */
         box-sizing: border-box;
-        margin-block: auto;
+        min-width: 0;
+        margin: auto;
+    }
+    /* Trim a few font sizes just enough that longer languages fit cleanly, while
+       staying comfortably readable. Entered text (16px) and labels are untouched;
+       only the title, placeholder and footer link shrink slightly. */
+    .auth-title-reg {
+        font-size: 24px;
+        margin-bottom: 24px;
+    }
+    .auth-input-reg::placeholder {
+        font-size: 14px;
+    }
+    .auth-link {
+        font-size: 13px;
     }
 }
 
