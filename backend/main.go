@@ -22,6 +22,9 @@ func main() {
 
 	handlers.InitJWTSecret()
 	database.Connect()
+	// One-time, idempotent: key existing users' exact-match default categories so
+	// they follow the UI language (never touches transactions or links).
+	handlers.MigrateDefaultCategoryKeys()
 	go handlers.WarmUpBrain()
 	handlers.StartBrainRepoller()
 

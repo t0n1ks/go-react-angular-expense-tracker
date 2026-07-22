@@ -1,6 +1,13 @@
 package handlers
 
-import "strings"
+import (
+	"log"
+	"strings"
+	"time"
+
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
+)
 
 // defaultCategoryNameToKey maps every KNOWN default category name — in any of the
 // four seed languages (EN/DE/RU/UK) — to its stable translation key. It is the
@@ -31,4 +38,45 @@ var defaultCategoryNameToKey = map[string]string{
 // (i.e. a user-created category, which is never translated).
 func defaultCategoryKey(name string) string {
 	return defaultCategoryNameToKey[strings.TrimSpace(name)]
+}
+
+// MigrateDefaultCategoryKeys is a one-time, idempotent migration that stamps the
+// translation key onto existing categories whose name EXACTLY matches a known
+// default (in any of the four seed languages), that don't already have a key,
+// and that the user hasn't modified (updated_at ≈ created_at). A default the user
+// renamed no longer matches a default name and is left untouched; user-created
+// categories are never keyed. It only sets the display key — it never touches
+// transactions or category↔transaction links. Re-running it changes nothing.
+func MigrateDefaultCategoryKeys() {
+	var cats []models.Category
+	if err := database.DB.
+		Where("translation_key IS NULL OR translation_key = ''").
+		Find(&cats).Error; err != nil {
+		log.Printf("category-key migration: load error: %v", err)
+		return
+	}
+
+	updated := 0
+	for _, cat := range cats {
+		key := defaultCategoryKey(cat.Name)
+		if key == "" {
+			continue // user-created or renamed default → leave verbatim
+		}
+		// "Hasn't modified": seeded rows have created_at == updated_at; an edited
+		// category has a much later updated_at. A 5s tolerance absorbs any
+		// timestamp imprecision without catching genuinely edited rows.
+		if cat.UpdatedAt.Sub(cat.CreatedAt) > 5*time.Second {
+			continue
+		}
+		if err := database.DB.Model(&models.Category{}).
+			Where("id = ?", cat.ID).
+			Update("translation_key", key).Error; err != nil {
+			log.Printf("category-key migration: update id=%d err=%v", cat.ID, err)
+			continue
+		}
+		updated++
+	}
+	if updated > 0 {
+		log.Printf("category-key migration: keyed %d default category(ies)", updated)
+	}
 }
