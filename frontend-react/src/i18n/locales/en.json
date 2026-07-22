@@ -208,6 +208,15 @@
     "error_delete": "Failed to delete. Category may be in use.",
     "confirm_delete": "Delete this category?"
   },
+  "category": {
+    "food": "Food",
+    "clothing": "Clothes",
+    "entertainment": "Entertainment",
+    "beauty": "Beauty",
+    "income": "Income",
+    "saved_money": "Saved Money",
+    "fixed_payments": "Fixed Payments"
+  },
   "statistics": {
     "title": "Analytics",
     "expenses_by_cat": "Expenses by Category",

@@ -106,7 +106,11 @@ func createDefaultCategories(userID uint, language string) {
 	}
 	now := time.Now()
 	for _, name := range cats {
-		cat := models.Category{UserID: userID, Name: name, CreatedAt: now, UpdatedAt: now}
+		cat := models.Category{
+			UserID: userID, Name: name,
+			TranslationKey: defaultCategoryKey(name), // built-in → follows UI language
+			CreatedAt:      now, UpdatedAt: now,
+		}
 		if err := database.DB.Create(&cat).Error; err != nil {
 			log.Printf("warning: default category %q failed for user %d: %v", name, userID, err)
 		}

@@ -208,6 +208,15 @@
     "error_delete": "Не удалось удалить. Категория может быть используется.",
     "confirm_delete": "Удалить эту категорию?"
   },
+  "category": {
+    "food": "Еда",
+    "clothing": "Одежда",
+    "entertainment": "Развлечения",
+    "beauty": "Красота",
+    "income": "Доход",
+    "saved_money": "Сбережения",
+    "fixed_payments": "Фиксированные платежи"
+  },
   "statistics": {
     "title": "Аналитика",
     "expenses_by_cat": "Расходы по категориям",

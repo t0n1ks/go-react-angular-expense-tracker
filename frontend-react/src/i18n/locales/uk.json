@@ -208,6 +208,15 @@
     "error_delete": "Не вдалося видалити. Категорія може використовуватися.",
     "confirm_delete": "Видалити цю категорію?"
   },
+  "category": {
+    "food": "Їжа",
+    "clothing": "Одяг",
+    "entertainment": "Розваги",
+    "beauty": "Краса",
+    "income": "Дохід",
+    "saved_money": "Заощадження",
+    "fixed_payments": "Фіксовані платежі"
+  },
   "statistics": {
     "title": "Аналітика",
     "expenses_by_cat": "Витрати за категоріями",

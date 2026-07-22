@@ -111,6 +111,9 @@ func UpdateCategory(c *gin.Context) {
 	}
 
 	category.Name = input.Name
+	// Renaming a default makes it the user's own category → drop the translation
+	// key so it is shown verbatim (never re-translated) from now on.
+	category.TranslationKey = ""
 	category.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&category).Error; err != nil {

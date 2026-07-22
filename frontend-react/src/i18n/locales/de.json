@@ -208,6 +208,15 @@
     "error_delete": "Löschen fehlgeschlagen. Kategorie wird möglicherweise verwendet.",
     "confirm_delete": "Diese Kategorie löschen?"
   },
+  "category": {
+    "food": "Essen",
+    "clothing": "Kleidung",
+    "entertainment": "Unterhaltung",
+    "beauty": "Schönheit",
+    "income": "Einkommen",
+    "saved_money": "Ersparnisse",
+    "fixed_payments": "Feste Zahlungen"
+  },
   "statistics": {
     "title": "Analysen",
     "expenses_by_cat": "Ausgaben nach Kategorie",

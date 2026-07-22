@@ -536,7 +536,7 @@ func StartSalaryCycle(c *gin.Context) {
 			Where("LOWER(name) IN ('income','доход','дохід','einkommen','salary')").
 			First(&incomeCat).Error; err != nil {
 			if err2 := tx.Where("user_id = ?", uid).First(&incomeCat).Error; err2 != nil {
-				incomeCat = models.Category{UserID: uid, Name: "Income", CreatedAt: receivedAt, UpdatedAt: receivedAt}
+				incomeCat = models.Category{UserID: uid, Name: "Income", TranslationKey: "category.income", CreatedAt: receivedAt, UpdatedAt: receivedAt}
 				if err3 := tx.Create(&incomeCat).Error; err3 != nil {
 					return err3
 				}
@@ -554,7 +554,7 @@ func StartSalaryCycle(c *gin.Context) {
 			}
 		}
 		if !found {
-			fixedCat = models.Category{UserID: uid, Name: fixedCatName, CreatedAt: receivedAt, UpdatedAt: receivedAt}
+			fixedCat = models.Category{UserID: uid, Name: fixedCatName, TranslationKey: "category.fixed_payments", CreatedAt: receivedAt, UpdatedAt: receivedAt}
 			if err := tx.Create(&fixedCat).Error; err != nil {
 				return err
 			}
@@ -575,7 +575,7 @@ func StartSalaryCycle(c *gin.Context) {
 			}
 		}
 		if !savedFound {
-			savedCat = models.Category{UserID: uid, Name: savedCatName, CreatedAt: receivedAt, UpdatedAt: receivedAt}
+			savedCat = models.Category{UserID: uid, Name: savedCatName, TranslationKey: "category.saved_money", CreatedAt: receivedAt, UpdatedAt: receivedAt}
 			if err := tx.Create(&savedCat).Error; err != nil {
 				return err
 			}
@@ -1347,7 +1347,7 @@ func AddCycleIncome(c *gin.Context) {
 		Where("LOWER(name) IN ('income','доход','дохід','einkommen','salary')").
 		First(&incomeCat).Error; err != nil {
 		if err2 := database.DB.Where("user_id = ?", uid).First(&incomeCat).Error; err2 != nil {
-			incomeCat = models.Category{UserID: uid, Name: "Income"}
+			incomeCat = models.Category{UserID: uid, Name: "Income", TranslationKey: "category.income"}
 			if err3 := database.DB.Create(&incomeCat).Error; err3 != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find income category"})
 				return
@@ -1536,7 +1536,7 @@ func ensureSavingsCategory(uid uint, cycle *models.SalaryCycle) bool {
 	}
 	if savedCat.ID == 0 {
 		savedCat = models.Category{
-			UserID: uid, Name: "Saved Money",
+			UserID: uid, Name: "Saved Money", TranslationKey: "category.saved_money",
 			CreatedAt: time.Now(), UpdatedAt: time.Now(),
 		}
 		if err := database.DB.Create(&savedCat).Error; err != nil {
