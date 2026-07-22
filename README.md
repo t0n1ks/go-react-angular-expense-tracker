@@ -75,7 +75,7 @@ Financer is organised around **salary cycles** rather than fixed calendar months
 - **PDF export** of transaction history via `GET /api/transactions/export/pdf` — a server-rendered report streamed with a `Content-Disposition` attachment header.
 
 ### Multi-language (i18n)
-Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial tips, error messages, tour steps. Language switcher in Settings persists across sessions. All arrays in locale files are typesafe via `{ returnObjects: true }`.
+Full **EN / DE / RU / UK** support — UI strings, UFO content pool, financial tips, error messages, tour steps. Language switcher in Settings persists across sessions. All arrays in locale files are typesafe via `{ returnObjects: true }`. The app's **built-in default categories** (Food, Clothes, Entertainment, Beauty, Income, plus the salary-cycle "Fixed Payments" / "Saved Money") also follow the selected language everywhere they appear — the categories page, transaction forms, the transactions list, and the "Expenses by category" donut — via stable translation keys. **Categories you create yourself are shown exactly as you typed them and are never translated.**
 
 ### Progressive Web App
 - `manifest.json` with `"display": "standalone"` for home-screen installation
