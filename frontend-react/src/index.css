@@ -277,7 +277,10 @@ body {
   --color-auth-card-bg: #1e2a3a;
   /* Clean matte auth card: refined dark-slate matte, muted and non-glossy. */
   --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
-  --color-auth-card-matte: #161c28;
+  /* Cool blue-violet tint (same family as the cosmic background, darker/muted) so
+     the card feels part of the scene rather than a detached neutral grey. Only the
+     colour temperature changes — same luminance range, same matte-stone material. */
+  --color-auth-card-matte: #151a2e;
   --color-auth-card-border: rgba(148, 163, 184, 0.16);
   /* Warm LED edge glow on the dark sky. */
   --color-auth-card-glow: rgba(255, 246, 228, 0.18);
