@@ -11,6 +11,8 @@
   },
   "auth": {
     "login_title": "Welcome Back",
+    "switch_to_light": "Switch to light theme",
+    "switch_to_dark": "Switch to dark theme",
     "register_title": "Create Account",
     "username": "Username",
     "password": "Password",

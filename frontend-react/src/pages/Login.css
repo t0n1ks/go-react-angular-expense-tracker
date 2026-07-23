@@ -38,7 +38,8 @@
         justify-content: flex-start;
         overflow-y: auto;
         box-sizing: border-box;
-        padding-top: max(32px, env(safe-area-inset-top));
+        /* Reserve room at the top so the fixed theme toggle never overlaps the card. */
+        padding-top: max(68px, calc(env(safe-area-inset-top) + 56px));
         padding-bottom: max(32px, env(safe-area-inset-bottom));
         /* Slightly smaller side gaps than desktop so fields have room for longer
            (e.g. Russian) placeholder text — still a clear island. */

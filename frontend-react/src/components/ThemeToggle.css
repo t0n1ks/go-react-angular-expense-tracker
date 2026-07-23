@@ -1,0 +1,68 @@
+/* Cosmic theme toggle — page-level, top-right, styled in the card's material
+   language (matte surface + grain, single border, theme-appropriate edge glow). */
+.theme-toggle {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background-color: var(--color-auth-card-matte);
+  background-image: var(--auth-grain);
+  border: 1px solid var(--color-auth-card-border);
+  box-shadow: 0 0 14px 1px var(--color-auth-card-glow);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.07);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--color-auth-input-focus-login);
+  outline-offset: 3px;
+}
+
+/* Icon wrapper carries the subtle "floating in space" idle drift. */
+.theme-toggle-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  animation: tt-drift 5.5s ease-in-out infinite;
+}
+
+.theme-toggle-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes tt-drift {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(1px, -2px); }
+  50%      { transform: translate(0, -3px); }
+  75%      { transform: translate(-1px, -1px); }
+}
+
+/* Theme-transition overlay: a light plane that blooms out of / collapses into the
+   button. Cheap — a single clipped div, no canvas. */
+.theme-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: #f1ecf6;
+  will-change: clip-path;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No idle drift and no bloom/collapse — the switch is instant (JS also skips
+     the overlay when reduced motion is on). */
+  .theme-toggle-icon { animation: none; }
+  .theme-fx { display: none; }
+}

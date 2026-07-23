@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import PasswordField from '../components/PasswordField';
 import StarfieldBackground from '../components/StarfieldBackground';
+import ThemeToggle from '../components/ThemeToggle';
 import './Login.css';
 
 interface AxiosErrorResponse {
@@ -77,6 +78,7 @@ const Login: React.FC = () => {
         palette={isDark ? LOGIN_STARS_DARK : LOGIN_STARS_LIGHT}
         nebulaColor={isDark ? LOGIN_NEBULA_DARK : LOGIN_NEBULA_LIGHT}
       />
+      <ThemeToggle />
       <div className="auth-card">
         <h1 className="sr-only">{t('auth.login_title')}</h1>
         <div className="auth-wordmark" aria-hidden="true">FINANCER</div>

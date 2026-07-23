@@ -11,6 +11,8 @@
   },
   "auth": {
     "login_title": "Willkommen zurück",
+    "switch_to_light": "Zum hellen Design wechseln",
+    "switch_to_dark": "Zum dunklen Design wechseln",
     "register_title": "Konto erstellen",
     "username": "Benutzername",
     "password": "Passwort",

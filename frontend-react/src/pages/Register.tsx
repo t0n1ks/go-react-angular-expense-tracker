@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { ShieldCheck } from 'lucide-react';
 import PasswordField from '../components/PasswordField';
 import StarfieldBackground from '../components/StarfieldBackground';
+import ThemeToggle from '../components/ThemeToggle';
 import './Register.css';
 
 interface AxiosErrorResponse {
@@ -101,6 +102,7 @@ const Register: React.FC = () => {
         palette={isDark ? REGISTER_STARS_DARK : REGISTER_STARS_LIGHT}
         nebulaColor={isDark ? REGISTER_NEBULA_DARK : REGISTER_NEBULA_LIGHT}
       />
+      <ThemeToggle />
       <div className="auth-card-reg">
         <h1 className="sr-only">{t('auth.register_title')}</h1>
         <div className="auth-wordmark" aria-hidden="true">FINANCER</div>
