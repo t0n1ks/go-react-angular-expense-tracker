@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import './ThemeToggle.css';
@@ -7,10 +7,14 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ── Custom, simplified SVG icons (legible at ~44px; no fine detail) ───────────
+// Knob travel geometry (kept in sync with ThemeToggle.css).
+const KNOB_MIN = 3;
+const KNOB_MAX = 35;
+const KNOB_MID = (KNOB_MIN + KNOB_MAX) / 2;
+
+// ── Custom, simplified SVG icons (legible at ~18–22px; no fine detail) ────────
 
 function SunIcon() {
-  // Eight short rays around a warm glowing disc + soft corona.
   const rays = [
     [39, 24, 43, 24], [34.6, 34.6, 37.4, 37.4],
     [24, 39, 24, 43], [13.4, 34.6, 10.6, 37.4],
@@ -20,39 +24,37 @@ function SunIcon() {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <defs>
-        <radialGradient id="tt-sun" cx="50%" cy="45%" r="60%">
+        <radialGradient id="ts-sun" cx="50%" cy="45%" r="60%">
           <stop offset="0%" stopColor="#fff7db" />
           <stop offset="55%" stopColor="#ffd24a" />
           <stop offset="100%" stopColor="#f5a623" />
         </radialGradient>
       </defs>
-      <g stroke="#f7b733" strokeWidth="2.2" strokeLinecap="round">
+      <g stroke="#f7b733" strokeWidth="2.4" strokeLinecap="round">
         {rays.map((r, i) => <line key={i} x1={r[0]} y1={r[1]} x2={r[2]} y2={r[3]} />)}
       </g>
-      <circle cx="24" cy="24" r="12" fill="#ffd24a" opacity="0.28" />
-      <circle cx="24" cy="24" r="9" fill="url(#tt-sun)" />
+      <circle cx="24" cy="24" r="13" fill="#ffd24a" opacity="0.28" />
+      <circle cx="24" cy="24" r="9.5" fill="url(#ts-sun)" />
     </svg>
   );
 }
 
 function BlackHoleIcon() {
-  // Dark disc with a thin bright accretion ring, slightly tilted. The front
-  // (lower) half of the ring is drawn over the disc so it reads as wrapping it.
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <defs>
-        <linearGradient id="tt-ring" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="ts-ring" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#ffd27a" />
           <stop offset="50%" stopColor="#ff7b3a" />
           <stop offset="100%" stopColor="#b46bff" />
         </linearGradient>
       </defs>
-      <g className="bh-tilt" transform="rotate(-20 24 24)">
+      <g transform="rotate(-20 24 24)">
         <ellipse cx="24" cy="24" rx="16" ry="6"
-          fill="none" stroke="url(#tt-ring)" strokeWidth="2.4" opacity="0.55" />
-        <circle cx="24" cy="24" r="9" fill="#05060d" />
+          fill="none" stroke="url(#ts-ring)" strokeWidth="2.6" opacity="0.55" />
+        <circle cx="24" cy="24" r="9.5" fill="#05060d" />
         <path d="M8 24 A16 6 0 0 0 40 24"
-          fill="none" stroke="url(#tt-ring)" strokeWidth="2.6" strokeLinecap="round" />
+          fill="none" stroke="url(#ts-ring)" strokeWidth="2.8" strokeLinecap="round" />
       </g>
     </svg>
   );
@@ -61,84 +63,90 @@ function BlackHoleIcon() {
 export default function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
   const { t } = useTranslation();
-  const btnRef = useRef<HTMLButtonElement>(null);
-  // Transition effect: a full-screen light overlay that blooms out of / collapses
-  // into the button. phase 'bloom' = going light, 'absorb' = going dark.
-  const [fx, setFx] = useState<{ phase: 'bloom' | 'absorb'; x: number; y: number } | null>(null);
-  const [fxReady, setFxReady] = useState(false);
-  const doneRef = useRef(false);
+  const trackRef = useRef<HTMLSpanElement>(null);
+  // Live knob offset while dragging (px); null when resting (CSS drives position).
+  const [dragX, setDragX] = useState<number | null>(null);
+  const draggingRef = useRef(false);
+  const movedRef = useRef(false);
+  const suppressClickRef = useRef(false);
 
-  const finish = () => {
-    if (doneRef.current) return; // idempotent (transitionend + fallback timer)
-    doneRef.current = true;
-    const phase = fx?.phase;
-    setFx(null);
-    setFxReady(false);
-    if (phase === 'bloom') toggleTheme(); // reveal the now-light page beneath
+  // Fade the whole scene during the switch: a temporary class enables color/bg
+  // transitions app-wide (see .theme-anim in index.css). Reduced motion skips it.
+  const switchTo = (dark: boolean) => {
+    if (dark === isDark) return;
+    if (!prefersReducedMotion()) {
+      const root = document.documentElement;
+      root.classList.add('theme-anim');
+      window.setTimeout(() => root.classList.remove('theme-anim'), 480);
+    }
+    toggleTheme();
   };
 
-  // Kick the CSS transition one frame after the overlay mounts at its start state.
-  useEffect(() => {
-    if (!fx) return;
-    doneRef.current = false;
-    const raf = requestAnimationFrame(() => setFxReady(true));
-    const fallback = window.setTimeout(finish, 700); // in case transitionend is missed
-    return () => { cancelAnimationFrame(raf); window.clearTimeout(fallback); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fx]);
+  const knobXFromPointer = (clientX: number): number => {
+    const track = trackRef.current;
+    if (!track) return KNOB_MIN;
+    const rect = track.getBoundingClientRect();
+    const x = clientX - rect.left - 13; // 13 = knob radius
+    return Math.max(KNOB_MIN, Math.min(KNOB_MAX, x));
+  };
 
-  const handleClick = () => {
-    if (fx) return; // ignore clicks mid-transition
-    const el = btnRef.current;
-    if (!el || prefersReducedMotion()) { toggleTheme(); return; }
-    const r = el.getBoundingClientRect();
-    const x = r.left + r.width / 2;
-    const y = r.top + r.height / 2;
-    if (isDark) {
-      // → light: bloom outward; theme flips when the bloom completes
-      setFx({ phase: 'bloom', x, y });
-    } else {
-      // → dark: flip now so the dark page sits beneath, then the light overlay
-      // collapses into the button ("light being absorbed")
-      toggleTheme();
-      setFx({ phase: 'absorb', x, y });
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (prefersReducedMotion()) return; // no drag when motion is reduced — tap only
+    draggingRef.current = true;
+    movedRef.current = false;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    setDragX(isDark ? KNOB_MAX : KNOB_MIN);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    const x = knobXFromPointer(e.clientX);
+    if (Math.abs(x - (isDark ? KNOB_MAX : KNOB_MIN)) > 3) movedRef.current = true;
+    setDragX(x);
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    const x = dragX ?? (isDark ? KNOB_MAX : KNOB_MIN);
+    setDragX(null); // hand position back to CSS (animates to rest)
+    if (movedRef.current) {
+      suppressClickRef.current = true; // don't let the trailing click double-fire
+      switchTo(x > KNOB_MID); // right half = dark
     }
   };
 
-  const label = isDark ? t('auth.switch_to_light') : t('auth.switch_to_dark');
+  const onClick = () => {
+    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+    switchTo(!isDark); // tap / keyboard (Enter/Space) flips
+  };
 
-  let clip = '';
-  if (fx) {
-    const full = `circle(150% at ${fx.x}px ${fx.y}px)`;
-    const zero = `circle(0px at ${fx.x}px ${fx.y}px)`;
-    clip = fx.phase === 'bloom' ? (fxReady ? full : zero) : (fxReady ? zero : full);
-  }
+  const label = isDark ? t('auth.switch_to_light') : t('auth.switch_to_dark');
+  const knobStyle = dragX !== null
+    ? { transform: `translateX(${dragX}px)`, transition: 'none' as const }
+    : undefined;
 
   return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        className="theme-toggle"
-        onClick={handleClick}
-        aria-label={label}
-        title={label}
-      >
-        <span className="theme-toggle-icon">
-          {isDark ? <SunIcon /> : <BlackHoleIcon />}
-        </span>
-      </button>
-      {fx && (
-        <div
-          className="theme-fx"
-          style={{
-            clipPath: clip,
-            WebkitClipPath: clip,
-            transition: fxReady ? 'clip-path 520ms ease-in-out' : 'none',
-          }}
-          onTransitionEnd={finish}
-        />
-      )}
-    </>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label={label}
+      title={label}
+      className="theme-slider"
+      data-dark={isDark}
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <span className="ts-track" ref={trackRef}>
+        <span className="ts-ic ts-ic-sun"><SunIcon /></span>
+        <span className="ts-ic ts-ic-bh"><BlackHoleIcon /></span>
+        <span className="ts-knob" style={knobStyle} />
+      </span>
+    </button>
   );
 }

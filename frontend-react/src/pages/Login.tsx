@@ -74,7 +74,6 @@ const Login: React.FC = () => {
   return (
     <div className="auth-page">
       <StarfieldBackground
-        key={isDark ? 'dark' : 'light'}
         palette={isDark ? LOGIN_STARS_DARK : LOGIN_STARS_LIGHT}
         nebulaColor={isDark ? LOGIN_NEBULA_DARK : LOGIN_NEBULA_LIGHT}
       />

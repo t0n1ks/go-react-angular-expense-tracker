@@ -44,6 +44,20 @@ body {
   }
 }
 
+/* Global scene fade on theme switch. The ThemeToggle adds `.theme-anim` to <html>
+   for ~480ms so the whole scene eases between light and dark — card, text, borders,
+   glow (box-shadow) and the page-sky cross-fade (::before opacity) — then removes
+   it so transitions aren't active at rest. Cheap: only paint properties transition,
+   no canvas. Skipped entirely under prefers-reduced-motion (JS doesn't add it). */
+.theme-anim,
+.theme-anim *,
+.theme-anim *::before,
+.theme-anim *::after {
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke, opacity !important;
+  transition-duration: 0.42s !important;
+  transition-timing-function: ease !important;
+}
+
 .card:hover {
   box-shadow: var(--shadow-card-hover);
 }
@@ -147,9 +161,11 @@ body {
   --color-auth-page-login: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --color-auth-page-register: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
   /* Auth sky — identical on Login & Register; the per-page distinction is carried
-     by the canvas star colours, not the background. Light theme = soft dawn/day
-     sky (pale blue → lavender → peach); dark theme = deep-space navy (see .dark). */
+     by the canvas star colours, not the background. Both gradients coexist so the
+     scene can cross-fade on theme switch: the page paints the dawn sky and a
+     ::before layer fades the navy night sky in/out (opacity driven by .dark). */
   --color-auth-space-bg: linear-gradient(165deg, #eef2fb 0%, #f3edf7 50%, #fdeee7 100%);
+  --color-auth-sky-dark: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
 
   /* Barely-there matte grain for the auth cards — fine grayscale SVG noise at
      ~5% alpha. Adds an "expensive matte surface" feel without changing the card
@@ -276,7 +292,6 @@ body {
   --color-auth-page-register: linear-gradient(135deg, #0a2a27 0%, #1a2e0a 100%);
   --color-auth-card-bg: #1e2a3a;
   /* Clean matte auth card: refined dark-slate matte, muted and non-glossy. */
-  --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
   /* Cool blue-violet tint (same family as the cosmic background, darker/muted) so
      the card feels part of the scene rather than a detached neutral grey. Only the
      colour temperature changes — same luminance range, same matte-stone material. */

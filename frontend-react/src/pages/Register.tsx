@@ -98,7 +98,6 @@ const Register: React.FC = () => {
     <>
     <div className="auth-page-reg">
       <StarfieldBackground
-        key={isDark ? 'dark' : 'light'}
         palette={isDark ? REGISTER_STARS_DARK : REGISTER_STARS_LIGHT}
         nebulaColor={isDark ? REGISTER_NEBULA_DARK : REGISTER_NEBULA_LIGHT}
       />

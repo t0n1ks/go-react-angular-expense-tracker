@@ -4,10 +4,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-auth-space-bg);
+    background: var(--color-auth-space-bg); /* dawn sky (both themes) */
     font-family: 'Inter', sans-serif;
     position: relative;
     overflow: hidden;
+}
+
+/* Night-sky layer that cross-fades in for dark theme (opacity eased by .theme-anim
+   during the switch). Sits above the dawn background but below the star canvas. */
+.auth-page-reg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-auth-sky-dark);
+    opacity: 0;
+    pointer-events: none;
+}
+.dark .auth-page-reg::before {
+    opacity: 1;
 }
 
 .auth-card-reg {

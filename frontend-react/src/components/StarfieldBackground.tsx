@@ -60,6 +60,9 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, nebulaC
   paletteRef.current = palette;
   const nebulaColorRef = useRef(nebulaColor);
   nebulaColorRef.current = nebulaColor;
+  // Set by the main effect; lets a prop-watching effect re-tint in place on a
+  // theme change without rebuilding/repositioning the whole field.
+  const recolorRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -119,6 +122,15 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, nebulaC
       });
     };
 
+    // Soft radial nebula anchored toward one corner, sized to the viewport.
+    const buildNebula = () => {
+      const cx = width * 0.22, cy = height * 0.18;
+      const radius = Math.max(width, height) * 0.6;
+      nebula = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      nebula.addColorStop(0, `rgba(${nebulaColorRef.current}, 0.6)`);
+      nebula.addColorStop(1, `rgba(${nebulaColorRef.current}, 0)`);
+    };
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       width = rect.width; height = rect.height;
@@ -127,15 +139,21 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, nebulaC
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // Soft radial nebula anchored toward one corner, sized to the viewport.
-      const cx = width * 0.22, cy = height * 0.18;
-      const radius = Math.max(width, height) * 0.6;
-      nebula = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      nebula.addColorStop(0, `rgba(${nebulaColorRef.current}, 0.6)`);
-      nebula.addColorStop(1, `rgba(${nebulaColorRef.current}, 0)`);
+      buildNebula();
       makeParticles();
       if (reduced) drawStatic(); // running loop redraws itself; static field won't
     };
+
+    // Theme change: re-tint the existing stars in place (positions kept, so no
+    // jarring reset) and rebuild the nebula for the new palette. Exposed via a ref
+    // so a lightweight prop-watching effect can trigger it.
+    const recolor = () => {
+      const pal = paletteRef.current.length ? paletteRef.current : DEFAULT_PALETTE;
+      for (const p of particles) p.color = pal[Math.floor(Math.random() * pal.length)];
+      buildNebula();
+      if (reduced) drawStatic();
+    };
+    recolorRef.current = recolor;
 
     // Very faint depth glow, drawn behind the stars. Alpha folds in the focus-dim
     // multiplier so it calms while typing, just like the stars.
@@ -266,8 +284,14 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, nebulaC
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('visibilitychange', onVisibility);
       motionMq.removeEventListener('change', onMotionChange);
+      recolorRef.current = null;
     };
   }, []);
+
+  // Re-tint the live field when the theme (palette/nebula) changes.
+  useEffect(() => {
+    recolorRef.current?.();
+  }, [palette, nebulaColor]);
 
   return (
     <canvas

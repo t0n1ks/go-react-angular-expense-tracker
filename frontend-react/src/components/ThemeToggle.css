@@ -1,68 +1,80 @@
-/* Cosmic theme toggle — page-level, top-right, styled in the card's material
-   language (matte surface + grain, single border, theme-appropriate edge glow). */
-.theme-toggle {
+/* Cosmic theme slider — page-level, top-right, in the card's material language.
+   A pill track shows both icons (sun left, black hole right); the volumetric knob
+   rests over the side matching the current theme. */
+.theme-slider {
   position: fixed;
   top: max(16px, env(safe-area-inset-top));
   right: max(16px, env(safe-area-inset-right));
   z-index: 60;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
+  /* Padding grows the tap target to ~44px tall without enlarging the pill. */
+  padding: 6px;
+  margin: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  background-color: var(--color-auth-card-matte);
-  background-image: var(--auth-grain);
-  border: 1px solid var(--color-auth-card-border);
-  box-shadow: 0 0 14px 1px var(--color-auth-card-glow);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none; /* let the knob be dragged without the page scrolling */
 }
 
-.theme-toggle:hover {
-  transform: scale(1.07);
+.theme-slider:focus-visible {
+  outline: none;
 }
-
-.theme-toggle:focus-visible {
+.theme-slider:focus-visible .ts-track {
   outline: 2px solid var(--color-auth-input-focus-login);
   outline-offset: 3px;
 }
 
-/* Icon wrapper carries the subtle "floating in space" idle drift. */
-.theme-toggle-icon {
+.ts-track {
+  position: relative;
   display: block;
+  width: 64px;
+  height: 32px;
+  border-radius: 999px;
+  background-color: var(--color-auth-card-matte);
+  background-image: var(--auth-grain);
+  border: 1px solid var(--color-auth-card-border);
+  box-shadow: 0 0 14px 1px var(--color-auth-card-glow),
+              inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Both icons sit on the track; the knob covers the active side. */
+.ts-ic {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ts-ic svg { display: block; width: 100%; height: 100%; }
+.ts-ic-sun { left: 7px; }
+.ts-ic-bh { right: 7px; }
+
+/* Volumetric domed knob: soft top highlight, gentle lower shading, drop shadow so
+   it reads as sitting above the track. Matte, not glossy. */
+.ts-knob {
+  position: absolute;
+  top: 50%;
+  left: 0;
   width: 26px;
   height: 26px;
-  animation: tt-drift 5.5s ease-in-out infinite;
+  margin-top: -13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 32%, #f6f8fc 0%, #d5dbe7 58%, #aab2c6 100%);
+  border: 1px solid rgba(20, 24, 40, 0.18);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.38),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.75),
+    inset 0 -2px 3px rgba(30, 35, 55, 0.22);
+  transform: translateX(3px);
+  transition: transform 0.4s ease;
 }
 
-.theme-toggle-icon svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-@keyframes tt-drift {
-  0%, 100% { transform: translate(0, 0); }
-  25%      { transform: translate(1px, -2px); }
-  50%      { transform: translate(0, -3px); }
-  75%      { transform: translate(-1px, -1px); }
-}
-
-/* Theme-transition overlay: a light plane that blooms out of / collapses into the
-   button. Cheap — a single clipped div, no canvas. */
-.theme-fx {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  pointer-events: none;
-  background: #f1ecf6;
-  will-change: clip-path;
+.theme-slider[data-dark='true'] .ts-knob {
+  transform: translateX(35px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* No idle drift and no bloom/collapse — the switch is instant (JS also skips
-     the overlay when reduced motion is on). */
-  .theme-toggle-icon { animation: none; }
-  .theme-fx { display: none; }
+  /* Instant switch: no knob easing (the global scene fade is also skipped in JS). */
+  .ts-knob { transition: none; }
 }
