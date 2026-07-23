@@ -16,9 +16,10 @@
     padding: 40px;
     border-radius: 16px;
     border: 1px solid var(--color-auth-card-border);
-    /* A single soft, thin warm-white glow hugging the edge — like an LED rim,
-       not a big dark halo. Tight blur, small spread, low opacity. */
-    box-shadow: 0 0 14px 1px rgba(255, 246, 228, 0.18);
+    /* A single soft, thin glow hugging the edge — warm LED rim on the dark sky,
+       reversed to a soft dark glow on the light sky (themed token). Tight blur,
+       small spread, low opacity — not a big murky halo. */
+    box-shadow: 0 0 14px 1px var(--color-auth-card-glow);
     width: 100%;
     max-width: 400px;
     text-align: center;
