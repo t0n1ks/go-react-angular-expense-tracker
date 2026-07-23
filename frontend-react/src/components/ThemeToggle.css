@@ -24,14 +24,16 @@
   outline-offset: 3px;
 }
 
-/* Track scene. Base = clean dawn gradient (light theme). */
+/* Track scene. Base = a calm pale-blue → soft warm-yellow dawn wash (light theme).
+   overflow:hidden keeps the night stars and the sun's glow rings inside the pill. */
 .ts-track {
   position: relative;
   display: block;
   width: 64px;
   height: 32px;
   border-radius: 999px;
-  background: linear-gradient(120deg, #fde4d3 0%, #eef2fb 100%);
+  overflow: hidden;
+  background: linear-gradient(120deg, #dbe8f6 0%, #fdf3d6 100%);
   border: 1px solid var(--color-auth-card-border);
   box-shadow: 0 0 12px 1px var(--color-auth-card-glow),
               inset 0 1px 2px rgba(0, 0, 0, 0.18);
@@ -59,8 +61,10 @@
   opacity: 1;
 }
 
-/* Volumetric domed knob: soft top highlight, lower shading, drop shadow + a faint
-   halo aura so it reads as a sphere resting on the scene. Carries the icon. */
+/* The knob is the celestial body itself, volumetric (top highlight, lower shading,
+   small drop shadow so it reads as a sphere). Light theme = a warm yellow SUN with
+   concentric translucent glow rings (box-shadow spreads, clipped to the track).
+   The box-shadow transitions with .theme-anim so the glow fades on switch. */
 .ts-knob {
   position: absolute;
   top: 50%;
@@ -73,31 +77,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 32%, #f6f8fc 0%, #d5dbe7 58%, #aab2c6 100%);
-  border: 1px solid rgba(20, 24, 40, 0.18);
+  background: radial-gradient(circle at 50% 34%, #fff0b0 0%, #ffd24a 52%, #f3a01e 100%);
+  border: 1px solid rgba(150, 90, 10, 0.35);
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.38),
-    0 0 10px 1px rgba(205, 216, 242, 0.30),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.75),
-    inset 0 -2px 3px rgba(30, 35, 55, 0.22);
+    0 0 0 3px rgba(255, 210, 74, 0.20),
+    0 0 0 6px rgba(255, 210, 74, 0.10),
+    0 0 9px 6px rgba(255, 210, 74, 0.16),
+    0 2px 4px rgba(0, 0, 0, 0.30),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(120, 80, 10, 0.30);
   transform: translateX(3px);
   transition: transform 0.4s ease;
 }
 
-/* One faint concentric ring hugging the knob for extra depth. */
-.ts-knob::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.10);
-  pointer-events: none;
+/* Dark theme = a round dark BLACK-HOLE sphere (same size/volume), no glow rings. */
+.dark .ts-knob {
+  background: radial-gradient(circle at 50% 34%, #2b3149 0%, #0c1020 58%, #05060d 100%);
+  border: 1px solid rgba(150, 160, 200, 0.22);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.55);
 }
 
 .ts-knob svg {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 
 .theme-slider[data-dark='true'] .ts-knob {
