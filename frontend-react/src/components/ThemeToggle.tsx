@@ -39,23 +39,18 @@ function SunIcon() {
   );
 }
 
-function BlackHoleIcon() {
+function VortexIcon() {
+  // A swirling "shuriken" black hole: a dark core with four thick curved blades
+  // spiralling inward. Few arms + bold fills so it stays legible at ~18–20px.
+  const blade = 'M24 24 C 21 16 27 10 34 12 C 30 16 28 20 24 24 Z';
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="ts-ring" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ffd27a" />
-          <stop offset="50%" stopColor="#ff7b3a" />
-          <stop offset="100%" stopColor="#b46bff" />
-        </linearGradient>
-      </defs>
-      <g transform="rotate(-20 24 24)">
-        <ellipse cx="24" cy="24" rx="16" ry="6"
-          fill="none" stroke="url(#ts-ring)" strokeWidth="2.6" opacity="0.55" />
-        <circle cx="24" cy="24" r="9.5" fill="#05060d" />
-        <path d="M8 24 A16 6 0 0 0 40 24"
-          fill="none" stroke="url(#ts-ring)" strokeWidth="2.8" strokeLinecap="round" />
+      <g className="ts-vortex-arms">
+        {[0, 90, 180, 270].map(a => (
+          <path key={a} d={blade} transform={`rotate(${a} 24 24)`} fill="#0b1024" />
+        ))}
       </g>
+      <circle cx="24" cy="24" r="5" fill="#05060d" />
     </svg>
   );
 }
@@ -143,9 +138,9 @@ export default function ThemeToggle() {
       onPointerCancel={onPointerUp}
     >
       <span className="ts-track" ref={trackRef}>
-        <span className="ts-ic ts-ic-sun"><SunIcon /></span>
-        <span className="ts-ic ts-ic-bh"><BlackHoleIcon /></span>
-        <span className="ts-knob" style={knobStyle} />
+        <span className="ts-knob" style={knobStyle}>
+          {isDark ? <SunIcon /> : <VortexIcon />}
+        </span>
       </span>
     </button>
   );
