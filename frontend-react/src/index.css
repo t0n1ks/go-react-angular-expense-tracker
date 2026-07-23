@@ -19,6 +19,31 @@ body {
   transition: box-shadow 0.2s ease;
 }
 
+/* Engraved "FINANCER" wordmark — the header on BOTH Login and Register, both
+   themes. Reads as carved from the card's own matte material: only slightly
+   tone-differentiated, depth faked entirely with the theme-tuned intaglio shadow
+   (light-surface deboss in light theme, dark-surface deboss in dark). Bigger than
+   before so it acts as the page header, but still restrained — bigger, not louder.
+   clamp() keeps the wide letter-spaced wordmark fitting down to ~344px. */
+.auth-wordmark {
+  font-size: clamp(1.75rem, 8vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  text-indent: 0.25em; /* compensate trailing letter-spacing so it stays centered */
+  line-height: 1;
+  text-align: center;
+  color: var(--auth-wordmark-color);
+  text-shadow: var(--auth-wordmark-shadow);
+  margin-bottom: 30px;
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .auth-wordmark {
+    margin-bottom: 22px;
+  }
+}
+
 .card:hover {
   box-shadow: var(--shadow-card-hover);
 }

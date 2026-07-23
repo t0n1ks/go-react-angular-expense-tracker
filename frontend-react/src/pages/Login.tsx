@@ -78,8 +78,8 @@ const Login: React.FC = () => {
         nebulaColor={isDark ? LOGIN_NEBULA_DARK : LOGIN_NEBULA_LIGHT}
       />
       <div className="auth-card">
-        <div className="auth-wordmark">FINANCER</div>
-        <h2 className="auth-title">{t('auth.login_title')}</h2>
+        <h1 className="sr-only">{t('auth.login_title')}</h1>
+        <div className="auth-wordmark" aria-hidden="true">FINANCER</div>
 
         {error && (
           <div className="auth-error" role="alert">

@@ -102,7 +102,8 @@ const Register: React.FC = () => {
         nebulaColor={isDark ? REGISTER_NEBULA_DARK : REGISTER_NEBULA_LIGHT}
       />
       <div className="auth-card-reg">
-        <h2 className="auth-title-reg">{t('auth.register_title')}</h2>
+        <h1 className="sr-only">{t('auth.register_title')}</h1>
+        <div className="auth-wordmark" aria-hidden="true">FINANCER</div>
 
         {error && <div className="auth-status-msg msg-error">{error}</div>}
         {success && <div className="auth-status-msg msg-success">{success}</div>}

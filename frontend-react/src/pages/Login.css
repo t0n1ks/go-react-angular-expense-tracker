@@ -86,29 +86,6 @@
     color: var(--color-auth-title);
 }
 
-/* Engraved "FINANCER" wordmark — Login only. Same tone as the card so it reads
-   as carved from the same matte material; depth is faked entirely with shadow:
-   a soft dark inner-top shadow + a faint light bottom edge (intaglio/deboss).
-   No lighter fill, no metallic sheen, no glow. */
-.auth-wordmark {
-    font-size: clamp(1.25rem, 5.5vw, 1.55rem);
-    font-weight: 800;
-    letter-spacing: 0.3em;
-    text-indent: 0.3em; /* compensate trailing letter-spacing so it stays centered */
-    line-height: 1;
-    text-align: center;
-    color: var(--auth-wordmark-color);
-    text-shadow: var(--auth-wordmark-shadow);
-    margin-bottom: 14px;
-    user-select: none;
-}
-
-@media (max-width: 640px) {
-    .auth-wordmark {
-        margin-bottom: 10px;
-    }
-}
-
 .auth-form {
     display: flex;
     flex-direction: column;
