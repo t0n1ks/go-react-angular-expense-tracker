@@ -134,6 +134,11 @@ body {
      so the dark title/labels stay crisp. */
   --color-auth-card-matte: #eef1f7;
   --color-auth-card-border: rgba(15, 23, 42, 0.10);
+  /* Engraved wordmark: a tone slightly off the card so it's perceptible, with an
+     intaglio shadow tuned for a LIGHT surface (soft dark recess above + light
+     highlight below). */
+  --auth-wordmark-color: #d9dee8;
+  --auth-wordmark-shadow: 0 -1px 1px rgba(0, 0, 0, 0.22), 0 1px 1px rgba(255, 255, 255, 0.9);
   --color-auth-title: #1a202c;
   --color-auth-label: #4a5568;
   --color-auth-link-login: #667eea;
@@ -242,6 +247,10 @@ body {
   /* Clean matte auth card: refined dark-slate matte, muted and non-glossy. */
   --color-auth-card-matte: #161c28;
   --color-auth-card-border: rgba(148, 163, 184, 0.16);
+  /* Engraved wordmark on the dark card: a hair lighter than the card + intaglio
+     shadow tuned for a DARK surface (dark recess above + faint light edge below). */
+  --auth-wordmark-color: #212b3d;
+  --auth-wordmark-shadow: 0 -1px 1px rgba(0, 0, 0, 0.55), 0 1px 1px rgba(255, 255, 255, 0.07);
   --color-auth-title: #e2e8f0;
   --color-auth-label: #94a3b8;
   --color-auth-link-login: #a5b4fc;

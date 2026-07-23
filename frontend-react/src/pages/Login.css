@@ -96,10 +96,8 @@
     text-indent: 0.3em; /* compensate trailing letter-spacing so it stays centered */
     line-height: 1;
     text-align: center;
-    color: var(--color-auth-card-matte);
-    text-shadow:
-        0 -1px 1px rgba(0, 0, 0, 0.55),
-        0 1px 1px rgba(255, 255, 255, 0.07);
+    color: var(--auth-wordmark-color);
+    text-shadow: var(--auth-wordmark-shadow);
     margin-bottom: 14px;
     user-select: none;
 }
