@@ -19,10 +19,13 @@ import { useEffect, useRef } from 'react';
 export interface StarfieldBackgroundProps {
   /** Star colours, sampled per particle. Themed per page (Login vs Register). */
   palette?: string[];
+  /** Nebula glow colour as an "r, g, b" triplet — themed (cool on dark, warm on light). */
+  nebulaColor?: string;
   className?: string;
 }
 
 const DEFAULT_PALETTE = ['#c7d2fe', '#a5b4fc', '#e9d5ff'];
+const DEFAULT_NEBULA_COLOR = '120, 135, 210';
 
 // Parallax depth layers: far → near. radius / drift speed / repulsion strength /
 // base opacity all grow toward the viewer.
@@ -35,9 +38,9 @@ const LAYERS = [
 const REPEL_RADIUS = 120; // px around the pointer within which stars scatter
 const PUSH_FRICTION = 0.9; // per-frame decay of the scatter impulse
 
-// Faint cool-toned nebula glow for depth. Neutral indigo so it works under both
-// pages' star colours; peak opacity is deliberately tiny — a hint, not a cloud.
-const NEBULA_COLOR = '120, 135, 210';
+// Faint nebula glow for depth — colour is themed via the nebulaColor prop (cool
+// indigo on the dark sky, warm peach on the light sky). Peak opacity is
+// deliberately tiny — a hint, not a cloud.
 const NEBULA_ALPHA = 0.16;
 
 interface Particle {
@@ -50,11 +53,13 @@ interface Particle {
   color: string;
 }
 
-export default function StarfieldBackground({ palette = DEFAULT_PALETTE, className }: StarfieldBackgroundProps) {
+export default function StarfieldBackground({ palette = DEFAULT_PALETTE, nebulaColor = DEFAULT_NEBULA_COLOR, className }: StarfieldBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Keep the latest palette without re-running the effect (which owns the loop).
+  // Keep the latest palette/nebula without re-running the effect (which owns the loop).
   const paletteRef = useRef(palette);
   paletteRef.current = palette;
+  const nebulaColorRef = useRef(nebulaColor);
+  nebulaColorRef.current = nebulaColor;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -126,8 +131,8 @@ export default function StarfieldBackground({ palette = DEFAULT_PALETTE, classNa
       const cx = width * 0.22, cy = height * 0.18;
       const radius = Math.max(width, height) * 0.6;
       nebula = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      nebula.addColorStop(0, `rgba(${NEBULA_COLOR}, 0.6)`);
-      nebula.addColorStop(1, `rgba(${NEBULA_COLOR}, 0)`);
+      nebula.addColorStop(0, `rgba(${nebulaColorRef.current}, 0.6)`);
+      nebula.addColorStop(1, `rgba(${nebulaColorRef.current}, 0)`);
       makeParticles();
       if (reduced) drawStatic(); // running loop redraws itself; static field won't
     };

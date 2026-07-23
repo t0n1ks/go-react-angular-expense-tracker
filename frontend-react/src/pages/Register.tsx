@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck } from 'lucide-react';
 import PasswordField from '../components/PasswordField';
@@ -17,7 +18,12 @@ interface AxiosErrorResponse {
 }
 
 // Light-green / yellow-green stars, echoing the green "Зарегистрироваться" button.
-const REGISTER_STAR_PALETTE = ['#a3e635', '#bef264', '#84cc16', '#d9f99d', '#5eead4'];
+// Deeper/more saturated on the light dawn sky so they stay visible; nebula glow
+// is cool on dark, warm on light.
+const REGISTER_STARS_DARK = ['#a3e635', '#bef264', '#84cc16', '#d9f99d', '#5eead4'];
+const REGISTER_STARS_LIGHT = ['#4d7c0f', '#3f6212', '#65a30d', '#15803d', '#0d9488'];
+const REGISTER_NEBULA_DARK = '120, 135, 210';
+const REGISTER_NEBULA_LIGHT = '250, 205, 160';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -28,6 +34,7 @@ const Register: React.FC = () => {
   const [usernameWarning, setUsernameWarning] = useState('');
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const { axiosInstance } = useAuth();
+  const { isDark } = useTheme();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
@@ -89,7 +96,11 @@ const Register: React.FC = () => {
   return (
     <>
     <div className="auth-page-reg">
-      <StarfieldBackground palette={REGISTER_STAR_PALETTE} />
+      <StarfieldBackground
+        key={isDark ? 'dark' : 'light'}
+        palette={isDark ? REGISTER_STARS_DARK : REGISTER_STARS_LIGHT}
+        nebulaColor={isDark ? REGISTER_NEBULA_DARK : REGISTER_NEBULA_LIGHT}
+      />
       <div className="auth-card-reg">
         <h2 className="auth-title-reg">{t('auth.register_title')}</h2>
 

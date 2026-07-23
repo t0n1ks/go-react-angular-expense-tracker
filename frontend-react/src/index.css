@@ -120,9 +120,10 @@ body {
   /* Auth pages */
   --color-auth-page-login: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --color-auth-page-register: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
-  /* Neutral deep-space navy — identical on Login & Register; the per-page
-     distinction is carried by the canvas star colours, not the background. */
-  --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
+  /* Auth sky — identical on Login & Register; the per-page distinction is carried
+     by the canvas star colours, not the background. Light theme = soft dawn/day
+     sky (pale blue → lavender → peach); dark theme = deep-space navy (see .dark). */
+  --color-auth-space-bg: linear-gradient(165deg, #eef2fb 0%, #f3edf7 50%, #fdeee7 100%);
 
   /* Barely-there matte grain for the auth cards — fine grayscale SVG noise at
      ~5% alpha. Adds an "expensive matte surface" feel without changing the card
@@ -245,6 +246,7 @@ body {
   --color-auth-page-register: linear-gradient(135deg, #0a2a27 0%, #1a2e0a 100%);
   --color-auth-card-bg: #1e2a3a;
   /* Clean matte auth card: refined dark-slate matte, muted and non-glossy. */
+  --color-auth-space-bg: linear-gradient(160deg, #0a0e20 0%, #06070f 100%);
   --color-auth-card-matte: #161c28;
   --color-auth-card-border: rgba(148, 163, 184, 0.16);
   /* Engraved wordmark on the dark card: a hair lighter than the card + intaglio

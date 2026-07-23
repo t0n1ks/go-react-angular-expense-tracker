@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import PasswordField from '../components/PasswordField';
 import StarfieldBackground from '../components/StarfieldBackground';
@@ -14,8 +15,13 @@ interface AxiosErrorResponse {
   };
 }
 
-// Yellow + purple stars, echoing the purple "Войти" gradient button.
-const LOGIN_STAR_PALETTE = ['#facc15', '#fde047', '#a855f7', '#c084fc', '#818cf8'];
+// Yellow + purple stars, echoing the purple "Войти" gradient button. On the dark
+// night sky they're bright; on the light dawn sky they're deeper/more saturated
+// so they stay clearly visible. The nebula glow is cool on dark, warm on light.
+const LOGIN_STARS_DARK = ['#facc15', '#fde047', '#a855f7', '#c084fc', '#818cf8'];
+const LOGIN_STARS_LIGHT = ['#ca8a04', '#a16207', '#7e22ce', '#9333ea', '#4f46e5'];
+const LOGIN_NEBULA_DARK = '120, 135, 210';
+const LOGIN_NEBULA_LIGHT = '250, 205, 160';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -23,6 +29,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [usernameWarning, setUsernameWarning] = useState('');
   const { login, axiosInstance } = useAuth();
+  const { isDark } = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -65,7 +72,11 @@ const Login: React.FC = () => {
 
   return (
     <div className="auth-page">
-      <StarfieldBackground palette={LOGIN_STAR_PALETTE} />
+      <StarfieldBackground
+        key={isDark ? 'dark' : 'light'}
+        palette={isDark ? LOGIN_STARS_DARK : LOGIN_STARS_LIGHT}
+        nebulaColor={isDark ? LOGIN_NEBULA_DARK : LOGIN_NEBULA_LIGHT}
+      />
       <div className="auth-card">
         <div className="auth-wordmark">FINANCER</div>
         <h2 className="auth-title">{t('auth.login_title')}</h2>
