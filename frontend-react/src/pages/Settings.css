@@ -529,25 +529,29 @@
     border-top: 1px solid var(--color-border-card);
 }
 
+/* Log out = secondary/neutral action. Full-width like the Save button and the
+   cards above, so it reads as an intentional page action on desktop and mobile. */
 .btn-logout-settings {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
+    width: 100%;
+    padding: 0.8rem 1.5rem;
     background: transparent;
-    color: var(--color-btn-logout);
-    border: 1px solid var(--color-btn-logout);
-    border-radius: 0.75rem;
+    color: var(--color-text-body);
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.9rem;
     font-size: 0.9rem;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .btn-logout-settings:hover {
-    background: var(--color-btn-logout);
-    color: #fff;
+    background: rgba(148, 163, 184, 0.14);
+    border-color: var(--color-text-muted);
 }
 
 /* Delete Account section */
@@ -555,27 +559,28 @@
     margin-top: 0.75rem;
 }
 
+/* Delete = clearly destructive (danger styling), visually distinct from Log out. */
 .btn-delete-account {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
+    width: 100%;
+    padding: 0.8rem 1.5rem;
     background: transparent;
     color: var(--color-btn-logout);
     border: 1px solid var(--color-btn-logout);
-    border-radius: 0.75rem;
+    border-radius: 0.9rem;
     font-size: 0.9rem;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease;
-    opacity: 0.85;
 }
 
 .btn-delete-account:hover {
     background: var(--color-btn-logout);
     color: #fff;
-    opacity: 1;
 }
 
 /* Delete confirmation modal */
