@@ -86,6 +86,17 @@
     background: var(--color-nav-active-bg);
 }
 
+/* Focus ring only for keyboard navigation — a mouse/touch click leaves no
+   lingering ring, while keyboard users still get a clear, visible indicator. */
+.theme-icon-btn:focus {
+    outline: none;
+}
+
+.theme-icon-btn:focus-visible {
+    outline: 2px solid var(--color-logo);
+    outline-offset: 2px;
+}
+
 /* ── Tour highlight (applied to nav elements during in-widget tour) ──────── */
 .tour-highlight-active {
     box-shadow:
