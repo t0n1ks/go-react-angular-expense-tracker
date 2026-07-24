@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle, type CycleStats } from '../context/SettingsContext';
+import { savingsPoolBalance } from '../utils/savingsFigure';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
@@ -385,7 +386,7 @@ const Dashboard: React.FC = () => {
         animationHint={animationHint}
         heartsCount={heartsCount}
         aiServiceMode={aiServiceMode}
-        savingsBalance={aiData?.predicted_savings_balance}
+        savingsBalance={savingsPoolBalance(cycleStats)}
       />
     </div>
   );
