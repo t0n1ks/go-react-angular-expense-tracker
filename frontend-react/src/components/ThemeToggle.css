@@ -1,6 +1,5 @@
-/* Cosmic theme slider — page-level, top-right. The pill track is a miniature sky
-   scene; the volumetric knob carries the destination icon and rests on the side
-   matching the current theme. */
+/* Cosmic theme slider — monochrome & matte, in the app's restrained language.
+   Page-level, top-right. State reads from the track tone + knob position. */
 .theme-slider {
   position: fixed;
   top: max(16px, env(safe-area-inset-top));
@@ -24,47 +23,23 @@
   outline-offset: 3px;
 }
 
-/* Track scene. Base = a calm pale-blue → soft warm-yellow dawn wash (light theme).
-   overflow:hidden keeps the night stars and the sun's glow rings inside the pill. */
+/* Track = the same matte material as the card (grain + border). Its tone shifts
+   with the theme via --color-auth-card-matte (lighter in light, darker in dark). */
 .ts-track {
   position: relative;
   display: block;
   width: 64px;
   height: 32px;
   border-radius: 999px;
-  overflow: hidden;
-  background: linear-gradient(120deg, #dbe8f6 0%, #fdf3d6 100%);
+  background-color: var(--color-auth-card-matte);
+  background-image: var(--auth-grain);
   border: 1px solid var(--color-auth-card-border);
-  box-shadow: 0 0 12px 1px var(--color-auth-card-glow),
-              inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
 }
 
-/* Night scene (deep gradient + a few small stars) cross-fades in for dark theme;
-   opacity eases with the global .theme-anim transition. Rounded to the pill. */
-.ts-track::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  background:
-    radial-gradient(1.3px 1.3px at 12px 9px, rgba(255, 255, 255, 0.95), transparent 60%),
-    radial-gradient(1px 1px at 24px 22px, rgba(255, 255, 255, 0.6), transparent 60%),
-    radial-gradient(1.5px 1.5px at 33px 8px, rgba(255, 255, 255, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 45px 24px, rgba(200, 215, 255, 0.7), transparent 60%),
-    radial-gradient(1.2px 1.2px at 53px 13px, rgba(255, 255, 255, 0.75), transparent 60%),
-    linear-gradient(120deg, #16204a 0%, #070b1c 100%);
-}
-.dark .ts-track::before {
-  opacity: 1;
-}
-
-/* The knob is the celestial body itself, volumetric (top highlight, lower shading,
-   small drop shadow so it reads as a sphere). Light theme = a warm yellow SUN with
-   concentric translucent glow rings (box-shadow spreads, clipped to the track).
-   The box-shadow transitions with .theme-anim so the glow fades on switch. */
+/* Knob = a slightly lighter matte sphere, volumetric (top highlight, lower
+   shading, small drop shadow). Monochrome; carries a thin line-art icon whose
+   colour (currentColor) is themed to stay legible on the knob. */
 .ts-knob {
   position: absolute;
   top: 50%;
@@ -77,27 +52,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 34%, #fff0b0 0%, #ffd24a 52%, #f3a01e 100%);
-  border: 1px solid rgba(150, 90, 10, 0.35);
+  color: #3a4658; /* icon ink — light theme */
+  background: radial-gradient(circle at 50% 32%, #ffffff 0%, #eef1f7 58%, #dbe1ec 100%);
+  border: 1px solid rgba(20, 24, 40, 0.16);
   box-shadow:
-    0 0 0 3px rgba(255, 210, 74, 0.20),
-    0 0 0 6px rgba(255, 210, 74, 0.10),
-    0 0 9px 6px rgba(255, 210, 74, 0.16),
     0 2px 4px rgba(0, 0, 0, 0.30),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.55),
-    inset 0 -2px 3px rgba(120, 80, 10, 0.30);
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.85),
+    inset 0 -2px 3px rgba(30, 35, 55, 0.18);
   transform: translateX(3px);
   transition: transform 0.4s ease;
 }
 
-/* Dark theme = a round dark BLACK-HOLE sphere (same size/volume), no glow rings. */
 .dark .ts-knob {
-  background: radial-gradient(circle at 50% 34%, #2b3149 0%, #0c1020 58%, #05060d 100%);
+  color: #c7d0e0; /* icon ink — dark theme */
+  background: radial-gradient(circle at 50% 32%, #333b58 0%, #232a42 58%, #1a2036 100%);
   border: 1px solid rgba(150, 160, 200, 0.22);
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.5),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.14),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.55);
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.16),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.5);
 }
 
 .ts-knob svg {
@@ -110,18 +83,7 @@
   transform: translateX(35px);
 }
 
-/* Slow swirl of the vortex arms — cheap SVG rotation about the icon centre. */
-.ts-vortex-arms {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: ts-spin 7s linear infinite;
-}
-@keyframes ts-spin {
-  to { transform: rotate(1turn); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  /* Instant switch, no idle motion (JS also skips the global scene fade). */
+  /* Instant switch, no motion (JS also skips the global scene fade). */
   .ts-knob { transition: none; }
-  .ts-vortex-arms { animation: none; }
 }

@@ -14,27 +14,35 @@ const KNOB_MID = (KNOB_MIN + KNOB_MAX) / 2;
 
 // ── Custom, simplified SVG icons (legible at ~18–22px; no fine detail) ────────
 
-// The sun (light theme) is the knob's own warm gradient + glow rings (pure CSS);
-// only the black hole needs an inner motif. Four thick curved blades spiral into a
-// dark core, filled bright (accretion colours) for strong contrast on the dark
-// sphere. Few arms + bold fills so it stays legible at ~18–20px.
-function VortexIcon() {
-  const blade = 'M24 24 C 21 16 27 10 34 12 C 30 16 28 20 24 24 Z';
+// Thin, single-colour line-art icons (stroke = currentColor, themed on the knob).
+// Icon reflects the CURRENT theme: sun in light, black hole in dark.
+
+function SunIcon() {
+  const rays = [
+    [24, 5, 24, 9], [24, 39, 24, 43], [5, 24, 9, 24], [39, 24, 43, 24],
+    [11.3, 11.3, 14.1, 14.1], [33.9, 33.9, 36.7, 36.7],
+    [11.3, 36.7, 14.1, 33.9], [33.9, 14.1, 36.7, 11.3],
+  ];
   return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id="ts-vgrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ffd8a0" />
-          <stop offset="55%" stopColor="#ff9d5a" />
-          <stop offset="100%" stopColor="#b98cff" />
-        </linearGradient>
-      </defs>
-      <g className="ts-vortex-arms">
-        {[0, 90, 180, 270].map(a => (
-          <path key={a} d={blade} transform={`rotate(${a} 24 24)`} fill="url(#ts-vgrad)" />
-        ))}
+    <svg viewBox="0 0 48 48" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+      <circle cx="24" cy="24" r="8" />
+      {rays.map((r, i) => <line key={i} x1={r[0]} y1={r[1]} x2={r[2]} y2={r[3]} />)}
+    </svg>
+  );
+}
+
+function BlackHoleIcon() {
+  // Interstellar/Gargantua silhouette in line-art: a dark core with a thin bright
+  // ring around it — the ring passes in front (below) and behind (above) the core.
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+      <g transform="rotate(-6 24 24)">
+        <ellipse cx="24" cy="24" rx="16" ry="6" />
+        <circle cx="24" cy="24" r="8" fill="#06070e" stroke="none" />
+        <path d="M8 24 A16 6 0 0 0 40 24" />
       </g>
-      <circle cx="24" cy="24" r="4.5" fill="#04050b" />
     </svg>
   );
 }
@@ -123,9 +131,8 @@ export default function ThemeToggle() {
     >
       <span className="ts-track" ref={trackRef}>
         <span className="ts-knob" style={knobStyle}>
-          {/* Knob reflects the CURRENT theme: black-hole vortex in dark, plain sun
-              (the knob's own gradient) in light. */}
-          {isDark && <VortexIcon />}
+          {/* Icon reflects the CURRENT theme. */}
+          {isDark ? <BlackHoleIcon /> : <SunIcon />}
         </span>
       </span>
     </button>
