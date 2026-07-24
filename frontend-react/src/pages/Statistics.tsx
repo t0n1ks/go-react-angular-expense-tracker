@@ -46,7 +46,7 @@ const TIMELINE_PERIODS = [
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, liteMode } = useSettings();
+  const { formatAmount, currencySymbol, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -329,6 +329,18 @@ const Statistics: React.FC = () => {
   const sfPositive = sfThisCycle >= 0;
   const showSavingsForecast = hasActiveCycle || effectiveCycleIncome > 0 || monthlySpendingGoal > 0;
 
+  // Compact, signed currency labels for the balance chart's y-axis (e.g. €1.2k)
+  // so they stay short and readable even on narrow phones.
+  const compactBalance = (v: number): string => {
+    const abs = Math.abs(v);
+    const sign = v < 0 ? "-" : "";
+    if (abs >= 1000) return `${sign}${currencySymbol}${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`;
+    return `${sign}${currencySymbol}${Math.round(abs)}`;
+  };
+  // Restrained grid/axis colours from the theme.
+  const gridColor = isDark ? "#1e2a3a" : "#eef2f7";
+  const axisColor = isDark ? "#2a3852" : "#e2e8f0";
+
   if (loading)
     return <div className="statistics-wrapper">{t("statistics.loading")}</div>;
 
@@ -374,7 +386,7 @@ const Statistics: React.FC = () => {
           {timelineData.length > 0 ? (
             <div style={{ width: "100%", height: 300, minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timelineData}>
+                <AreaChart data={timelineData} margin={{ top: 10, right: 14, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient
                       id="colorBalance"
@@ -390,18 +402,25 @@ const Statistics: React.FC = () => {
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke={isDark ? "#1e2a3a" : "#f1f5f9"}
+                    stroke={gridColor}
                   />
-                  <XAxis
-                    dataKey="date"
+                  <YAxis
+                    width={52}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#94a3b8", fontSize: 11 }}
+                    tickFormatter={compactBalance}
+                    tickCount={5}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    axisLine={{ stroke: axisColor }}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 11 }}
                     dy={10}
-                    padding={{ left: 20, right: 20 }}
+                    padding={{ left: 12, right: 12 }}
                     minTickGap={44}
                   />
-                  <YAxis hide={true} />
                   <Tooltip
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
