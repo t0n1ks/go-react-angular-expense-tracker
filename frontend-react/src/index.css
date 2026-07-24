@@ -11,6 +11,27 @@ body {
   touch-action: pan-x pan-y;
 }
 
+/* Browser autofill on the auth fields: keep the app's own field styling in both
+   themes instead of the browser's forced white/yellow background. The inset
+   box-shadow paints over the autofill background, and -webkit-text-fill-color
+   keeps the entered text legible (never light text on a light forced bg). */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus,
+.auth-input:-webkit-autofill:active,
+.auth-input-reg:-webkit-autofill,
+.auth-input-reg:-webkit-autofill:hover,
+.auth-input-reg:-webkit-autofill:focus,
+.auth-input-reg:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-bg-input) inset;
+  box-shadow: 0 0 0 1000px var(--color-bg-input) inset;
+  -webkit-text-fill-color: var(--color-text-body);
+  caret-color: var(--color-text-body);
+  border-color: var(--color-border-input-auth);
+  /* Defer the autofill background repaint so it doesn't flash on focus. */
+  transition: background-color 6000s ease 0s;
+}
+
 .card {
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
