@@ -6,19 +6,28 @@
   flex-shrink: 0;
 }
 
-/* Line-art mark themed via currentColor: accent blue in light, white in dark. */
 .logo-icon {
   flex-shrink: 0;
-  color: var(--color-logo);
-  transition: color 0.2s ease, opacity 0.2s ease;
-}
-
-.dark .logo-icon {
-  color: #ffffff;
+  display: block;
+  object-fit: contain;
+  transition: opacity 0.2s ease;
 }
 
 .logo-link:hover .logo-icon {
   opacity: 0.85;
+}
+
+/* Theme-swap the two provided marks. Both stay in the DOM (preloaded) so the
+   switch is instant with no wrong-image flash: blue mark in light, light mark
+   in dark. */
+.logo-icon--dark {
+  display: none;
+}
+.dark .logo-icon--dark {
+  display: block;
+}
+.dark .logo-icon--light {
+  display: none;
 }
 
 .logo-wordmark {
