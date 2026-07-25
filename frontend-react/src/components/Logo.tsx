@@ -12,9 +12,9 @@ import './Logo.css';
  */
 const Logo: React.FC = () => (
   <Link to="/" className="logo-link" aria-label="Financer — Dashboard">
-    <img src={LogoLight} alt="" aria-hidden="true" width={34} height={34}
+    <img src={LogoLight} alt="" aria-hidden="true" width={22} height={22}
       className="logo-icon logo-icon--light" />
-    <img src={LogoDark} alt="" aria-hidden="true" width={34} height={34}
+    <img src={LogoDark} alt="" aria-hidden="true" width={22} height={22}
       className="logo-icon logo-icon--dark" />
     <span className="logo-wordmark">Financer</span>
   </Link>
