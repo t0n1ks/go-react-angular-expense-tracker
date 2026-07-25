@@ -1,7 +1,8 @@
 .logo-link {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  /* Tight lockup: the mark tucks in close to the "F". */
+  gap: 0.25rem;
   text-decoration: none;
   flex-shrink: 0;
 }
@@ -10,6 +11,9 @@
   flex-shrink: 0;
   display: block;
   object-fit: contain;
+  /* Optical centering: "Financer" has no descenders, so its cap-height centre
+     sits above the line-box centre — nudge the mark up 1px so it reads balanced. */
+  transform: translateY(-1px);
   transition: opacity 0.2s ease;
 }
 
