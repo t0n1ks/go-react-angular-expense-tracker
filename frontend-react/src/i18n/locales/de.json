@@ -354,6 +354,13 @@
       "Zahltag! Spannend, oder? Und jetzt: wohin geht es wirklich?",
       "Mittel erhalten und protokolliert. Der monatliche Budgetlauf hat offiziell begonnen."
     ],
+    "pacing_fresh": [
+      "Frische Woche, weißes Blatt. Viel Startbahn — halten wir ein ruhiges Tempo.",
+      "Neue Woche gerade gestartet. Noch keine Zahlen zum Sorgen — klarer Himmel.",
+      "Das Wochenbudget ist zurückgesetzt. Voller Tank, leere Leinwand. Fliegen wir sauber.",
+      "Eine brandneue Ausgabenwoche beginnt. Frühe Tage — wir beobachten das Tempo zusammen.",
+      "Frische Woche erkannt. Noch nichts zu melden — wir gehen nur in den Orbit."
+    ],
     "pacing_over": [
       "Wochenbudget um {{percent}}% überschritten. Turbulenzen — Zeit, die Höhe zu reduzieren.",
       "Houston, wir haben ein Ausgabenproblem. {{percent}}% über dem Wochenlimit.",

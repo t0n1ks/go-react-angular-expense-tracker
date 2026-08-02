@@ -359,6 +359,13 @@
       "Payday confirmed. Pro tip: the first 10 minutes after payday are the most important for your budget.",
       "Money received and logged. No need to do anything dramatic — just don't do anything dramatic."
     ],
+    "pacing_fresh": [
+      "Fresh week, clean slate. Plenty of runway ahead — let's pace it smoothly.",
+      "New week just started. No numbers to worry about yet — just a clear sky.",
+      "The weekly budget resets. Blank canvas, full tank. Let's fly it well.",
+      "A brand-new spending week begins. Early days — we'll watch the pace together.",
+      "Fresh week detected. Nothing to flag yet — just settling into orbit."
+    ],
     "pacing_over": [
       "Weekly budget exceeded by {{percent}}%. We've entered turbulence — time to reduce altitude.",
       "Houston, we have a spending situation. {{percent}}% over the weekly limit. Time to recalibrate.",

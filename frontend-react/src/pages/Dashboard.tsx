@@ -158,6 +158,8 @@ const Dashboard: React.FC = () => {
     userId: user?.id,
     cycleId: currentCycle?.id,
     cycleStartAt: currentCycle?.cycle_start_at,
+    hasCycle,
+    cycleStats,
   });
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {

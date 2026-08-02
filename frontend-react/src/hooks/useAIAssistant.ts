@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isCycleFresh, salaryMarkerKey } from '../utils/salaryMessage';
+import { evaluatePace } from '../utils/paceVerdict';
 
 // ─── Weekly tier fingerprint ──────────────────────────────────────────────────
 
@@ -83,6 +84,17 @@ interface Options {
   // tied to this (not to loose income transactions) and shown once per cycle.
   cycleId?: number;
   cycleStartAt?: string | null;
+  // Server-authoritative weekly window (the exact figures the budget bar shows).
+  // When present, the autonomous pace verdict is derived from these instead of
+  // the legacy monthlySpendingGoal / 4.3 baseline.
+  hasCycle?: boolean;
+  cycleStats?: {
+    current_week_allowance: number;
+    current_week_spent: number;
+    current_week_index: number;
+    days_elapsed: number;
+    days_remaining: number;
+  } | null;
 }
 
 export function useAIAssistant({
@@ -95,6 +107,8 @@ export function useAIAssistant({
   userId,
   cycleId,
   cycleStartAt,
+  hasCycle,
+  cycleStats,
 }: Options) {
   const { t } = useTranslation();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -201,24 +215,44 @@ export function useAIAssistant({
       : 0;
     const isBalanced = catCount >= 2 && maxShare < 0.45;
 
-    const weeklyLimit = monthlySpendingGoal > 0 ? monthlySpendingGoal / 4.3 : 0;
-    const pace = weeklyLimit > 0 ? weekSpending / weeklyLimit : 0;
-    const dayOfWeek = now.getDay();
-    const isPastWednesday = dayOfWeek === 0 || dayOfWeek >= 3;
-
-    type Tier = 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
+    // Prefer the AUTHORITATIVE weekly numbers (the exact figures the budget bar
+    // renders) for cycle users, mirroring the Python pace advisor, so the UFO's
+    // verdict can never contradict the bar. Only no-cycle users fall back to the
+    // legacy monthlySpendingGoal / 4.3 baseline.
+    type Tier = 'pacing_fresh' | 'pacing_over' | 'pacing_warn' | 'pacing_great' | 'balanced' | 'pacing_good';
     let tier: Tier | null = null;
+    let percentOver = 0;
+    let significanceBase = 0; // weekly allowance/limit driving the significance gate
+    let overBudget = false;
 
-    if (weeklyLimit > 0 && pace > 1.2) {
-      tier = 'pacing_over';
-    } else if (weeklyLimit > 0 && pace > 0.8) {
-      tier = 'pacing_warn';
-    } else if (weeklyLimit > 0 && pace < 0.5 && isPastWednesday && weekSpending > 0) {
-      tier = 'pacing_great';
-    } else if (isBalanced && weekSpending > 0 && pace < 0.8) {
-      tier = 'balanced';
-    } else if (weeklyLimit > 0 && weekSpending > 0 && pace < 0.8) {
-      tier = 'pacing_good';
+    const usingCycle = !!hasCycle && !!cycleStats && cycleStats.current_week_allowance > 0;
+    if (usingCycle) {
+      const allowance = cycleStats!.current_week_allowance;
+      const spent = cycleStats!.current_week_spent;
+      const elapsedInWeek = Math.min(Math.max(cycleStats!.days_elapsed - cycleStats!.current_week_index * 7, 0), 7);
+      const remainingInWeek = Math.max(Math.min(7 - elapsedInWeek, cycleStats!.days_remaining), 0);
+      const verdict = evaluatePace(allowance, spent, elapsedInWeek, remainingInWeek);
+      tier = verdict.tier;
+      // Surface category balance only when the pace itself is calm.
+      if (tier === 'pacing_good' && isBalanced && weekSpending > 0) tier = 'balanced';
+      percentOver = verdict.percentOver;
+      significanceBase = allowance;
+      overBudget = spent > allowance;
+    } else {
+      const weeklyLimit = monthlySpendingGoal > 0 ? monthlySpendingGoal / 4.3 : 0;
+      const pace = weeklyLimit > 0 ? weekSpending / weeklyLimit : 0;
+      const dayOfWeek = now.getDay();
+      const isPastWednesday = dayOfWeek === 0 || dayOfWeek >= 3;
+
+      if (weeklyLimit > 0 && pace > 1.2) tier = 'pacing_over';
+      else if (weeklyLimit > 0 && pace > 0.8) tier = 'pacing_warn';
+      else if (weeklyLimit > 0 && pace < 0.5 && isPastWednesday && weekSpending > 0) tier = 'pacing_great';
+      else if (isBalanced && weekSpending > 0 && pace < 0.8) tier = 'balanced';
+      else if (weeklyLimit > 0 && weekSpending > 0 && pace < 0.8) tier = 'pacing_good';
+
+      percentOver = Math.max(0, Math.round((pace - 1) * 100));
+      significanceBase = weeklyLimit;
+      overBudget = weeklyLimit > 0 && weekSpending > weeklyLimit;
     }
 
     if (!tier) return;
@@ -227,27 +261,26 @@ export function useAIAssistant({
     // single expense ≥ 25% of the weekly allowance, or the week already over
     // budget) or once the cooldown has elapsed. Otherwise stay quiet.
     const maxSingleExpense = thisWeekExp.reduce((m, tx) => Math.max(m, Math.abs(Number(tx.amount))), 0);
-    const significant = weeklyLimit > 0
-      && (maxSingleExpense >= weeklyLimit * SIGNIFICANT_FRACTION || weekSpending > weeklyLimit);
+    const significant = significanceBase > 0
+      && (maxSingleExpense >= significanceBase * SIGNIFICANT_FRACTION || overBudget);
     if (!significant && !adviceCooldownElapsed(userId)) return;
 
     const fp = `${weekKey}:${tier}`;
     if (getStoredFp() === fp) return;
     storeFp(fp);
 
-    let msg: string | null = null;
-    if (tier === 'pacing_over') {
-      const percentOver = Math.round((pace - 1) * 100);
-      msg = pickFromKey('pacing_over', percentOver);
-    } else {
-      msg = pickFromKey(tier);
-    }
+    // percentOver is interpolated ONLY into pacing_over — the sole phrase that
+    // carries an "over the limit" percentage, and it can only fire when spent
+    // truly exceeds the allowance. Every other tier's copy is percentage-free.
+    const msg = tier === 'pacing_over'
+      ? pickFromKey('pacing_over', percentOver)
+      : pickFromKey(tier);
 
     if (msg) {
       enqueue({ text: msg });
       markAdviceShown(userId);
     }
-  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey, userId, cycleId, cycleStartAt]);
+  }, [transactions, aiAdviceEnabled, monthlySpendingGoal, aiServiceMode, enqueue, pickFromKey, userId, cycleId, cycleStartAt, hasCycle, cycleStats]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {

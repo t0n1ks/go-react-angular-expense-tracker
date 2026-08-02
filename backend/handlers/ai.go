@@ -317,6 +317,18 @@ type aiSalaryCycleInfo struct {
 	SavedMoneyBalance    float64 `json:"saved_money_balance"`
 	CycleStartAt         string  `json:"cycle_start_at"`
 	NextPaydayAt         string  `json:"next_payday_at"`
+
+	// Authoritative weekly-pace window — the EXACT numbers the Dashboard budget
+	// bar renders (from computeCycleStats). Python's pace advisor consumes these
+	// verbatim and must not re-derive weekly math, so the UFO's verdict can never
+	// contradict the bar.
+	WeeklyAllowance     float64 `json:"weekly_allowance"`
+	SpentThisWeek       float64 `json:"spent_this_week"`
+	DaysElapsedInWeek   int     `json:"days_elapsed_in_week"`
+	DaysRemainingInWeek int     `json:"days_remaining_in_week"`
+	DaysUntilNextPayout int     `json:"days_until_next_payout"`
+	CycleActive         bool    `json:"cycle_active"`
+	IsLite              bool    `json:"is_lite"`
 }
 
 type aiCategoryRef struct {
@@ -432,6 +444,17 @@ func AnalyzeBehavior(c *gin.Context) {
 				}
 			}
 		}
+		// Authoritative weekly-pace window — reuse computeCycleStats (the exact
+		// source the budget bar reads) so Python never re-derives weekly math.
+		stats := computeCycleStats(uid, activeCycle)
+		elapsedInWeek := min(max(stats.DaysElapsed-stats.CurrentWeekIndex*7, 0), 7)
+		// The cycle can end before the notional 7-day week completes — never
+		// promise more week than the cycle has left.
+		remainingInWeek := max(min(7-elapsedInWeek, stats.DaysRemaining), 0)
+		now := time.Now()
+		cycleActive := !activeCycle.CycleStartAt.After(now) &&
+			(activeCycle.NextPaydayAt == nil || !now.After(*activeCycle.NextPaydayAt))
+
 		cyclePayload = &aiSalaryCycleInfo{
 			TotalIncome:          activeCycle.TotalIncome,
 			NeedsPct:             activeCycle.NeedsPct,
@@ -446,6 +469,13 @@ func AnalyzeBehavior(c *gin.Context) {
 			SavedMoneyCategoryID: int(activeCycle.SavedMoneyCategoryID),
 			SavedMoneyBalance:    savedMoneyBalance,
 			CycleStartAt:         activeCycle.CycleStartAt.Format(time.RFC3339),
+			WeeklyAllowance:      stats.CurrentWeekAllowance,
+			SpentThisWeek:        stats.CurrentWeekSpent,
+			DaysElapsedInWeek:    elapsedInWeek,
+			DaysRemainingInWeek:  remainingInWeek,
+			DaysUntilNextPayout:  stats.DaysRemaining,
+			CycleActive:          cycleActive,
+			IsLite:               user.LiteMode,
 		}
 		if activeCycle.NextPaydayAt != nil {
 			cyclePayload.NextPaydayAt = activeCycle.NextPaydayAt.Format(time.RFC3339)
