@@ -131,3 +131,69 @@ func TestBudgetWindow_ExcludesOtherMonths(t *testing.T) {
 		t.Errorf("spent_this_window should exclude June's €999, want 50, got %.2f", bw.SpentThisWindow)
 	}
 }
+
+// The weekly-pace day counts the UFO's pace advisor consumes. They must be
+// derived from the SAME Monday anchor as current_week_allowance, count COMPLETED
+// days (so day one of the week reads 0 and the advisor calls it "fresh"), and
+// never promise more week than the month window has left.
+func TestBudgetWindow_WeeklyPaceDays(t *testing.T) {
+	setupFlowDB(t)
+	user := models.User{Username: "pacer", Password: "x", MonthlySpendingGoal: 600}
+	database.DB.Create(&user)
+
+	// July 2026: the 1st is a Wednesday, the 13th and 27th are Mondays.
+	cases := []struct {
+		name              string
+		now               time.Time
+		wantElapsed       int
+		wantRemainingWeek int
+	}{
+		// Monday → nothing completed yet: a fresh week, no scary numbers.
+		{"monday is a fresh week", time.Date(2026, time.July, 13, 12, 0, 0, 0, time.Local), 0, 7},
+		// Wednesday → Mon+Tue completed.
+		{"midweek counts completed days", time.Date(2026, time.July, 15, 12, 0, 0, 0, time.Local), 2, 5},
+		// Sunday → six completed days, one left.
+		{"sunday closes the week", time.Date(2026, time.July, 19, 12, 0, 0, 0, time.Local), 6, 1},
+		// The 2nd is a Thursday but the month starts Wednesday the 1st: the week
+		// is clamped to the window start, so only one day has completed.
+		{"partial first week clamps to the month start", time.Date(2026, time.July, 2, 12, 0, 0, 0, time.Local), 1, 6},
+		// The 31st is a Friday (4 days into its week) but the month ends today,
+		// so only one day of the week may be promised.
+		{"month end caps the remaining week", time.Date(2026, time.July, 31, 12, 0, 0, 0, time.Local), 4, 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bw := computeBudgetWindow(user.ID, user.MonthlySpendingGoal, tc.now)
+			if bw.DaysElapsedInWeek != tc.wantElapsed {
+				t.Errorf("days_elapsed_in_week: want %d, got %d", tc.wantElapsed, bw.DaysElapsedInWeek)
+			}
+			if bw.DaysRemainingInWeek != tc.wantRemainingWeek {
+				t.Errorf("days_remaining_in_week: want %d, got %d", tc.wantRemainingWeek, bw.DaysRemainingInWeek)
+			}
+			if bw.DaysElapsedInWeek+bw.DaysRemainingInWeek > 7 {
+				t.Errorf("a week can never exceed 7 days: %d + %d", bw.DaysElapsedInWeek, bw.DaysRemainingInWeek)
+			}
+			if bw.DaysRemainingInWeek > bw.DaysRemaining {
+				t.Errorf("week remainder %d outruns the month remainder %d",
+					bw.DaysRemainingInWeek, bw.DaysRemaining)
+			}
+		})
+	}
+}
+
+// With no goal set there is no valid weekly basis at all — the pace advisor must
+// receive a zero allowance so it degrades to percentage-free copy.
+func TestBudgetWindow_NoGoalYieldsNoPaceBasis(t *testing.T) {
+	setupFlowDB(t)
+	user := models.User{Username: "goalless", Password: "x", MonthlySpendingGoal: 0}
+	database.DB.Create(&user)
+
+	bw := computeBudgetWindow(user.ID, user.MonthlySpendingGoal, time.Date(2026, time.July, 15, 12, 0, 0, 0, time.Local))
+	if bw.CurrentWeekAllowance != 0 {
+		t.Errorf("no goal must yield a zero weekly allowance, got %.2f", bw.CurrentWeekAllowance)
+	}
+	if bw.HasGoal {
+		t.Error("expected has_goal=false")
+	}
+}

@@ -40,6 +40,15 @@ type BudgetWindow struct {
 	CurrentWeekAllowance float64 `json:"current_week_allowance"`
 	CurrentWeekSpent     float64 `json:"current_week_spent"`
 
+	// Weekly-pace day counts for the current week. Derived from the SAME Monday
+	// anchor the weekly allowance above uses — pure day counting, no extra budget
+	// math — so the UFO's pace verdict is built on exactly the figures the budget
+	// bar renders. Semantics deliberately mirror the cycle engine: "elapsed"
+	// counts COMPLETED days, so the first day of the week reads 0 and the pace
+	// advisor treats it as a fresh week.
+	DaysElapsedInWeek   int `json:"days_elapsed_in_week"`
+	DaysRemainingInWeek int `json:"days_remaining_in_week"`
+
 	DaysTotal     int `json:"days_total"`
 	DaysElapsed   int `json:"days_elapsed"`
 	DaysRemaining int `json:"days_remaining"`
@@ -100,6 +109,11 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 	// the same guardrail computeLegacyWeeklyAllowance enforces on the client.
 	weekAllowance := math.Min(remaining/float64(daysRemaining)*7, remaining)
 
+	// Day counts for the very same week window used above. Completed days only,
+	// and never promise more week than the month window has left.
+	elapsedInWeek := min(max(int(now.Sub(weekStart).Hours()/24), 0), 7)
+	remainingInWeek := max(min(7-elapsedInWeek, daysRemaining), 0)
+
 	return BudgetWindow{
 		HasGoal:              goal > 0,
 		DefaultGoal:          DefaultMonthlyBudget,
@@ -110,6 +124,8 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 		Remaining:            round2(remaining),
 		CurrentWeekAllowance: round2(weekAllowance),
 		CurrentWeekSpent:     round2(weekSpent),
+		DaysElapsedInWeek:    elapsedInWeek,
+		DaysRemainingInWeek:  remainingInWeek,
 		DaysTotal:            daysTotal,
 		DaysElapsed:          daysElapsed,
 		DaysRemaining:        daysRemaining,

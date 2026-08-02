@@ -94,6 +94,11 @@ export interface BudgetWindow {
   remaining: number;
   current_week_allowance: number;
   current_week_spent: number;
+  // Day position inside the current week — server-derived from the same Monday
+  // anchor as the allowance above, so the UFO's pace verdict uses the exact
+  // numbers this bar renders.
+  days_elapsed_in_week: number;
+  days_remaining_in_week: number;
   days_total: number;
   days_elapsed: number;
   days_remaining: number;

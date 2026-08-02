@@ -331,6 +331,25 @@ type aiSalaryCycleInfo struct {
 	IsLite              bool    `json:"is_lite"`
 }
 
+// aiBudgetWindowInfo carries the authoritative monthly budget window for users
+// who do NOT run an active salary cycle. The weekly-pace fields are named exactly
+// like aiSalaryCycleInfo's so Python's pace advisor can consume either source
+// through one code path — and they come straight from computeBudgetWindow, the
+// same figures the Dashboard budget bar renders. No new budget math here: the
+// no-cycle pace verdict is no longer derived from monthly_spending_goal / 4.3.
+type aiBudgetWindowInfo struct {
+	HasGoal         bool    `json:"has_goal"`
+	MonthlyBudget   float64 `json:"monthly_budget"`
+	SpentThisWindow float64 `json:"spent_this_window"`
+
+	WeeklyAllowance     float64 `json:"weekly_allowance"`
+	SpentThisWeek       float64 `json:"spent_this_week"`
+	DaysElapsedInWeek   int     `json:"days_elapsed_in_week"`
+	DaysRemainingInWeek int     `json:"days_remaining_in_week"`
+	// Calendar-month analogue of the cycle's days_until_next_payout.
+	DaysRemainingInWindow int `json:"days_remaining_in_window"`
+}
+
 type aiCategoryRef struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
@@ -352,6 +371,9 @@ type analyzeBehaviorRequest struct {
 	AnalysisDate   string             `json:"analysis_date"`
 	UserCategories []string           `json:"user_categories"`
 	SalaryCycle    *aiSalaryCycleInfo `json:"salary_cycle"`
+	// Present whenever no salary cycle is currently active — the no-cycle
+	// counterpart of SalaryCycle's authoritative weekly window.
+	BudgetWindow *aiBudgetWindowInfo `json:"budget_window,omitempty"`
 }
 
 // neutralAnalysisResponse is the safe, score-less analysis payload returned when
@@ -482,6 +504,26 @@ func AnalyzeBehavior(c *gin.Context) {
 		}
 	}
 
+	// No active cycle → ship the monthly BudgetWindow instead, so no-cycle users
+	// get their pace verdict from the same authoritative numbers the budget bar
+	// shows. Mirrors the bar's own switch (WeeklyBudgetCard falls back to the
+	// server budget window exactly when there is no active cycle), so a stale or
+	// finished cycle correctly routes here too.
+	var budgetPayload *aiBudgetWindowInfo
+	if cyclePayload == nil || !cyclePayload.CycleActive {
+		bw := computeBudgetWindow(uid, user.MonthlySpendingGoal, time.Now())
+		budgetPayload = &aiBudgetWindowInfo{
+			HasGoal:               bw.HasGoal,
+			MonthlyBudget:         bw.MonthlyBudget,
+			SpentThisWindow:       bw.SpentThisWindow,
+			WeeklyAllowance:       bw.CurrentWeekAllowance,
+			SpentThisWeek:         bw.CurrentWeekSpent,
+			DaysElapsedInWeek:     bw.DaysElapsedInWeek,
+			DaysRemainingInWeek:   bw.DaysRemainingInWeek,
+			DaysRemainingInWindow: bw.DaysRemaining,
+		}
+	}
+
 	var fixedExpCatID int
 	if cyclePayload != nil {
 		fixedExpCatID = cyclePayload.FixedExpCategoryID
@@ -531,6 +573,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		AnalysisDate:   time.Now().Format("2006-01-02"),
 		UserCategories: catNames,
 		SalaryCycle:    cyclePayload,
+		BudgetWindow:   budgetPayload,
 	}
 
 	body, err := json.Marshal(payload)

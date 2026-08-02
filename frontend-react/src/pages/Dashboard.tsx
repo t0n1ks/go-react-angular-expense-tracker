@@ -36,6 +36,7 @@ const Dashboard: React.FC = () => {
     cycleStats: serverCycleStats,
     refreshCycle,
     liteMode,
+    budgetWindow,
   } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -150,7 +151,6 @@ const Dashboard: React.FC = () => {
   const { message, dismiss, animationHint } = useAIAssistant({
     transactions,
     aiAdviceEnabled,
-    monthlySpendingGoal,
     currencySymbol,
     axiosInstance,
     language: analyzeLang,
@@ -160,6 +160,7 @@ const Dashboard: React.FC = () => {
     cycleStartAt: currentCycle?.cycle_start_at,
     hasCycle,
     cycleStats,
+    budgetWindow,
   });
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
