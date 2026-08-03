@@ -1,0 +1,359 @@
+/* TransactionFilterBar.css
+ *
+ * Search / category / date bar above the transaction history.
+ *
+ * Every colour is a theme token from index.css, so light and dark come for
+ * free. The layout is mobile-first: one column at 344px, widening to a single
+ * inline row at 900px where there is room for all three controls.
+ */
+
+.tx-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--color-border-card);
+    border-radius: 0.75rem;
+    background: var(--color-table-header-bg);
+}
+
+/* ── Row 1: search + mobile disclosure ─────────────────────────────────────── */
+
+.tx-filters-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.tx-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.tx-search-icon {
+    position: absolute;
+    left: 0.7rem;
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+}
+
+.tx-search-input {
+    width: 100%;
+    min-width: 0;
+    /* Right padding leaves room for the clear button. */
+    padding: 0.55rem 2.25rem 0.55rem 2.15rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.5rem;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tx-search-input::placeholder {
+    color: var(--color-text-placeholder);
+    /* Long DE/RU placeholders must not widen the field at 344px. */
+    text-overflow: ellipsis;
+}
+
+.tx-search-input:focus-visible {
+    border-color: var(--color-input-focus);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.tx-search-clear {
+    position: absolute;
+    right: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 28px hit area — comfortable for touch without crowding the input. */
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tx-search-clear:hover {
+    background: var(--color-category-tag-bg);
+    color: var(--color-text-heading);
+}
+
+.tx-filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.5rem;
+    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.tx-filters-toggle:hover,
+.tx-filters-toggle--open {
+    color: var(--color-text-heading);
+    border-color: var(--color-input-focus);
+}
+
+.tx-filters-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--color-btn-primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* ── Panel: category + date + reset ────────────────────────────────────────── */
+
+.tx-filters-panel {
+    display: grid;
+    /* One column at 344px; the browser adds columns as space allows. */
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    /* Collapsed by default on mobile — grid-template-rows animates cleanly
+       where max-height would need a magic number. */
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.tx-filters-panel--open {
+    max-height: 32rem;
+    opacity: 1;
+}
+
+.tx-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.tx-filter-label,
+.tx-filter-label-row {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.tx-filter-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+}
+
+.tx-filter-control {
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.5rem;
+    background: var(--color-bg-input);
+    color: var(--color-text-body);
+    font-size: 0.875rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tx-filter-control:focus-visible {
+    border-color: var(--color-input-focus);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+/* Dark theme renders the native date picker glyph almost black on a dark
+   input; invert it so the calendar icon stays visible. */
+.dark .tx-filter-control::-webkit-calendar-picker-indicator {
+    filter: invert(0.75);
+}
+
+/* ── Day / Range segmented control ─────────────────────────────────────────── */
+
+.tx-date-mode {
+    display: inline-flex;
+    flex-shrink: 0;
+    padding: 2px;
+    border-radius: 0.4rem;
+    background: var(--color-category-tag-bg);
+}
+
+.tx-date-mode-btn {
+    padding: 0.2rem 0.5rem;
+    border: none;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.tx-date-mode-btn--active {
+    background: var(--color-bg-card);
+    color: var(--color-text-heading);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.tx-date-range {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+/* Both pickers share the row evenly and may shrink below their intrinsic
+   width — without this a native date input overflows a 344px screen. */
+.tx-date-range .tx-filter-control {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.tx-date-range-sep {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+
+.tx-filter-field--reset {
+    justify-content: flex-end;
+}
+
+.tx-filter-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    /* Matches the height of the adjacent controls so the row lines up. */
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border-input);
+    border-radius: 0.5rem;
+    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    font-size: 0.825rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.tx-filter-reset:hover:not(:disabled) {
+    background: var(--color-category-tag-bg);
+    color: var(--color-text-heading);
+    border-color: var(--color-input-focus);
+}
+
+.tx-filter-reset:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Results count ─────────────────────────────────────────────────────────── */
+
+.tx-filters-summary {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+/* ── Shared focus ring ─────────────────────────────────────────────────────── */
+
+.tx-filters button:focus-visible,
+.tx-filters select:focus-visible,
+.tx-filters input:focus-visible {
+    outline: 2px solid var(--color-input-focus);
+    outline-offset: 2px;
+}
+
+/* ── ≥560px: category and date share a row, reset tucks alongside ──────────── */
+
+@media (min-width: 560px) {
+    .tx-filters-panel {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    }
+
+    .tx-filter-field--reset {
+        grid-column: 1 / -1;
+    }
+
+    .tx-filter-reset {
+        width: auto;
+        align-self: flex-start;
+    }
+}
+
+/* ── ≥900px: everything inline, disclosure no longer needed ────────────────── */
+
+@media (min-width: 900px) {
+    .tx-filters-toggle {
+        display: none;
+    }
+
+    .tx-filters-panel,
+    .tx-filters-panel--open {
+        /* Always visible — the collapse only exists for narrow screens. */
+        max-height: none;
+        opacity: 1;
+        overflow: visible;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+        align-items: end;
+    }
+
+    .tx-filter-field--reset {
+        grid-column: auto;
+    }
+
+    .tx-filter-reset {
+        width: auto;
+    }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    .tx-filters-panel,
+    .tx-search-input,
+    .tx-search-clear,
+    .tx-filters-toggle,
+    .tx-filter-control,
+    .tx-date-mode-btn,
+    .tx-filter-reset {
+        transition: none;
+    }
+}

@@ -196,7 +196,26 @@
     "detail_note": "Note",
     "export_csv": "Export CSV",
     "export_pdf": "Export PDF",
-    "pdf_generated_on": "Generated on"
+    "pdf_generated_on": "Generated on",
+    "filter_toggle": "Filters",
+    "filter_search_ph": "Search description or category",
+    "filter_search_aria": "Search transactions by description or category",
+    "filter_clear_search": "Clear search",
+    "filter_all_categories": "All categories",
+    "filter_category_aria": "Filter by category",
+    "filter_date_mode_day": "Day",
+    "filter_date_mode_range": "Range",
+    "filter_date_mode_aria": "Choose whether to filter by a single day or a date range",
+    "filter_date_day_aria": "Filter by a single day",
+    "filter_date_from": "From",
+    "filter_date_to": "To",
+    "filter_date_from_aria": "Start of the date range",
+    "filter_date_to_aria": "End of the date range",
+    "filter_reset": "Clear filters",
+    "filter_reset_aria": "Clear all filters and show every transaction",
+    "filter_results": "Found: {{count}}",
+    "filter_no_results": "Nothing found",
+    "filter_no_results_hint": "Try a different search, or clear the filters."
   },
   "categories": {
     "title": "Manage Categories",

@@ -196,7 +196,26 @@
     "detail_note": "Нотатка",
     "export_csv": "Експорт CSV",
     "export_pdf": "Експорт PDF",
-    "pdf_generated_on": "Сформовано"
+    "pdf_generated_on": "Сформовано",
+    "filter_toggle": "Фільтри",
+    "filter_search_ph": "Пошук за описом або категорією",
+    "filter_search_aria": "Пошук операцій за описом або категорією",
+    "filter_clear_search": "Очистити пошук",
+    "filter_all_categories": "Усі категорії",
+    "filter_category_aria": "Фільтр за категорією",
+    "filter_date_mode_day": "День",
+    "filter_date_mode_range": "Період",
+    "filter_date_mode_aria": "Фільтрувати за одним днем або за періодом",
+    "filter_date_day_aria": "Фільтр за одним днем",
+    "filter_date_from": "З",
+    "filter_date_to": "По",
+    "filter_date_from_aria": "Початок періоду",
+    "filter_date_to_aria": "Кінець періоду",
+    "filter_reset": "Скинути фільтри",
+    "filter_reset_aria": "Скинути всі фільтри та показати всі операції",
+    "filter_results": "Знайдено: {{count}}",
+    "filter_no_results": "Нічого не знайдено",
+    "filter_no_results_hint": "Спробуйте змінити запит або скинути фільтри."
   },
   "categories": {
     "title": "Управління категоріями",

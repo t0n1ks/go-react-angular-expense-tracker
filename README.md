@@ -40,6 +40,14 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 ### Transaction History — Month Accordion
 The Transactions page groups history by calendar month behind collapsible accordion headers. Each header shows the localized month name (`Intl.DateTimeFormat`), transaction count, and net balance (income − expenses) so users get an at-a-glance summary without expanding. Current month starts expanded; all past months start collapsed. Timezone-safe date parsing prevents UTC-offset shifts from misassigning transactions to the wrong month.
 
+### Transaction Search & Filter
+A filter bar above the history combines three optional filters with AND — use any one alone, any two, or all three:
+- **Text search** — matches the description *and* the category label as displayed, so typing `молоко` finds Cyrillic descriptions and typing `Еда` finds built-in Food rows in Russian. Case-insensitive, debounced ~250 ms.
+- **Category** — any built-in or custom category.
+- **Date** — a single day, or a from–to range (either end may be left open).
+
+Results keep the month grouping, so you still see *which* months a category was spent in; months with no matches drop out, and each remaining header's count and totals reflect the filtered subset. A results count, a distinct "nothing found" empty state, and a one-click reset round it out. Matching months auto-expand while a filter is active, and collapsing one is remembered only for that filter — your normal browsing accordion state is left untouched. Filtering is pure client-side work over the already-loaded list (`GET /transactions` is not paginated), so there are **no extra network round-trips**; the filtered result is memoized and the search haystack is rebuilt only when the list or language changes. The bar is one inline row on desktop and collapses behind a "Filters" disclosure below 900 px, staying usable down to 344 px.
+
 ### ML-Powered End-of-Month Forecast
 The Statistics page shows a **live end-of-month balance projection** computed by the Python AI brain using `scikit-learn` LinearRegression on cumulative daily expense data. The forecast card displays:
 - Projected surplus or deficit (green / red with trend icon)
@@ -204,7 +212,7 @@ context/
   ThemeContext.tsx     — Light/dark toggle, persisted to localStorage
 pages/
   Dashboard.tsx        — Cycle budget cards + weekly allowance + savings pool + TamagotchiWidget + hasTxToday computation
-  Transactions.tsx     — Full CRUD · month accordion grouping · desktop table · mobile cards · undo-delete
+  Transactions.tsx     — Full CRUD · month accordion grouping · search/filter bar · desktop table · mobile cards · undo-delete
   Categories.tsx       — Grid CRUD · smart word-wrap · undo-delete
   Statistics.tsx       — Cycle-scoped "Expenses by category" donut + balance timeline + ML forecast + savings forecast card
   Settings.tsx         — Currency, language, 50/30/20 rule explainer, goals, delete account

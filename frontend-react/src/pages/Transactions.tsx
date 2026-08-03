@@ -6,13 +6,29 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
+import TransactionFilterBar from '../components/TransactionFilterBar';
 import {
   groupTransactionsByMonth,
   currentMonthKey,
   formatMonthLabel,
 } from '../utils/groupTransactionsByMonth';
 import { categoryLabel } from '../utils/categoryLabel';
+import {
+  buildSearchIndex,
+  filterTransactions,
+  hasActiveFilters,
+  EMPTY_FILTERS,
+  type TransactionFilters,
+} from '../utils/filterTransactions';
 import './Transactions.css';
+
+/** Delay before a keystroke reaches the filter — long enough to skip
+ *  intermediate renders while typing, short enough to still feel live. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 interface Category { id: number; name: string; translation_key?: string | null; }
 interface Transaction {
@@ -66,6 +82,54 @@ const Transactions: React.FC = () => {
     () => new Set([currentMonthKey()]),
   );
 
+  // ── Search / filter ────────────────────────────────────────────────────────
+  // `filters.query` tracks the input on every keystroke so typing stays
+  // responsive; `debouncedQuery` is what actually filters the list.
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(filters.query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [filters.query]);
+
+  // Depends on the individual committed values rather than the `filters`
+  // object, so a keystroke that has not yet debounced does not invalidate the
+  // filtering memo below.
+  const appliedFilters = useMemo<TransactionFilters>(
+    () => ({
+      query: debouncedQuery,
+      categoryId: filters.categoryId,
+      dateMode: filters.dateMode,
+      dateFrom: filters.dateFrom,
+      dateTo: filters.dateTo,
+    }),
+    [debouncedQuery, filters.categoryId, filters.dateMode, filters.dateFrom, filters.dateTo],
+  );
+
+  const isFiltering = hasActiveFilters(appliedFilters);
+
+  const handleFiltersChange = useCallback((next: TransactionFilters) => setFilters(next), []);
+
+  const handleFiltersReset = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+    // Applied immediately as well, so Reset takes effect without waiting out
+    // the debounce.
+    setDebouncedQuery('');
+  }, []);
+
+  // While a filter is active every matching month is shown expanded, so results
+  // are visible without extra clicks. Collapsing one is still allowed; that
+  // choice is tracked separately and discarded when the filter changes, leaving
+  // the user's normal browsing accordion state untouched.
+  const [collapsedWhileFiltering, setCollapsedWhileFiltering] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  useEffect(() => {
+    setCollapsedWhileFiltering(new Set());
+  }, [appliedFilters]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -105,7 +169,7 @@ const Transactions: React.FC = () => {
   }, [editingId, transactions]);
 
   const toggleMonth = useCallback((key: string) => {
-    setExpandedMonths(prev => {
+    const flip = (prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
@@ -113,11 +177,45 @@ const Transactions: React.FC = () => {
         next.add(key);
       }
       return next;
-    });
-  }, []);
+    };
+    // While filtering, months are expanded by default — so the toggle records
+    // which ones the user has collapsed instead.
+    if (isFiltering) {
+      setCollapsedWhileFiltering(flip);
+    } else {
+      setExpandedMonths(flip);
+    }
+  }, [isFiltering]);
+
+  const isMonthExpanded = useCallback(
+    (key: string) => (isFiltering ? !collapsedWhileFiltering.has(key) : expandedMonths.has(key)),
+    [isFiltering, collapsedWhileFiltering, expandedMonths],
+  );
 
   const locale = i18n.resolvedLanguage ?? 'en';
-  const groups = useMemo(() => groupTransactionsByMonth(transactions), [transactions]);
+  const reduceMotion = useMemo(prefersReducedMotion, []);
+
+  // Haystack per transaction, built from the description plus the category
+  // label *as displayed* — so searching "Еда" in Russian finds built-in Food
+  // rows, and a custom category matches by the name the user typed. Rebuilt
+  // only when the list or the language changes, not on every keystroke.
+  const searchIndex = useMemo(
+    () => buildSearchIndex(transactions, tx => categoryLabel(tx.category, t, '')),
+    [transactions, t],
+  );
+
+  const filteredTransactions = useMemo(
+    () => filterTransactions(transactions, appliedFilters, searchIndex),
+    [transactions, appliedFilters, searchIndex],
+  );
+
+  // Months with no matches disappear by construction: grouping runs over the
+  // filtered list, and each group's count and totals are derived from that same
+  // subset.
+  const groups = useMemo(
+    () => groupTransactionsByMonth(filteredTransactions),
+    [filteredTransactions],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,6 +450,15 @@ const Transactions: React.FC = () => {
           </button>
         </div>
 
+        <TransactionFilterBar
+          filters={filters}
+          onChange={handleFiltersChange}
+          onReset={handleFiltersReset}
+          categories={categories}
+          resultCount={filteredTransactions.length}
+          isFiltering={isFiltering}
+        />
+
         {/* ── Desktop table ──────────────────────────────────────────────────── */}
         <div className="table-container">
           <table className="styled-table">
@@ -369,14 +476,21 @@ const Transactions: React.FC = () => {
             {groups.length === 0 ? (
               <tbody>
                 <tr>
-                  <td colSpan={6} style={{textAlign: 'center', padding: '2rem', color: '#94a3b8'}}>
-                    {t('transactions.no_transactions')}
+                  <td colSpan={6} className="tx-empty-cell">
+                    {isFiltering ? (
+                      <>
+                        <span className="tx-empty-title">{t('transactions.filter_no_results')}</span>
+                        <span className="tx-empty-hint">{t('transactions.filter_no_results_hint')}</span>
+                      </>
+                    ) : (
+                      t('transactions.no_transactions')
+                    )}
                   </td>
                 </tr>
               </tbody>
             ) : (
               groups.map(group => {
-                const isExpanded = expandedMonths.has(group.key);
+                const isExpanded = isMonthExpanded(group.key);
                 const monthIncome = group.transactions
                   .filter(t => t.type === 'income')
                   .reduce((s, t) => s + Number(t.amount), 0);
@@ -538,10 +652,17 @@ const Transactions: React.FC = () => {
         {/* ── Mobile accordion list ───────────────────────────────────────── */}
         <div className="tx-cards-mobile">
           {groups.length === 0 ? (
-            <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
+            isFiltering ? (
+              <div className="tx-cards-empty">
+                <span className="tx-empty-title">{t('transactions.filter_no_results')}</span>
+                <span className="tx-empty-hint">{t('transactions.filter_no_results_hint')}</span>
+              </div>
+            ) : (
+              <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
+            )
           ) : (
             groups.map(group => {
-              const isExpanded = expandedMonths.has(group.key);
+              const isExpanded = isMonthExpanded(group.key);
               const monthIncomeM = group.transactions
                 .filter(t => t.type === 'income')
                 .reduce((s, t) => s + Number(t.amount), 0);
@@ -586,7 +707,14 @@ const Transactions: React.FC = () => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                        transition={
+                          // Filtering can auto-expand several months at once —
+                          // snap them open instead of animating when the user
+                          // has asked for reduced motion.
+                          reduceMotion
+                            ? { duration: 0 }
+                            : { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
+                        }
                         style={{ overflow: 'hidden' }}
                       >
                         <div className="month-accordion-body">

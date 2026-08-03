@@ -697,3 +697,28 @@
   .btn-export-label { display: none; }
   .btn-export-pdf { padding: 0.4rem 0.55rem; }
 }
+
+/* ── Empty states ───────────────────────────────────────────────────────────
+   Two distinct cases: the account genuinely has no transactions yet, or a
+   filter matched nothing. The second gets a hint pointing at the way out. */
+
+.tx-empty-cell {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.tx-empty-title {
+  display: block;
+  color: var(--color-text-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.tx-empty-hint {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}

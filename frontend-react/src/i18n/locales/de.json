@@ -196,7 +196,26 @@
     "detail_note": "Notiz",
     "export_csv": "Als CSV exportieren",
     "export_pdf": "Als PDF exportieren",
-    "pdf_generated_on": "Erstellt am"
+    "pdf_generated_on": "Erstellt am",
+    "filter_toggle": "Filter",
+    "filter_search_ph": "Beschreibung oder Kategorie suchen",
+    "filter_search_aria": "Transaktionen nach Beschreibung oder Kategorie durchsuchen",
+    "filter_clear_search": "Suche zurücksetzen",
+    "filter_all_categories": "Alle Kategorien",
+    "filter_category_aria": "Nach Kategorie filtern",
+    "filter_date_mode_day": "Tag",
+    "filter_date_mode_range": "Zeitraum",
+    "filter_date_mode_aria": "Nach einem einzelnen Tag oder einem Zeitraum filtern",
+    "filter_date_day_aria": "Nach einem einzelnen Tag filtern",
+    "filter_date_from": "Von",
+    "filter_date_to": "Bis",
+    "filter_date_from_aria": "Beginn des Zeitraums",
+    "filter_date_to_aria": "Ende des Zeitraums",
+    "filter_reset": "Filter zurücksetzen",
+    "filter_reset_aria": "Alle Filter zurücksetzen und alle Transaktionen anzeigen",
+    "filter_results": "Gefunden: {{count}}",
+    "filter_no_results": "Nichts gefunden",
+    "filter_no_results_hint": "Versuche eine andere Suche oder setze die Filter zurück."
   },
   "categories": {
     "title": "Kategorien verwalten",
