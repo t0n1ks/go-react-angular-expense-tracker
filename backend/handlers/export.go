@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -67,26 +66,8 @@ const (
 	pdfMonthH = pdfLineH + 1.5
 )
 
-// monthNamesMap provides localized month names for PDF month sub-headers.
-// Language codes match the convention used by /ai/next-action and /ai/analyze.
-var monthNamesMap = map[string][12]string{
-	"en": {"January", "February", "March", "April", "May", "June",
-		"July", "August", "September", "October", "November", "December"},
-	"de": {"Januar", "Februar", "März", "April", "Mai", "Juni",
-		"Juli", "August", "September", "Oktober", "November", "Dezember"},
-	"ru": {"Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-		"Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"},
-	"uk": {"Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
-		"Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"},
-}
-
-func pdfMonthLabel(lang string, month time.Month, year int) string {
-	names, ok := monthNamesMap[lang]
-	if !ok {
-		names = monthNamesMap["en"]
-	}
-	return fmt.Sprintf("%s %d", names[month-1], year)
-}
+// Localised labels, month names, category names and number/date formatting all
+// live in export_i18n.go.
 
 type pdfMonthGroup struct {
 	year  int
@@ -125,16 +106,23 @@ func pdfCurrencySymbol(c string) string {
 
 // pdfDrawColumnHeader draws the blue-gray column title row and resets the
 // font to 9 pt so SplitLines calls that follow use the correct glyph widths.
-func pdfDrawColumnHeader(pdf *fpdf.Fpdf) {
-	pdf.SetFont("DejaVu", "", 9)
+//
+// German and Russian headers are noticeably longer than the English ones
+// ("Beschreibung", "Категория"), so the header row is set 1 pt smaller than the
+// document default to keep every label on one line inside its column.
+func pdfDrawColumnHeader(pdf *fpdf.Fpdf, s pdfStrings) {
+	pdf.SetFont("DejaVu", "", 8)
 	pdf.SetFillColor(220, 224, 235)
 	pdf.SetTextColor(30, 30, 30)
 	pdf.SetXY(pdfLMargin, pdf.GetY())
-	pdf.CellFormat(pdfWDate, pdfLineH, "Date",        "1", 0, "CM", true, 0, "")
-	pdf.CellFormat(pdfWCat,  pdfLineH, "Category",    "1", 0, "CM", true, 0, "")
-	pdf.CellFormat(pdfWAmt,  pdfLineH, "Amount",      "1", 0, "CM", true, 0, "")
-	pdf.CellFormat(pdfWType, pdfLineH, "Type",        "1", 0, "CM", true, 0, "")
-	pdf.CellFormat(pdfWDesc, pdfLineH, "Description", "1", 1, "CM", true, 0, "")
+	pdf.CellFormat(pdfWDate, pdfLineH, s.ColDate, "1", 0, "CM", true, 0, "")
+	pdf.CellFormat(pdfWCat, pdfLineH, s.ColCategory, "1", 0, "CM", true, 0, "")
+	pdf.CellFormat(pdfWAmt, pdfLineH, s.ColAmount, "1", 0, "CM", true, 0, "")
+	pdf.CellFormat(pdfWType, pdfLineH, s.ColType, "1", 0, "CM", true, 0, "")
+	pdf.CellFormat(pdfWDesc, pdfLineH, s.ColDesc, "1", 1, "CM", true, 0, "")
+	// Restore the data-row size so the SplitLines() calls that follow measure
+	// description text with the correct glyph widths.
+	pdf.SetFont("DejaVu", "", 9)
 }
 
 // pdfDrawMonthSubHeader draws a dark full-width row with the localised month
@@ -165,19 +153,20 @@ func pdfDrawMonthSubHeader(pdf *fpdf.Fpdf, label string) {
 //   - Current font is 9 pt (so CellFormat uses the right metrics).
 //   - descLines is non-empty (at least one []byte element).
 //   - The caller has already handled the page break.
-// txDirection maps a transaction type to its export display label and whether
-// it is an inflow (income-like → green). Deposits to the savings pool are
-// inflows; withdrawals are outflows. This must check the explicit type rather
-// than assume the whole savings-pool category is an expense — otherwise a
-// positive top-up (savings_deposit) is mislabeled "Expense".
-func txDirection(t string) (label string, isIncome bool) {
+//
+// txDirection maps a transaction type to its localised export display label and
+// whether it is an inflow (income-like → green). Deposits to the savings pool
+// are inflows; withdrawals are outflows. This must check the explicit type
+// rather than assume the whole savings-pool category is an expense — otherwise
+// a positive top-up (savings_deposit) is mislabeled as an expense.
+func txDirection(t string, s pdfStrings) (label string, isIncome bool) {
 	switch t {
 	case "income", "savings_deposit":
-		return "Income", true
+		return s.Income, true
 	case "savings_withdrawal":
-		return "Expense", false
+		return s.Expense, false
 	default: // "expense" and anything unknown
-		return "Expense", false
+		return s.Expense, false
 	}
 }
 
@@ -255,11 +244,9 @@ func ExportTransactionsPDF(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	// Normalise language — same convention as normalizeLangForBrain.
-	lang := strings.ToLower(strings.TrimSpace(strings.SplitN(c.Query("language"), "-", 2)[0]))
-	if _, ok := monthNamesMap[lang]; !ok {
-		lang = "en"
-	}
+	// Normalise language — same convention as normalizeLangForBrain. Every
+	// piece of PDF chrome is rendered in this language.
+	lang := normalizePDFLang(c.Query("language"))
 
 	var user models.User
 	if err := database.DB.First(&user, uid).Error; err != nil {
@@ -277,11 +264,32 @@ func ExportTransactionsPDF(c *gin.Context) {
 		return
 	}
 
-	dir, err := initFontDir()
+	data, err := renderTransactionsPDF(txs, user.Currency, lang)
 	if err != nil {
-		log.Printf("export pdf: font init err=%v", err)
+		log.Printf("export pdf: render err=%v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "PDF generation failed"})
 		return
+	}
+
+	c.Header("Content-Disposition", `attachment; filename="transactions.pdf"`)
+	c.Header("Cache-Control", "no-cache, no-store")
+	c.Data(http.StatusOK, "application/pdf", data)
+}
+
+// renderTransactionsPDF draws the whole document and returns the PDF bytes.
+//
+// Kept separate from the HTTP handler so the layout can be exercised directly
+// in tests (no DB, no Gin context) — which is how the Cyrillic/umlaut rendering
+// is verified.
+//
+// txs must be sorted date-descending; lang must already be normalised.
+func renderTransactionsPDF(txs []models.Transaction, currency, lang string) ([]byte, error) {
+	s := pdfT(lang)
+	dateLayout := pdfDateFormat(lang)
+
+	dir, err := initFontDir()
+	if err != nil {
+		return nil, err
 	}
 
 	pdf := fpdf.New("L", "mm", "A4", dir)
@@ -291,29 +299,29 @@ func ExportTransactionsPDF(c *gin.Context) {
 	pdf.AddPage()
 
 	_, pageH := pdf.GetPageSize()
-	sym := pdfCurrencySymbol(user.Currency)
+	sym := pdfCurrencySymbol(currency)
 
 	// ── Document title ────────────────────────────────────────────────────────
 	pdf.SetFont("DejaVu", "", 16)
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetXY(pdfLMargin, pdfTMargin)
-	pdf.Cell(pdfTableW, 9, "Transaction History")
+	pdf.Cell(pdfTableW, 9, s.Title)
 	pdf.Ln(9)
 
 	pdf.SetFont("DejaVu", "", 9)
 	pdf.SetTextColor(120, 120, 120)
-	pdf.Cell(pdfTableW, 6, fmt.Sprintf("Generated: %s  ·  %d transactions",
-		time.Now().Format("2006-01-02"), len(txs)))
+	pdf.Cell(pdfTableW, 6, fmt.Sprintf("%s %s  ·  %s: %d",
+		s.GeneratedOn, time.Now().Format(dateLayout), s.Records, len(txs)))
 	pdf.Ln(9)
 
 	// ── Column header (first page) ────────────────────────────────────────────
-	pdfDrawColumnHeader(pdf) // also resets font to 9 pt
+	pdfDrawColumnHeader(pdf, s) // also resets font to 9 pt
 
 	if len(txs) == 0 {
 		pdf.SetFont("DejaVu", "", 10)
 		pdf.SetTextColor(140, 140, 140)
 		pdf.SetXY(pdfLMargin, pdf.GetY()+6)
-		pdf.Cell(pdfTableW, pdfLineH, "No transactions found.")
+		pdf.Cell(pdfTableW, pdfLineH, s.NoTx)
 	}
 
 	// ── Month groups ──────────────────────────────────────────────────────────
@@ -321,7 +329,7 @@ func ExportTransactionsPDF(c *gin.Context) {
 		// Ensure the month sub-header fits before drawing it.
 		if pdf.GetY()+pdfMonthH > pageH-pdfBMargin {
 			pdf.AddPage()
-			pdfDrawColumnHeader(pdf)
+			pdfDrawColumnHeader(pdf, s)
 		}
 		pdfDrawMonthSubHeader(pdf, pdfMonthLabel(lang, g.month, g.year))
 		// pdfDrawMonthSubHeader leaves the font at 10 pt — reset for data rows.
@@ -342,21 +350,20 @@ func ExportTransactionsPDF(c *gin.Context) {
 			// Page break — entire row drawn on the new page, never split mid-row.
 			if pdf.GetY()+rowH > pageH-pdfBMargin {
 				pdf.AddPage()
-				pdfDrawColumnHeader(pdf) // resets font to 9 pt
+				pdfDrawColumnHeader(pdf, s) // resets font to 9 pt
 				altRow = false
 			}
 
-			cat := tx.Category.Name
-			if cat == "" {
-				cat = "—"
-			}
-			typeLabel, isIncome := txDirection(tx.Type)
+			// Built-in categories translate through their key; user-created
+			// ones are printed verbatim in every language.
+			cat := pdfCategoryLabel(lang, tx.Category.TranslationKey, tx.Category.Name, s.NoCategory)
+			typeLabel, isIncome := txDirection(tx.Type, s)
 
 			pdfDrawDataRow(
 				pdf,
-				tx.Date.Format("2006-01-02"),
+				tx.Date.Format(dateLayout),
 				cat,
-				fmt.Sprintf("%s%.2f", sym, tx.Amount),
+				pdfFormatAmount(lang, sym, tx.Amount),
 				typeLabel,
 				isIncome,
 				altRow,
@@ -366,15 +373,9 @@ func ExportTransactionsPDF(c *gin.Context) {
 		}
 	}
 
-	// ── Stream as attachment ──────────────────────────────────────────────────
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
-		log.Printf("export pdf: output err=%v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "PDF generation failed"})
-		return
+		return nil, err
 	}
-
-	c.Header("Content-Disposition", `attachment; filename="transactions.pdf"`)
-	c.Header("Cache-Control", "no-cache, no-store")
-	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
+	return buf.Bytes(), nil
 }
