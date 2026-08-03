@@ -198,7 +198,7 @@
     "export_pdf": "Als PDF exportieren",
     "pdf_generated_on": "Erstellt am",
     "filter_toggle": "Filter",
-    "filter_search_ph": "Beschreibung oder Kategorie suchen",
+    "filter_search_ph": "Suchen",
     "filter_search_aria": "Transaktionen nach Beschreibung oder Kategorie durchsuchen",
     "filter_clear_search": "Suche zurücksetzen",
     "filter_all_categories": "Alle Kategorien",

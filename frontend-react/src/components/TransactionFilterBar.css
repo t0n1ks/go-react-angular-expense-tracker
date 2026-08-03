@@ -10,8 +10,11 @@
 .tx-filters {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 0.875rem;
+    gap: 0.875rem;
+    /* The parent .transaction-card keeps a 2rem inset at every width, so the
+       bar is already working inside a tight budget on a 344px screen. Its own
+       padding stays modest to leave that budget for the controls. */
+    padding: 0.75rem;
     margin-bottom: 1.25rem;
     border: 1px solid var(--color-border-card);
     border-radius: 0.75rem;
@@ -37,7 +40,10 @@
 
 .tx-search-icon {
     position: absolute;
-    left: 0.7rem;
+    left: 0.6rem;
+    /* Icons are inline by default; the extra descender space would push it a
+       hair off-centre inside the field. */
+    display: block;
     color: var(--color-text-placeholder);
     pointer-events: none;
 }
@@ -45,8 +51,10 @@
 .tx-search-input {
     width: 100%;
     min-width: 0;
-    /* Right padding leaves room for the clear button. */
-    padding: 0.55rem 2.25rem 0.55rem 2.15rem;
+    /* Left clears the icon, right clears the clear-button. Kept as tight as
+       those two controls allow — every pixel here is text the user can read,
+       and an over-padded field is what clipped the placeholder to "Пои". */
+    padding: 0.55rem 2rem 0.55rem 1.9rem;
     border: 1px solid var(--color-border-input);
     border-radius: 0.5rem;
     background: var(--color-bg-input);
@@ -93,9 +101,12 @@
 .tx-filters-toggle {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     flex-shrink: 0;
-    padding: 0.55rem 0.75rem;
+    /* Comfortable touch target even when it collapses to icon-only. */
+    min-height: 2.5rem;
+    padding: 0.55rem 0.7rem;
     border: 1px solid var(--color-border-input);
     border-radius: 0.5rem;
     background: var(--color-bg-card);
@@ -133,7 +144,9 @@
     display: grid;
     /* One column at 344px; the browser adds columns as space allows. */
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    /* Vertical rhythm between the stacked controls — the collapsed panel is a
+       column of four blocks on a phone and needs room to breathe. */
+    gap: 0.875rem;
     /* Collapsed by default on mobile — grid-template-rows animates cleanly
        where max-height would need a magic number. */
     overflow: hidden;
@@ -150,7 +163,7 @@
 .tx-filter-field {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.4rem;
     min-width: 0;
 }
 
@@ -161,19 +174,28 @@
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.02em;
+    /* Both label variants reserve the SAME height. The date field's label row
+       carries the Day/Range toggle and is therefore taller than a bare text
+       label; without this the date input sat ~10px below the category select
+       and the whole desktop row read as misaligned. */
+    display: flex;
+    align-items: center;
+    min-height: 1.75rem;
 }
 
 .tx-filter-label-row {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    min-height: 1.5rem;
 }
 
 .tx-filter-control {
     width: 100%;
     min-width: 0;
+    /* Native date inputs size themselves to their dd/mm/yyyy content and will
+       happily overflow a flex parent. Boxing them explicitly is what keeps the
+       calendar icon inside the container at 344px. */
+    box-sizing: border-box;
+    min-height: 2.5rem;
     padding: 0.5rem 0.65rem;
     border: 1px solid var(--color-border-input);
     border-radius: 0.5rem;
@@ -228,30 +250,62 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+/* ── Date range: two full pickers, never squeezed ──────────────────────────── */
+
+/* Stacked by default. Two native date pickers side by side cannot both stay
+   legible in the ~220px the panel has at 344px — one always ends up with its
+   calendar icon cut off. Stacking gives each the full width and guarantees the
+   icon stays inside and tappable. They return to a single row only at 1100px
+   (see the note there — 900px is still too tight). */
 .tx-date-range {
     display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.tx-date-range-part {
+    display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.5rem;
     min-width: 0;
 }
 
-/* Both pickers share the row evenly and may shrink below their intrinsic
-   width — without this a native date input overflows a 344px screen. */
-.tx-date-range .tx-filter-control {
-    flex: 1 1 0;
-    min-width: 0;
-}
-
-.tx-date-range-sep {
-    flex-shrink: 0;
+/* Short From/To tag. The fixed basis keeps both inputs starting at the same x
+   so the stacked pair reads as one control. 2.75rem holds the longest of the
+   four translations ("From" / "Von" / "Bis"); anything longer ellipsises
+   rather than pushing into the input. */
+.tx-date-range-tag {
+    flex: 0 0 2.75rem;
+    font-size: 0.7rem;
+    font-weight: 600;
     color: var(--color-text-muted);
-    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tx-date-range-part .tx-filter-control {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
 
 .tx-filter-field--reset {
     justify-content: flex-end;
+    /* Extra separation from the date block above. The reset is a different
+       kind of control — an action, not an input — and needs to read as
+       detached from the fields it clears rather than glued to them. */
+    margin-top: 0.25rem;
+}
+
+/* Only earns its height in the inline desktop row; stacked on mobile it would
+   just be dead space above the button. */
+.tx-filter-label--spacer {
+    display: none;
 }
 
 .tx-filter-reset {
@@ -260,8 +314,11 @@
     justify-content: center;
     gap: 0.4rem;
     width: 100%;
-    /* Matches the height of the adjacent controls so the row lines up. */
-    padding: 0.5rem 0.75rem;
+    box-sizing: border-box;
+    /* Matches the height of the adjacent controls so the row lines up, and
+       clears the 44px touch-target floor on mobile. */
+    min-height: 2.75rem;
+    padding: 0.5rem 0.9rem;
     border: 1px solid var(--color-border-input);
     border-radius: 0.5rem;
     background: var(--color-bg-card);
@@ -301,7 +358,17 @@
     outline-offset: 2px;
 }
 
-/* ── ≥560px: category and date share a row, reset tucks alongside ──────────── */
+/* ── <480px: the toggle collapses to its icon ──────────────────────────────── */
+
+/* At this width the button's text label is worth ~65px that the search field
+   needs far more than the icon needs a caption. */
+@media (max-width: 479px) {
+    .tx-filters-toggle-label {
+        display: none;
+    }
+}
+
+/* ── ≥560px: category and date share a row, reset gets its own ─────────────── */
 
 @media (min-width: 560px) {
     .tx-filters-panel {
@@ -327,20 +394,65 @@
 
     .tx-filters-panel,
     .tx-filters-panel--open {
-        /* Always visible — the collapse only exists for narrow screens. */
+        /* Always visible — the collapse only exists for narrow screens. The
+           --open modifier is included so a panel left open on a phone does not
+           animate or re-lay-out when the viewport crosses into desktop. */
         max-height: none;
         opacity: 1;
         overflow: visible;
+        /* No transition above the breakpoint: the panel is never collapsed
+           here, so dragging a window across 900px must not animate. */
+        transition: none;
+        /* `auto` on the reset column lets the button take exactly the width its
+           longest translation needs ("Сбросить фильтры" / "Filter
+           zurücksetzen") instead of wrapping inside a fraction. */
         grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
-        align-items: end;
+        /* Top-aligned: the date column is taller than its neighbours while the
+           pickers are stacked, and the equal-height labels (plus the reset
+           column's spacer) put all three controls on the same first row. */
+        align-items: start;
+        column-gap: 1.25rem;
     }
 
     .tx-filter-field--reset {
         grid-column: auto;
+        /* The column-gap already separates it horizontally; the extra top
+           margin is a mobile-stacking concern only. */
+        margin-top: 0;
+    }
+
+    .tx-filter-label--spacer {
+        display: block;
     }
 
     .tx-filter-reset {
         width: auto;
+        /* Never taller than the inputs it sits beside. */
+        min-height: 2.5rem;
+    }
+}
+
+/* ── ≥1100px: the date pickers finally sit side by side ────────────────────── */
+
+/* Deliberately NOT at 900px. There, the date column works out to ~170px per
+   picker minus its tag — under what a native date input needs, so the second
+   one's calendar icon would clip. By 1100px each picker gets ~175px of its
+   own and the pair fits with room to spare. */
+@media (min-width: 1100px) {
+    .tx-date-range {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .tx-date-range-part {
+        flex: 1 1 0;
+    }
+
+    /* Natural width here — the fixed basis exists to align two STACKED inputs,
+       which no longer applies once they share a row. */
+    .tx-date-range-tag {
+        flex: 0 0 auto;
     }
 }
 

@@ -198,7 +198,7 @@
     "export_pdf": "Експорт PDF",
     "pdf_generated_on": "Сформовано",
     "filter_toggle": "Фільтри",
-    "filter_search_ph": "Пошук за описом або категорією",
+    "filter_search_ph": "Пошук",
     "filter_search_aria": "Пошук операцій за описом або категорією",
     "filter_clear_search": "Очистити пошук",
     "filter_all_categories": "Усі категорії",

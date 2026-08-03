@@ -98,9 +98,15 @@ const TransactionFilterBar: React.FC<Props> = ({
           onClick={() => setPanelOpen(o => !o)}
           aria-expanded={panelOpen}
           aria-controls={panelId}
+          // Explicit, because the visible label is hidden at the narrowest
+          // widths where only the icon remains.
+          aria-label={t('transactions.filter_toggle')}
         >
           <SlidersHorizontal size={16} aria-hidden="true" />
-          <span>{t('transactions.filter_toggle')}</span>
+          {/* Collapses to icon-only on the narrowest screens so it stops
+              stealing width from the search field — same idiom the export
+              button already uses. The button keeps its accessible name. */}
+          <span className="tx-filters-toggle-label">{t('transactions.filter_toggle')}</span>
           {activeCount > 0 && <span className="tx-filters-badge">{activeCount}</span>}
         </button>
       </div>
@@ -165,33 +171,49 @@ const TransactionFilterBar: React.FC<Props> = ({
               aria-label={t('transactions.filter_date_day_aria')}
             />
           ) : (
+            /* Each picker carries its own From/To tag rather than sharing a
+               "–" separator: the two fields stack vertically below 900px,
+               where a separator between them would read as noise and a native
+               date input has no room to sit beside its twin. */
             <div className="tx-date-range">
-              <input
-                type="date"
-                className="tx-filter-control"
-                value={filters.dateFrom}
-                // An end date earlier than the start would silently match
-                // nothing, so the pickers constrain each other.
-                max={filters.dateTo || undefined}
-                onChange={e => patch({ dateFrom: e.target.value })}
-                aria-label={t('transactions.filter_date_from_aria')}
-                title={t('transactions.filter_date_from')}
-              />
-              <span className="tx-date-range-sep" aria-hidden="true">–</span>
-              <input
-                type="date"
-                className="tx-filter-control"
-                value={filters.dateTo}
-                min={filters.dateFrom || undefined}
-                onChange={e => patch({ dateTo: e.target.value })}
-                aria-label={t('transactions.filter_date_to_aria')}
-                title={t('transactions.filter_date_to')}
-              />
+              <div className="tx-date-range-part">
+                <span className="tx-date-range-tag" aria-hidden="true">
+                  {t('transactions.filter_date_from')}
+                </span>
+                <input
+                  type="date"
+                  className="tx-filter-control"
+                  value={filters.dateFrom}
+                  // An end date earlier than the start would silently match
+                  // nothing, so the pickers constrain each other.
+                  max={filters.dateTo || undefined}
+                  onChange={e => patch({ dateFrom: e.target.value })}
+                  aria-label={t('transactions.filter_date_from_aria')}
+                />
+              </div>
+              <div className="tx-date-range-part">
+                <span className="tx-date-range-tag" aria-hidden="true">
+                  {t('transactions.filter_date_to')}
+                </span>
+                <input
+                  type="date"
+                  className="tx-filter-control"
+                  value={filters.dateTo}
+                  min={filters.dateFrom || undefined}
+                  onChange={e => patch({ dateTo: e.target.value })}
+                  aria-label={t('transactions.filter_date_to_aria')}
+                />
+              </div>
             </div>
           )}
         </div>
 
         <div className="tx-filter-field tx-filter-field--reset">
+          {/* Empty stand-in for the labels the other two columns have, so the
+              button lines up with the controls rather than with their captions
+              once the panel is a top-aligned inline row. Hidden on mobile,
+              where the panel is a single stacked column. */}
+          <span className="tx-filter-label tx-filter-label--spacer" aria-hidden="true" />
           <button
             type="button"
             className="tx-filter-reset"

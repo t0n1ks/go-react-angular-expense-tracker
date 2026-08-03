@@ -198,7 +198,7 @@
     "export_pdf": "Export PDF",
     "pdf_generated_on": "Generated on",
     "filter_toggle": "Filters",
-    "filter_search_ph": "Search description or category",
+    "filter_search_ph": "Search",
     "filter_search_aria": "Search transactions by description or category",
     "filter_clear_search": "Clear search",
     "filter_all_categories": "All categories",
