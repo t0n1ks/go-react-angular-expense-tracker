@@ -127,6 +127,15 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
+	// The instant each transaction counts at for cycle/budget windows, so
+	// client-side views (Statistics donut, card fallbacks) scope exactly like
+	// the server-computed cycle stats.
+	k := requestClock(c, userID.(uint))
+	for i := range transactions {
+		at := k.txEventAt(transactions[i])
+		transactions[i].EffectiveAt = &at
+	}
+
 	c.JSON(http.StatusOK, gin.H{"transactions": transactions})
 }
 

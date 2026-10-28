@@ -16,7 +16,7 @@ func TestCycleCachePrimitives(t *testing.T) {
 	if _, ok := getCachedCycle(9999); ok {
 		t.Fatal("expected empty cache to miss")
 	}
-	setCachedCycle(9999, map[string]any{"x": 1})
+	setCachedCycle(9999, map[string]any{"x": 1}, nil)
 	if _, ok := getCachedCycle(9999); !ok {
 		t.Fatal("expected cache hit after set")
 	}

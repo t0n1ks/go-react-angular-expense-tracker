@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"math"
 	"net/http"
@@ -129,29 +130,24 @@ type CycleStats struct {
 	Rollover             float64 `json:"rollover"`
 }
 
-// computeCycleStats builds the full CycleStats for one salary cycle.
-// It reads ONLY live (soft-delete-safe) transactions from the DB and performs
-// all arithmetic here, so React never needs to do client-side date math.
+// computeCycleStats builds CycleStats for a cycle as of now, in the user's
+// remembered timezone. Entry point for work outside a request (background
+// resync, AI hints); request handlers use computeCycleStatsAt with their clock.
 func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
-	since := cycle.CycleStartAt
+	all, _ := loadUserCycles(uid)
+	return computeCycleStatsAt(uid, cycle, all, userClock(uid))
+}
 
-	// Load all live transactions in the cycle window.
-	// Upper bound = next_payday_at when set (inclusive) — prevents pre/post
-	// cycle data from polluting the rollover calculation.
-	var txs []models.Transaction
-	q := database.DB.Where("user_id = ? AND created_at >= ?", uid, since)
-	if cycle.NextPaydayAt != nil {
-		q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
-	}
-	q.Find(&txs) // GORM v2: deleted_at IS NULL added automatically
+// computeCycleStatsAt builds the full CycleStats for one salary cycle.
+// It reads ONLY live (soft-delete-safe) transactions in the cycle's window
+// (see cycle_window.go) and performs all arithmetic here, so React never needs
+// to do client-side date math.
+func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.SalaryCycle, k cycleClock) CycleStats {
+	txs := loadWindowTransactions(uid, k.window(cycle, all), k)
 
 	var income, expenses, fixedExp, variableExp float64
 	for _, tx := range txs {
-		// Savings-pool transactions are tracked separately, never mixed into
-		// cycle income / expense totals (they would double-count the pool).
-		// Check by explicit type (new) or by category ID (legacy backward compat).
-		if tx.Type == "savings_deposit" || tx.Type == "savings_withdrawal" ||
-			(cycle.SavedMoneyCategoryID > 0 && tx.CategoryID == cycle.SavedMoneyCategoryID) {
+		if isSavingsPoolTx(tx.Transaction, cycle.SavedMoneyCategoryID) {
 			continue
 		}
 		switch tx.Type {
@@ -188,16 +184,15 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
 	previousSavings := (allIncome - allExpense) - (income - expenses)
 
-	// Cycle timing
-	now := time.Now()
+	// Cycle timing (payday evaluated at local midnight in the user's zone)
 	daysTotal := 30
-	if cycle.NextPaydayAt != nil {
-		d := int(cycle.NextPaydayAt.Sub(cycle.CycleStartAt).Hours() / 24)
+	if ps := k.paydayStart(cycle); ps != nil {
+		d := int(ps.Sub(cycle.CycleStartAt).Hours() / 24)
 		if d >= 7 {
 			daysTotal = d
 		}
 	}
-	daysElapsed := int(now.Sub(cycle.CycleStartAt).Hours() / 24)
+	daysElapsed := int(k.Now.Sub(cycle.CycleStartAt).Hours() / 24)
 	if daysElapsed < 0 {
 		daysElapsed = 0
 	}
@@ -261,9 +256,9 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 	}
 }
 
-// sumVariableInRange sums variable expenses in [from, to), excluding the
-// fixed-payments category AND the savings-pool category.
-func sumVariableInRange(txs []models.Transaction, fixedCatID uint, savedMoneyCatID uint, from, to time.Time) float64 {
+// sumVariableInRange sums variable expenses whose event instant is in
+// [from, to), excluding the fixed-payments category AND the savings-pool category.
+func sumVariableInRange(txs []windowTx, fixedCatID uint, savedMoneyCatID uint, from, to time.Time) float64 {
 	var sum float64
 	for _, tx := range txs {
 		if tx.Type != "expense" {
@@ -275,7 +270,7 @@ func sumVariableInRange(txs []models.Transaction, fixedCatID uint, savedMoneyCat
 		if savedMoneyCatID > 0 && tx.CategoryID == savedMoneyCatID {
 			continue
 		}
-		if !tx.CreatedAt.Before(from) && tx.CreatedAt.Before(to) {
+		if !tx.At.Before(from) && tx.At.Before(to) {
 			sum += tx.Amount
 		}
 	}
@@ -283,6 +278,99 @@ func sumVariableInRange(txs []models.Transaction, fixedCatID uint, savedMoneyCat
 }
 
 // ── StartSalaryCycle ─────────────────────────────────────────────────────────
+
+// resolveCycleStart turns the "salary received on" date (+ optional local
+// HH:MM) into the cycle's exact start instant:
+//   - no date, or today without a time → now (not a fixed noon, which used to
+//     put same-morning transactions before the cycle start);
+//   - another date without a time → 00:00 local on that date;
+//   - an explicit time is honoured, clamped to now so a start is never later
+//     than the moment it is recorded on the same day.
+//
+// Truncated to microseconds — the database's precision — so the handover
+// instant written to the previous cycle compares equal after a round-trip.
+func resolveCycleStart(dateStr, timeStr string, k cycleClock) (time.Time, error) {
+	day := k.today()
+	if dateStr != "" {
+		d, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return time.Time{}, errors.New("Invalid received_at_date format. Use YYYY-MM-DD")
+		}
+		day = d
+	}
+	var start time.Time
+	switch {
+	case timeStr != "":
+		hm, err := time.Parse("15:04", timeStr)
+		if err != nil {
+			return time.Time{}, errors.New("Invalid received_at_time format. Use HH:MM")
+		}
+		start = k.storedDayStart(day).Add(time.Duration(hm.Hour())*time.Hour + time.Duration(hm.Minute())*time.Minute)
+		if day.Equal(k.today()) && start.After(k.Now) {
+			start = k.Now
+		}
+	case day.Equal(k.today()):
+		start = k.Now
+	default:
+		start = k.storedDayStart(day)
+	}
+	return start.UTC().Truncate(time.Microsecond), nil
+}
+
+// cycleToHandOver is the cycle a new one starting at `start` takes over from:
+// the latest cycle starting before it that has not been handed over yet.
+func cycleToHandOver(start time.Time, all []models.SalaryCycle) *models.SalaryCycle {
+	var prev *models.SalaryCycle
+	for i := range all {
+		if all[i].CycleStartAt.Before(start) {
+			prev = &all[i]
+		}
+	}
+	if prev == nil || handoverAt(*prev, all) != nil {
+		return nil
+	}
+	return prev
+}
+
+// previousCycleSurplus is the variable-budget balance left in a cycle over its
+// final window [start, handover): positive = surplus (bonus to the pool),
+// negative = overspend (penalty from the pool).
+func previousCycleSurplus(uid uint, prev models.SalaryCycle, handover time.Time, k cycleClock) float64 {
+	txs := loadWindowTransactions(uid, cycleWindow{Start: prev.CycleStartAt, End: &handover}, k)
+	var income, fixed, variable float64
+	for _, t := range txs {
+		if isSavingsPoolTx(t.Transaction, prev.SavedMoneyCategoryID) {
+			continue
+		}
+		switch t.Type {
+		case "income":
+			income += t.Amount
+		case "expense":
+			if prev.FixedExpCategoryID > 0 && t.CategoryID == prev.FixedExpCategoryID {
+				fixed += t.Amount
+			} else {
+				variable += t.Amount
+			}
+		}
+	}
+	allowance := math.Max(0, income-plannedSavingsAllocation(income, prev.SavingsPct)-fixed)
+	return allowance - variable
+}
+
+// frameworkOf rebuilds the stored budget framework of a cycle.
+func frameworkOf(c models.SalaryCycle) BudgetFramework {
+	return BudgetFramework{
+		TotalIncome:     c.TotalIncome,
+		NeedsLimit:      c.NeedsLimit,
+		WantsLimit:      c.WantsLimit,
+		SavingsLimit:    c.SavingsLimit,
+		FixedNeedsTotal: c.FixedNeedsTotal,
+		FixedWantsTotal: c.FixedWantsTotal,
+		VarNeedsBudget:  c.VarNeedsBudget,
+		VarWantsBudget:  c.VarWantsBudget,
+		DeficitWarning:  c.VarNeedsBudget < 0,
+	}
+}
 
 func StartSalaryCycle(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -297,6 +385,7 @@ func StartSalaryCycle(c *gin.Context) {
 		Bonuses        float64             `json:"bonuses"`
 		NextPayday     string              `json:"next_payday_date"`
 		ReceivedAtDate string              `json:"received_at_date"`
+		ReceivedAtTime string              `json:"received_at_time"` // optional HH:MM, local
 		Language       string              `json:"language"`
 		NeedsPct       float64             `json:"needs_pct"`
 		WantsPct       float64             `json:"wants_pct"`
@@ -321,21 +410,15 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	var receivedAt time.Time
-	if req.ReceivedAtDate != "" {
-		parsed, err := time.Parse("2006-01-02", req.ReceivedAtDate)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid received_at_date format. Use YYYY-MM-DD"})
-			return
-		}
-		y, m, d := parsed.Date()
-		receivedAt = time.Date(y, m, d, 12, 0, 0, 0, time.Local)
-	} else {
-		receivedAt = time.Now()
+	k := requestClock(c, uid)
+	receivedAt, parseErr := resolveCycleStart(req.ReceivedAtDate, req.ReceivedAtTime, k)
+	if parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": parseErr.Error()})
+		return
 	}
 
 	cycleStart := receivedAt
-	txDate := receivedAt.Truncate(24 * time.Hour)
+	txDate := k.storedDate(receivedAt)
 
 	totalIncome := req.BaseSalary + req.Bonuses
 	fw := ComputeBudgetFramework(totalIncome, req.NeedsPct, req.WantsPct, req.SavingsPct, req.FixedExpenses)
@@ -368,7 +451,7 @@ func StartSalaryCycle(c *gin.Context) {
 			return
 		}
 		// Shared invariant with the edit gate: a cycle must be at least 7 days.
-		if toDateOnly(parsed).Before(toDateOnly(cycleStart).AddDate(0, 0, MinCycleDays)) {
+		if parsed.Before(k.storedDate(cycleStart).AddDate(0, 0, MinCycleDays)) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": validationMessage(errCycleTooShort), "code": errCycleTooShort,
 			})
@@ -377,107 +460,53 @@ func StartSalaryCycle(c *gin.Context) {
 		cycle.NextPaydayAt = &parsed
 	}
 
-	// ── Overlap guard ────────────────────────────────────────────────────────
-	// Load every existing cycle for this user (ASC). If receivedAt — normalised
-	// to midnight UTC so timezone offsets can never shift the calendar day —
-	// falls within any existing cycle's [start, end] window, that cycle IS the
-	// current period. Return it directly instead of inserting a new row and
-	// fragmenting the timeline.
-	targetDate := toDateOnly(cycleStart)
-	var allUserCycles []models.SalaryCycle
-	database.DB.Preload("FixedExpenses").
-		Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").
-		Find(&allUserCycles)
-
-	for i := range allUserCycles {
-		if !isDateInCycleWindow(targetDate, allUserCycles[i]) {
-			continue
-		}
-		// An OPEN-ENDED cycle (next_payday_at == nil) covers every date from its
-		// start onwards, so a user who returns after a gap and deliberately starts
-		// a new cycle would otherwise be silently handed back that stale cycle —
-		// whose start could be months ago. Every cycle-scoped view (the category
-		// donut, weekly allowance, forecast) would then reach all the way back to
-		// the old start, effectively showing all-time data instead of the new
-		// cycle. When the new start is strictly AFTER an open-ended cycle's start,
-		// treat it as the beginning of a genuinely new period: fall through to
-		// create the new cycle (the old open-ended cycle is closed below). A
-		// same-day resubmit (targetDate == start) still returns the existing cycle,
-		// preserving idempotency.
-		if allUserCycles[i].NextPaydayAt == nil &&
-			targetDate.After(toDateOnly(allUserCycles[i].CycleStartAt)) {
-			continue
-		}
-		{
-			existing := allUserCycles[i]
-			log.Printf("start salary cycle: user=%v date=%v already covered by cycle id=%v (start=%v) — returning existing",
-				uid, targetDate.Format("2006-01-02"), existing.ID,
-				toDateOnly(existing.CycleStartAt).Format("2006-01-02"))
-			stats := computeCycleStats(uid, existing)
-			fw := BudgetFramework{
-				TotalIncome:     existing.TotalIncome,
-				NeedsLimit:      existing.NeedsLimit,
-				WantsLimit:      existing.WantsLimit,
-				SavingsLimit:    existing.SavingsLimit,
-				FixedNeedsTotal: existing.FixedNeedsTotal,
-				FixedWantsTotal: existing.FixedWantsTotal,
-				VarNeedsBudget:  existing.VarNeedsBudget,
-				VarWantsBudget:  existing.VarWantsBudget,
-				DeficitWarning:  existing.VarNeedsBudget < 0,
-			}
-			c.JSON(http.StatusOK, gin.H{
-				"cycle":            existing,
-				"budget_framework": fw,
-				"cycle_stats":      stats,
-			})
-			return
-		}
+	allUserCycles, dbErr := loadUserCycles(uid)
+	if dbErr != nil {
+		log.Printf("start salary cycle: fetch user=%v err=%v", uid, dbErr)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch salary cycles"})
+		return
 	}
 
-	// ── No-overlap rule (§3) ──────────────────────────────────────────────────
-	// A new cycle may not overlap any existing BOUNDED cycle's [start, next_payday]
-	// window (stopped or active alike — the user still lives on that period).
-	// Open-ended prior cycles are auto-closed below (they have no committed end),
-	// so they are excluded here. The idempotent same-period resubmit is already
-	// handled by the guard above.
-	newStart := targetDate
-	newOpen := cycle.NextPaydayAt == nil
-	var newEnd time.Time
-	if !newOpen {
-		newEnd = toDateOnly(*cycle.NextPaydayAt)
-	}
+	// ── Idempotent resubmit ──────────────────────────────────────────────────
+	// A live cycle that already started on the same local day IS this period
+	// (e.g. a double-submitted form): return it instead of fragmenting the
+	// timeline.
 	for i := range allUserCycles {
-		ex := allUserCycles[i]
-		if ex.NextPaydayAt == nil {
-			continue // open-ended prior cycle → closed below, not an overlap
-		}
-		exStart := toDateOnly(ex.CycleStartAt)
-		exEnd := toDateOnly(*ex.NextPaydayAt)
-		// [newStart,newEnd] overlaps [exStart,exEnd] iff newStart<=exEnd AND
-		// exStart<=newEnd. A new open-ended cycle has newEnd = +∞.
-		if newStart.After(exEnd) {
+		existing := allUserCycles[i]
+		if existing.StoppedAt != nil || !k.storedDate(existing.CycleStartAt).Equal(k.storedDate(cycleStart)) {
 			continue
 		}
-		if !newOpen && exStart.After(newEnd) {
-			continue
-		}
-		log.Printf("start salary cycle: user=%v new [%v..%v] overlaps cycle id=%v [%v..%v] — rejected",
-			uid, newStart.Format("2006-01-02"), req.NextPayday, ex.ID,
-			exStart.Format("2006-01-02"), exEnd.Format("2006-01-02"))
+		log.Printf("start salary cycle: user=%v already has cycle id=%v starting %v — returning existing",
+			uid, existing.ID, k.storedDate(existing.CycleStartAt).Format("2006-01-02"))
+		c.JSON(http.StatusOK, gin.H{
+			"cycle":            existing,
+			"budget_framework": frameworkOf(existing),
+			"cycle_stats":      computeCycleStatsAt(uid, existing, allUserCycles, k),
+		})
+		return
+	}
+
+	// ── No-overlap rule (§3) ─────────────────────────────────────────────────
+	// A new cycle may not start inside any existing cycle's planned days
+	// (stopped or not — the user still lived on that period). The payday itself
+	// is shared: starting on or after the previous cycle's payday (local time)
+	// is a handover, not an overlap. See conflictingCycle.
+	if ex := k.conflictingCycle(cycleStart, cycle.NextPaydayAt, allUserCycles); ex != nil {
+		log.Printf("start salary cycle: user=%v new start %v overlaps cycle id=%v (start=%v) — rejected",
+			uid, cycleStart.Format(time.RFC3339), ex.ID, ex.CycleStartAt.Format(time.RFC3339))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": validationMessage(errCycleOverlap), "code": errCycleOverlap,
 		})
 		return
 	}
 
-	// No overlap — safe to create a new cycle.
-	// The most-recent existing cycle (last in ASC slice) is the "previous" one
-	// for end-of-cycle surplus/deficit resolution.
-	var prevCycle *models.SalaryCycle
-	if len(allUserCycles) > 0 {
-		prev := allUserCycles[len(allUserCycles)-1]
-		prevCycle = &prev
+	// The cycle handed over to the new one: the latest one starting before it
+	// that has not been handed over yet. Its leftover variable balance goes to
+	// the savings pool (Pillar 4), computed over its final window.
+	prevCycle := cycleToHandOver(cycleStart, allUserCycles)
+	var prevSurplus float64
+	if prevCycle != nil {
+		prevSurplus = previousCycleSurplus(uid, *prevCycle, cycleStart, k)
 	}
 
 	var incomeTxID uint
@@ -487,17 +516,15 @@ func StartSalaryCycle(c *gin.Context) {
 			return err
 		}
 
-		// Close any still-open-ended prior cycle so the newly created cycle is the
-		// sole one covering today. GetCurrentSalaryCycle returns the EARLIEST
-		// covering cycle, so without this the old open-ended cycle (start < new
-		// start, end = ∞) would keep being served as "current" and cycle-scoped
-		// views would show all-time data. Bound it to the day BEFORE the new start
-		// so the two windows never overlap on the boundary day.
-		closeAt := toDateOnly(cycleStart).AddDate(0, 0, -1)
-		if err := tx.Model(&models.SalaryCycle{}).
-			Where("user_id = ? AND next_payday_at IS NULL AND cycle_start_at < ?", uid, cycleStart).
-			Update("next_payday_at", closeAt).Error; err != nil {
-			return err
+		// Hand over: the previous cycle ends exactly where this one begins, so
+		// no instant belongs to both cycles and none to neither. Only the end
+		// instant is recorded — its start and planned payday stay untouched, and
+		// no transaction is moved.
+		if prevCycle != nil {
+			if err := tx.Model(&models.SalaryCycle{}).Where("id = ?", prevCycle.ID).
+				Update("ended_at", cycleStart).Error; err != nil {
+				return err
+			}
 		}
 
 		// Fixed expense metadata
@@ -580,34 +607,7 @@ func StartSalaryCycle(c *gin.Context) {
 		// remaining variable balance and inject a real transaction into the
 		// savings pool ("Pleasant bonus" or "Penalty from previous cycle").
 		if prevCycle != nil && savedCat.ID > 0 {
-			// Re-query previous cycle's transactions (closed window)
-			var prevTxs []models.Transaction
-			tx.Where("user_id = ? AND created_at >= ? AND created_at < ?",
-				uid, prevCycle.CycleStartAt, cycleStart).
-				Find(&prevTxs)
-
-			var prevIncome, prevFixed, prevVariable float64
-			for _, pt := range prevTxs {
-				if (cycle.SavedMoneyCategoryID > 0 && pt.CategoryID == cycle.SavedMoneyCategoryID) ||
-					(prevCycle.SavedMoneyCategoryID > 0 && pt.CategoryID == prevCycle.SavedMoneyCategoryID) {
-					continue
-				}
-				switch pt.Type {
-				case "income":
-					prevIncome += pt.Amount
-				case "expense":
-					if prevCycle.FixedExpCategoryID > 0 && pt.CategoryID == prevCycle.FixedExpCategoryID {
-						prevFixed += pt.Amount
-					} else {
-						prevVariable += pt.Amount
-					}
-				}
-			}
-
-			prevSavingsAlloc := plannedSavingsAllocation(prevIncome, prevCycle.SavingsPct)
-			prevVarAllowance := math.Max(0, prevIncome-prevSavingsAlloc-prevFixed)
-			remainingBalance := prevVarAllowance - prevVariable
-
+			remainingBalance := prevSurplus
 			if math.Abs(remainingBalance) > 0.01 {
 				transferType := "savings_deposit"
 				transferDesc := "Pleasant bonus from the previous cycle"
@@ -749,14 +749,9 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	// Load cycles ASC, then find the one whose date window covers today.
-	// This prevents empty "fragment" cycles (created by backdated inserts)
-	// from being returned as the active cycle instead of the canonical earlier one.
-	var allCycles []models.SalaryCycle
-	if dbErr := database.DB.Preload("FixedExpenses").
-		Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").
-		Find(&allCycles).Error; dbErr != nil {
+	k := requestClock(c, uid)
+	allCycles, dbErr := loadUserCycles(uid)
+	if dbErr != nil {
 		log.Printf("get current cycle: user=%v err=%v", uid, dbErr)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch salary cycle"})
 		return
@@ -769,59 +764,38 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 			"cycle_stats":      nil,
 			"has_active_cycle": false,
 			"resumable_cycle":  nil,
+			"payday_status":    paydayStatusNone,
+			"window_start":     nil,
+			"window_end":       nil,
 		}
-		setCachedCycle(uid, payload)
+		setCachedCycle(uid, payload, nil)
 		c.JSON(http.StatusOK, payload)
 		return
 	}
 
-	today := toDateOnly(time.Now())
-	var activeCycle *models.SalaryCycle
-	hasActive := false
-	for i := range allCycles {
-		if isDateInCycleWindow(today, allCycles[i]) {
-			activeCycle = &allCycles[i]
-			hasActive = true
-			break // ASC order → first match is the earliest (canonical) covering cycle
-		}
-	}
-	if activeCycle == nil {
-		activeCycle = &allCycles[len(allCycles)-1] // all ended — show most recent for reference
-	}
-	cycle := *activeCycle
+	// The current cycle (see cycle_window.go) — it stays current after its
+	// payday until the next one starts, so new transactions never fall into a
+	// gap. With none current (stopped), show the most recent one for reference.
+	activeCycle, hasActive := k.currentOrLatest(allCycles)
 
 	// Ensure the savings category is always linked — heals old/migrated cycles.
 	if hasActive {
 		ensureSavingsCategory(uid, activeCycle)
-		cycle = *activeCycle // reflect any ID update
 	}
+	cycle := *activeCycle
 
-	// Only compute live stats when a cycle actually covers today.
-	// When the last cycle has ended (hasActive == false) we return cycle_stats: null
-	// so the frontend shows strictly zero in every card rather than stale numbers
-	// from a period that is already over.
+	// Live stats only for a current cycle. A stopped cycle returns
+	// cycle_stats: null so the frontend falls back to the no-cycle budget.
 	var cycleStatsPayload interface{}
 	if hasActive {
-		s := computeCycleStats(uid, cycle)
-		cycleStatsPayload = s
+		cycleStatsPayload = computeCycleStatsAt(uid, cycle, allCycles, k)
 	}
 
-	fw := BudgetFramework{
-		TotalIncome:     cycle.TotalIncome,
-		NeedsLimit:      cycle.NeedsLimit,
-		WantsLimit:      cycle.WantsLimit,
-		SavingsLimit:    cycle.SavingsLimit,
-		FixedNeedsTotal: cycle.FixedNeedsTotal,
-		FixedWantsTotal: cycle.FixedWantsTotal,
-		VarNeedsBudget:  cycle.VarNeedsBudget,
-		VarWantsBudget:  cycle.VarWantsBudget,
-		DeficitWarning:  cycle.VarNeedsBudget < 0,
-	}
-
-	// A stopped cycle whose window still covers today can be resumed. Surfaced so
-	// the UI can offer "Resume" (or show it disabled when another cycle is active).
+	// A stopped cycle whose planned dates still cover now can be resumed.
+	// Surfaced so the UI can offer "Resume" (or show it disabled when another
+	// cycle is active).
 	var resumable interface{}
-	if rc := findResumableCycle(uid, allCycles, today); rc != nil {
+	if rc := findResumableCycle(uid, allCycles, k); rc != nil {
 		resumable = gin.H{
 			"id":             rc.ID,
 			"cycle_start_at": rc.CycleStartAt,
@@ -829,14 +803,21 @@ func GetCurrentSalaryCycle(c *gin.Context) {
 		}
 	}
 
+	// The exact window the stats were computed over, so client-side views
+	// (Statistics donut, card fallbacks) scope transactions identically.
+	win := k.window(cycle, allCycles)
+
 	payload := gin.H{
 		"cycle":            cycle,
-		"budget_framework": fw,
+		"budget_framework": frameworkOf(cycle),
 		"cycle_stats":      cycleStatsPayload, // nil → JSON null when no active cycle
 		"has_active_cycle": hasActive,
 		"resumable_cycle":  resumable, // nil → JSON null when nothing is resumable
+		"payday_status":    k.paydayStatus(cycle),
+		"window_start":     win.Start,
+		"window_end":       win.End, // nil → open (current until handed over)
 	}
-	setCachedCycle(uid, payload)
+	setCachedCycle(uid, payload, k.nextBoundary(cycle))
 	c.JSON(http.StatusOK, payload)
 }
 
@@ -859,48 +840,44 @@ const (
 	errCycleOverlap    = "CYCLE_OVERLAP"            // new cycle overlaps an existing one
 )
 
-// cycleEndBounds computes the inclusive [min, max] range a cycle's next payday
-// may be moved to (§4.3):
+// cycleEndBounds computes the inclusive [min, max] range of local calendar days
+// a cycle's next payday may be moved to (§4.3):
 //
-//	min = max(start + 7d, latest transaction in the cycle)   — never orphan a tx
-//	max = (next cycle's start − 1d) if a later cycle exists, else start + 180d
-func cycleEndBounds(cycle models.SalaryCycle, allCycles []models.SalaryCycle, lastTx *time.Time) (minEnd, maxEnd time.Time) {
-	start := toDateOnly(cycle.CycleStartAt)
+//	min = max(start + 7d, day of the latest transaction in the cycle) — never orphan a tx
+//	max = the next cycle's start day if a later cycle exists (the payday is the
+//	      shared handover day), else start + 180d
+func cycleEndBounds(cycle models.SalaryCycle, allCycles []models.SalaryCycle, lastTx *time.Time, k cycleClock) (minEnd, maxEnd time.Time) {
+	start := k.storedDate(cycle.CycleStartAt)
 
 	minEnd = start.AddDate(0, 0, MinCycleDays)
 	if lastTx != nil {
-		lt := toDateOnly(*lastTx)
-		if lt.After(minEnd) {
+		if lt := k.storedDate(*lastTx); lt.After(minEnd) {
 			minEnd = lt
 		}
 	}
 
 	maxEnd = start.AddDate(0, 0, MaxCycleDays)
 	for _, other := range allCycles {
-		if other.ID == cycle.ID {
+		if other.ID == cycle.ID || !other.CycleStartAt.After(cycle.CycleStartAt) {
 			continue
 		}
-		os := toDateOnly(other.CycleStartAt)
-		if os.After(start) {
-			cap := os.AddDate(0, 0, -1) // no overlap with the next cycle
-			if cap.Before(maxEnd) {
-				maxEnd = cap
-			}
+		if next := k.storedDate(other.CycleStartAt); next.Before(maxEnd) {
+			maxEnd = next
 		}
 	}
 	return minEnd, maxEnd
 }
 
-// validateCycleEnd is the single authoritative gate for a new end date. It
-// returns "" when valid, otherwise a structured error code.
-func validateCycleEnd(cycle models.SalaryCycle, newEnd time.Time, lastTx *time.Time, minEnd, maxEnd time.Time) string {
-	start := toDateOnly(cycle.CycleStartAt)
+// validateCycleEnd is the single authoritative gate for a new end date (a
+// date-only value). It returns "" when valid, otherwise a structured error code.
+func validateCycleEnd(cycle models.SalaryCycle, newEnd time.Time, lastTx *time.Time, maxEnd time.Time, k cycleClock) string {
+	start := k.storedDate(cycle.CycleStartAt)
 	nd := toDateOnly(newEnd)
 
 	if nd.Before(start.AddDate(0, 0, MinCycleDays)) {
 		return errCycleTooShort
 	}
-	if lastTx != nil && nd.Before(toDateOnly(*lastTx)) {
+	if lastTx != nil && nd.Before(k.storedDate(*lastTx)) {
 		return errEndBeforeLastTx
 	}
 	if nd.After(maxEnd) {
@@ -909,31 +886,16 @@ func validateCycleEnd(cycle models.SalaryCycle, newEnd time.Time, lastTx *time.T
 	return ""
 }
 
-// latestTxInCycle returns the created_at of the most recent live transaction
-// that belongs to the cycle window [start, nextCycleStart), or nil if none.
-func latestTxInCycle(uid uint, cycle models.SalaryCycle, allCycles []models.SalaryCycle) *time.Time {
-	start := cycle.CycleStartAt
-	q := database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND created_at >= ?", uid, start)
-	// Cap at the next cycle's start so we only consider this cycle's own tx.
-	var upper *time.Time
-	for _, other := range allCycles {
-		if other.ID == cycle.ID {
-			continue
-		}
-		if other.CycleStartAt.After(start) && (upper == nil || other.CycleStartAt.Before(*upper)) {
-			cs := other.CycleStartAt
-			upper = &cs
+// latestTxAt is the event instant of the most recent transaction, or nil.
+func latestTxAt(txs []windowTx) *time.Time {
+	var latest *time.Time
+	for i := range txs {
+		if latest == nil || txs[i].At.After(*latest) {
+			at := txs[i].At
+			latest = &at
 		}
 	}
-	if upper != nil {
-		q = q.Where("created_at < ?", *upper)
-	}
-	var latest models.Transaction
-	if err := q.Order("created_at DESC").First(&latest).Error; err != nil {
-		return nil // no transaction in the window (or not found)
-	}
-	return &latest.CreatedAt
+	return latest
 }
 
 func validationMessage(code string) string {
@@ -993,32 +955,26 @@ func UpdateCycleNextPayday(c *gin.Context) {
 		return
 	}
 
-	// Resolve the ACTIVE cycle (covers today, not stopped). Only it is editable
-	// (§4.1 / closed-period lock). isDateInCycleWindow already excludes stopped.
-	var allCycles []models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").Find(&allCycles).Error; err != nil {
-		log.Printf("patch cycle payday: fetch user=%v err=%v", uid, err)
+	// Resolve the CURRENT cycle. Only it is editable (§4.1 / closed-period lock);
+	// stopped and handed-over cycles are never current.
+	k := requestClock(c, uid)
+	allCycles, dbErr := loadUserCycles(uid)
+	if dbErr != nil {
+		log.Printf("patch cycle payday: fetch user=%v err=%v", uid, dbErr)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
 		return
 	}
-	today := toDateOnly(time.Now())
-	var cycle *models.SalaryCycle
-	for i := range allCycles {
-		if isDateInCycleWindow(today, allCycles[i]) {
-			cycle = &allCycles[i]
-			break
-		}
-	}
+	cycle := k.currentCycle(allCycles)
 	if cycle == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": validationMessage(errNoActiveCycle), "code": errNoActiveCycle})
 		return
 	}
 
-	lastTx := latestTxInCycle(uid, *cycle, allCycles)
-	minEnd, maxEnd := cycleEndBounds(*cycle, allCycles, lastTx)
+	cycleTxs := loadWindowTransactions(uid, k.window(*cycle, allCycles), k)
+	lastTx := latestTxAt(cycleTxs)
+	minEnd, maxEnd := cycleEndBounds(*cycle, allCycles, lastTx, k)
 
-	if code := validateCycleEnd(*cycle, newDate, lastTx, minEnd, maxEnd); code != "" {
+	if code := validateCycleEnd(*cycle, newDate, lastTx, maxEnd, k); code != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":    validationMessage(code),
 			"code":     code,
@@ -1032,12 +988,16 @@ func UpdateCycleNextPayday(c *gin.Context) {
 	// preview response and (after persisting) the applied response.
 	preview := *cycle
 	preview.NextPaydayAt = &newDate
-	projected := computeCycleStats(uid, preview)
+	projected := computeCycleStatsAt(uid, preview, allCycles, k)
 
+	// Transactions up to the end of the new payday (local time).
+	newPaydayEnd := k.storedDayStart(newDate).AddDate(0, 0, 1)
 	txInWindow := int64(0)
-	database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND created_at >= ? AND created_at <= ?", uid, cycle.CycleStartAt, newDate).
-		Count(&txInWindow)
+	for _, t := range cycleTxs {
+		if t.At.Before(newPaydayEnd) {
+			txInWindow++
+		}
+	}
 
 	if req.Preview {
 		c.JSON(http.StatusOK, gin.H{
@@ -1093,7 +1053,7 @@ func UpdateCycleNextPayday(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Next payday updated",
 		"next_payday_at": newDate.Format("2006-01-02"),
-		"cycle_stats":    computeCycleStats(uid, freshCycle),
+		"cycle_stats":    computeCycleStatsAt(uid, freshCycle, allCycles, k),
 	})
 }
 
@@ -1111,22 +1071,14 @@ func StopSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	var cycles []models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").Find(&cycles).Error; err != nil {
+	cycles, err := loadUserCycles(uid)
+	if err != nil {
 		log.Printf("stop cycle: user=%v err=%v", uid, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
 		return
 	}
 
-	today := toDateOnly(time.Now())
-	var active *models.SalaryCycle
-	for i := range cycles {
-		if isDateInCycleWindow(today, cycles[i]) { // already excludes stopped cycles
-			active = &cycles[i]
-			break
-		}
-	}
+	active := requestClock(c, uid).currentCycle(cycles) // never a stopped cycle
 	if active == nil {
 		// Idempotent: nothing to stop.
 		c.JSON(http.StatusOK, gin.H{
@@ -1143,7 +1095,7 @@ func StopSalaryCycle(c *gin.Context) {
 	}
 	InvalidateCycleCache(uid)
 	log.Printf("stop cycle: user=%v stopped cycle id=%v (start=%v)",
-		uid, active.ID, toDateOnly(active.CycleStartAt).Format("2006-01-02"))
+		uid, active.ID, active.CycleStartAt.Format(time.RFC3339))
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Salary cycle stopped", "stopped": true,
@@ -1151,49 +1103,31 @@ func StopSalaryCycle(c *gin.Context) {
 	})
 }
 
-// windowCoversToday reports whether `today` (midnight UTC) falls within a cycle's
-// own date window [start, next_payday], IGNORING its stopped state. Used to
-// decide resume eligibility (isDateInCycleWindow can't be reused because it
-// treats every stopped cycle as covering no date). Open-ended cycles (no
-// next_payday) cover every date from start onward.
-func windowCoversToday(cycle models.SalaryCycle, today time.Time) bool {
-	start := toDateOnly(cycle.CycleStartAt)
-	if today.Before(start) {
-		return false
-	}
-	if cycle.NextPaydayAt == nil {
-		return true
-	}
-	return !today.After(toDateOnly(*cycle.NextPaydayAt))
-}
-
 // cycleHasLiveIncome reports whether a cycle still has at least one live
 // (non-deleted) income transaction in its window. A cycle whose data was removed
 // via "delete from history" (its Salary income is soft-deleted) fails this, so
 // it is treated as gone and must NOT be offered for resume — resuming it would
 // revive an empty/inconsistent cycle (income €0 but €X of cycle info).
-func cycleHasLiveIncome(uid uint, cycle models.SalaryCycle) bool {
-	q := database.DB.Model(&models.Transaction{}).
-		Where("user_id = ? AND type = ? AND created_at >= ?", uid, "income", cycle.CycleStartAt)
-	if cycle.NextPaydayAt != nil {
-		q = q.Where("created_at <= ?", *cycle.NextPaydayAt)
+func cycleHasLiveIncome(uid uint, cycle models.SalaryCycle, all []models.SalaryCycle, k cycleClock) bool {
+	for _, t := range loadWindowTransactions(uid, k.window(cycle, all), k) {
+		if t.Type == "income" {
+			return true
+		}
 	}
-	var n int64
-	q.Count(&n)
-	return n > 0
+	return false
 }
 
 // findResumableCycle returns the most-recently-started STOPPED cycle that could
-// be reactivated — its window still covers today AND its data is intact (not
-// deleted from history) — or nil.
-func findResumableCycle(uid uint, cycles []models.SalaryCycle, today time.Time) *models.SalaryCycle {
+// be reactivated — now is within its own planned dates, it was never handed
+// over, and its data is intact (not deleted from history) — or nil.
+func findResumableCycle(uid uint, cycles []models.SalaryCycle, k cycleClock) *models.SalaryCycle {
 	var target *models.SalaryCycle
 	for i := range cycles {
 		c := &cycles[i]
-		if c.StoppedAt == nil || !windowCoversToday(*c, today) {
+		if c.StoppedAt == nil || !k.withinPlannedDates(*c) {
 			continue
 		}
-		if !cycleHasLiveIncome(uid, *c) {
+		if !cycleHasLiveIncome(uid, *c, cycles, k) {
 			continue // deleted / emptied — nothing to restore
 		}
 		if target == nil || c.CycleStartAt.After(target.CycleStartAt) {
@@ -1217,25 +1151,16 @@ func ResumeSalaryCycle(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	var cycles []models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").Find(&cycles).Error; err != nil {
+	cycles, err := loadUserCycles(uid)
+	if err != nil {
 		log.Printf("resume cycle: user=%v err=%v", uid, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
 		return
 	}
 
-	today := toDateOnly(time.Now())
-
-	// Is any (non-stopped) cycle active right now?
-	var activeNow *models.SalaryCycle
-	for i := range cycles {
-		if isDateInCycleWindow(today, cycles[i]) { // excludes stopped cycles
-			activeNow = &cycles[i]
-			break
-		}
-	}
-	target := findResumableCycle(uid, cycles, today)
+	k := requestClock(c, uid)
+	activeNow := k.currentCycle(cycles) // any (non-stopped) cycle current now?
+	target := findResumableCycle(uid, cycles, k)
 
 	if activeNow != nil {
 		// Already active and nothing stopped to resume → idempotent no-op.
@@ -1271,7 +1196,7 @@ func ResumeSalaryCycle(c *gin.Context) {
 	}
 	InvalidateCycleCache(uid)
 	log.Printf("resume cycle: user=%v resumed cycle id=%v (start=%v)",
-		uid, target.ID, toDateOnly(target.CycleStartAt).Format("2006-01-02"))
+		uid, target.ID, target.CycleStartAt.Format(time.RFC3339))
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Salary cycle resumed", "resumed": true,
@@ -1326,7 +1251,8 @@ func AddCycleIncome(c *gin.Context) {
 		return
 	}
 
-	cycle := findActiveCycle(uid)
+	k := requestClock(c, uid)
+	cycle := findActiveCycle(uid, k)
 	if cycle == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
 		return
@@ -1347,7 +1273,7 @@ func AddCycleIncome(c *gin.Context) {
 	}
 
 	now := time.Now()
-	txDate := now.Truncate(24 * time.Hour)
+	txDate := k.today() // the user's local day, not the server's UTC day
 	if req.Date != "" {
 		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
 			txDate = parsed
@@ -1398,7 +1324,8 @@ func GetSavingsHistory(c *gin.Context) {
 	}
 	uid := userID.(uint)
 
-	cycle := findActiveCycle(uid)
+	k := requestClock(c, uid)
+	cycle := findActiveCycle(uid, k)
 	if cycle == nil {
 		c.JSON(http.StatusOK, gin.H{"transactions": []any{}, "balance": 0.0, "savings_category_id": 0})
 		return
@@ -1492,6 +1419,15 @@ func DeleteSalaryCycle(c *gin.Context) {
 		return
 	}
 
+	// Undo the handover to the deleted cycle: its predecessor is no longer
+	// ended by it, so it becomes current again (payday passed) instead of
+	// leaving a gap. Only the recorded end instant changes; dates stay intact.
+	if err := database.DB.Model(&models.SalaryCycle{}).
+		Where("user_id = ? AND ended_at = ?", uid, cycle.CycleStartAt).
+		Update("ended_at", nil).Error; err != nil {
+		log.Printf("delete cycle: reopen predecessor user=%v err=%v", uid, err)
+	}
+
 	InvalidateCycleCache(uid)
 
 	log.Printf("delete cycle: user=%v deleted cycle id=%v (start=%v)",
@@ -1542,53 +1478,23 @@ func normalizeLang(raw string) string {
 	return lang
 }
 
-// toDateOnly normalises t to midnight UTC so that timezone offsets or
-// time-of-day differences can never make the same calendar day appear to be
-// in a different cycle window.
+// toDateOnly normalises a stored date-only value (YYYY-MM-DD persisted as UTC
+// midnight) to exactly that UTC midnight. Only for date-only values — instants
+// are mapped to the user's local day with cycleClock.storedDate.
 func toDateOnly(t time.Time) time.Time {
 	y, m, d := t.UTC().Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-// isDateInCycleWindow reports whether date (should already be midnight UTC via
-// toDateOnly) falls in the inclusive range [CycleStartAt, NextPaydayAt].
-// An open-ended cycle (NextPaydayAt == nil) covers every date ≥ start.
-// A soft-stopped cycle is never active, so it covers no date — this is the single
-// point that makes stopped cycles inactive for the current-cycle lookup,
-// findActiveCycle, and the start-overlap guard alike.
-func isDateInCycleWindow(date time.Time, cycle models.SalaryCycle) bool {
-	if cycle.StoppedAt != nil {
-		return false
-	}
-	start := toDateOnly(cycle.CycleStartAt)
-	if date.Before(start) {
-		return false
-	}
-	if cycle.NextPaydayAt == nil {
-		return true
-	}
-	end := toDateOnly(*cycle.NextPaydayAt)
-	return !date.After(end)
-}
-
-// findActiveCycle returns the salary cycle whose window covers today, falling
-// back to the most recently started cycle when none is currently active.
-// Returns nil when the user has no cycles at all.
-func findActiveCycle(uid uint) *models.SalaryCycle {
-	var cycles []models.SalaryCycle
-	database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at ASC").
-		Find(&cycles)
-	if len(cycles) == 0 {
+// findActiveCycle returns the current salary cycle, falling back to the most
+// recently started cycle when none is current. nil when the user has no cycles.
+func findActiveCycle(uid uint, k cycleClock) *models.SalaryCycle {
+	cycles, err := loadUserCycles(uid)
+	if err != nil {
 		return nil
 	}
-	today := toDateOnly(time.Now())
-	for i := range cycles {
-		if isDateInCycleWindow(today, cycles[i]) {
-			return &cycles[i]
-		}
-	}
-	return &cycles[len(cycles)-1]
+	cycle, _ := k.currentOrLatest(cycles)
+	return cycle
 }
 
 // ── AddSavingsManual ──────────────────────────────────────────────────────────
@@ -1621,7 +1527,8 @@ func AddSavingsManual(c *gin.Context) {
 		return
 	}
 
-	cycle := findActiveCycle(uid)
+	k := requestClock(c, uid)
+	cycle := findActiveCycle(uid, k)
 	if cycle == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No active salary cycle found"})
 		return
@@ -1639,7 +1546,7 @@ func AddSavingsManual(c *gin.Context) {
 	}
 
 	now := time.Now()
-	txDate := now.Truncate(24 * time.Hour)
+	txDate := k.today() // the user's local day, not the server's UTC day
 	if req.Date != "" {
 		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
 			txDate = parsed

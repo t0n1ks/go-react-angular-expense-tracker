@@ -45,7 +45,7 @@ func main() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-User-Timezone"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -70,7 +70,7 @@ func main() {
 
 	// ── Protected routes ──────────────────────────────────────────────────────
 	protected := router.Group("/api")
-	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware(), handlers.UserTimezone())
 	{
 		protected.POST("/categories", handlers.CreateCategory)
 		protected.GET("/categories", handlers.GetCategories)

@@ -67,8 +67,9 @@ func startOfWeekMonday(t time.Time) time.Time {
 	return d.AddDate(0, 0, -offset)
 }
 
-// computeBudgetWindow builds the monthly BudgetWindow for a user. Exposed
-// (unexported) helper so it can be unit-tested against a real DB.
+// computeBudgetWindow builds the monthly BudgetWindow for a user. `now` must
+// be in the user's timezone (its Location defines the month and week).
+// Exposed (unexported) helper so it can be unit-tested against a real DB.
 func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 	loc := now.Location()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
@@ -83,13 +84,12 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 	}
 
 	// Variable spend this month. No salary cycle ⇒ no fixed/savings categories,
-	// so every live expense counts. Windowed by created_at to match the cycle
-	// engine and the category donut.
-	var txs []models.Transaction
-	database.DB.
-		Where("user_id = ? AND type = ? AND created_at >= ? AND created_at <= ?",
-			uid, "expense", monthStart, monthEnd).
-		Find(&txs)
+	// so every live expense counts. Membership uses the same event instant as
+	// the cycle engine (see cycle_window.go), so backdated entries land on
+	// their own date here too.
+	k := newCycleClock(now, loc)
+	nextMonth := monthStart.AddDate(0, 1, 0)
+	txs := loadWindowTransactions(uid, cycleWindow{Start: monthStart, End: &nextMonth}, k)
 
 	weekStart := startOfWeekMonday(now)
 	if weekStart.Before(monthStart) {
@@ -98,8 +98,11 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 
 	var spent, weekSpent float64
 	for _, t := range txs {
+		if t.Type != "expense" {
+			continue
+		}
 		spent += t.Amount
-		if !t.CreatedAt.Before(weekStart) {
+		if !t.At.Before(weekStart) {
 			weekSpent += t.Amount
 		}
 	}
@@ -149,5 +152,5 @@ func GetCurrentBudget(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, computeBudgetWindow(uid, user.MonthlySpendingGoal, time.Now()))
+	c.JSON(http.StatusOK, computeBudgetWindow(uid, user.MonthlySpendingGoal, requestClock(c, uid).Now))
 }

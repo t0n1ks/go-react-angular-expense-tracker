@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import CyclePaydayEditor from './CyclePaydayEditor';
 import { splitIncome } from '../utils/savingsFigure';
+import { toLocalDateStr } from '../utils/localDate';
 import './SalaryCycleCard.css';
 
 // Clickable info icon — opens a dismissible modal with the full explanation.
@@ -45,7 +46,8 @@ interface Props {
   onCycleStarted: (cycle: SalaryCycle) => void;
 }
 
-const todayDateStr = () => new Date().toISOString().slice(0, 10);
+// The user's local day — the server resolves "received today" in local time.
+const todayDateStr = () => toLocalDateStr(new Date());
 
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const { t, i18n } = useTranslation();
@@ -99,6 +101,10 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const [baseSalary, setBaseSalary] = useState('');
   const [bonuses, setBonuses] = useState('');
   const [receivedAtDate, setReceivedAtDate] = useState(today);
+  // Optional local time the salary arrived — only for a PAST received date
+  // (today means "now"). Defaults to 00:00, the server's default for that case.
+  const [receivedAtTime, setReceivedAtTime] = useState('00:00');
+  const receivedInPast = !!receivedAtDate && receivedAtDate < today;
   const [nextPayday, setNextPayday] = useState('');
   const [ratioProfile, setRatioProfile] = useState<RatioProfile>('50/30/20');
   const [customNeeds, setCustomNeeds] = useState('50');
@@ -169,6 +175,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
         base_salary: parseFloat(baseSalary),
         bonuses: parseFloat(bonuses) || 0,
         received_at_date: receivedAtDate || undefined,
+        received_at_time: receivedInPast && receivedAtTime ? receivedAtTime : undefined,
         next_payday_date: nextPayday || undefined,
         language: i18n.resolvedLanguage ?? 'en',
         needs_pct: needsPct,
@@ -195,6 +202,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
       setBaseSalary('');
       setBonuses('');
       setReceivedAtDate(today);
+      setReceivedAtTime('00:00');
       setNextPayday('');
       setFixedExpenses([]);
       setRatioProfile('50/30/20');
@@ -360,6 +368,18 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
                   onChange={e => setReceivedAtDate(e.target.value)}
                 />
               </div>
+              {receivedInPast && (
+                <div className="sc-field">
+                  <label className="sc-label" htmlFor="sc-received-time">{t('salary_cycle.received_time')}</label>
+                  <input
+                    id="sc-received-time"
+                    className="sc-input"
+                    type="time"
+                    value={receivedAtTime}
+                    onChange={e => setReceivedAtTime(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="sc-field">
                 <label className="sc-label">{t('salary_cycle.next_payday')}</label>
                 <input

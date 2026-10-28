@@ -50,10 +50,17 @@ func getCachedCycle(uid uint) (gin.H, bool) {
 	return e.payload, true
 }
 
-// setCachedCycle stores a freshly computed cycle payload for a user.
-func setCachedCycle(uid uint, payload gin.H) {
+// setCachedCycle stores a freshly computed cycle payload for a user. When
+// notAfter is set (the next cycle boundary, e.g. the payday's local midnight),
+// the entry expires no later than that instant, so a cached payload can never
+// straddle a boundary.
+func setCachedCycle(uid uint, payload gin.H, notAfter *time.Time) {
+	expiresAt := time.Now().Add(cycleCacheTTL)
+	if notAfter != nil && notAfter.Before(expiresAt) {
+		expiresAt = *notAfter
+	}
 	cycleCacheMu.Lock()
-	cycleCache[uid] = cycleCacheEntry{payload: payload, expiresAt: time.Now().Add(cycleCacheTTL)}
+	cycleCache[uid] = cycleCacheEntry{payload: payload, expiresAt: expiresAt}
 	cycleCacheMu.Unlock()
 }
 

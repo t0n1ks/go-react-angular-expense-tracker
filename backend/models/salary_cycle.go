@@ -28,7 +28,13 @@ type SalaryCycle struct {
 	// StoppedAt marks a soft-stopped cycle (e.g. job loss). A stopped cycle is
 	// never "active" — the user falls back to the no-salary monthly budget — but
 	// the row and all its history are preserved. nil = not stopped.
-	StoppedAt     *time.Time     `json:"stopped_at"`
+	StoppedAt *time.Time `json:"stopped_at"`
+	// EndedAt is the exact instant this cycle was handed over to the next one
+	// (= the next cycle's CycleStartAt). The cycle owns [CycleStartAt, EndedAt).
+	// nil = not handed over yet: the cycle stays current, even after its payday,
+	// until the next cycle starts or it is stopped. Never a date edit — the
+	// planned payday (NextPaydayAt) is untouched.
+	EndedAt       *time.Time     `json:"ended_at"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	FixedExpenses []FixedExpense `json:"fixed_expenses" gorm:"foreignKey:SalaryCycleID"`

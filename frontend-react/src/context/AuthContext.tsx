@@ -65,6 +65,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (currentToken && config.headers) {
           config.headers.set('Authorization', `Bearer ${currentToken}`);
         }
+        // The device's IANA timezone, read per request so travelling takes
+        // effect immediately: the server evaluates cycle boundaries (payday,
+        // "today") in the user's local time.
+        if (config.headers) {
+          try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) config.headers.set('X-User-Timezone', tz);
+          } catch { /* no Intl timezone → server falls back to the remembered zone / UTC */ }
+        }
         return config;
       },
       (error) => Promise.reject(error)

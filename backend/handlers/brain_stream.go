@@ -9,9 +9,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
-	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
 // ── Go → Python contextual stream (Phase 3) ───────────────────────────────────
@@ -65,13 +62,17 @@ type learnObservation struct {
 // from the authoritative cycle stats and streams it to the Python learner.
 // Runs off the request path (timer goroutine); failures are logged, not fatal.
 func pushLearnerObservation(uid uint) {
-	var cycle models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").First(&cycle).Error; err != nil {
+	all, err := loadUserCycles(uid)
+	if err != nil {
+		return
+	}
+	k := userClock(uid)
+	cycle, _ := k.currentOrLatest(all)
+	if cycle == nil {
 		return // no cycle yet — nothing meaningful to learn
 	}
 
-	stats := computeCycleStats(uid, cycle)
+	stats := computeCycleStatsAt(uid, *cycle, all, k)
 
 	daysElapsed := stats.DaysElapsed
 	if daysElapsed < 1 {

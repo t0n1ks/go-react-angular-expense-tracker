@@ -104,6 +104,26 @@ export interface BudgetWindow {
   days_remaining: number;
 }
 
+/** Where the current cycle stands relative to its planned payday (user's local time). */
+export type PaydayStatus = 'none' | 'upcoming' | 'today' | 'passed';
+
+/** The exact [start, end) window the server computed cycle stats over. */
+export interface CycleWindow {
+  start: string;
+  /** null → open: the cycle stays current until the next one is started. */
+  end: string | null;
+}
+
+interface CycleResponse {
+  cycle?: SalaryCycle | null;
+  cycle_stats?: CycleStats | null;
+  has_active_cycle?: boolean;
+  resumable_cycle?: ResumableCycle | null;
+  payday_status?: PaydayStatus;
+  window_start?: string | null;
+  window_end?: string | null;
+}
+
 interface SettingsContextType extends UserSettings {
   settings: UserSettings;
   isLoading: boolean;
@@ -114,6 +134,8 @@ interface SettingsContextType extends UserSettings {
   cycleStats: CycleStats | null;
   hasActiveCycle: boolean;
   resumableCycle: ResumableCycle | null;
+  cycleWindow: CycleWindow | null;
+  paydayStatus: PaydayStatus;
   refreshCycle: () => Promise<void>;
   budgetWindow: BudgetWindow | null;
   refreshBudget: () => Promise<void>;
@@ -176,6 +198,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [cycleStats, setCycleStats] = useState<CycleStats | null>(null);
   const [hasActiveCycle, setHasActiveCycle] = useState<boolean>(false);
   const [resumableCycle, setResumableCycle] = useState<ResumableCycle | null>(null);
+  const [cycleWindow, setCycleWindow] = useState<CycleWindow | null>(null);
+  const [paydayStatus, setPaydayStatus] = useState<PaydayStatus>('none');
   const [budgetWindow, setBudgetWindow] = useState<BudgetWindow | null>(null);
 
   // Fetches the server budget window (no-salary path). Safe to call anytime;
@@ -187,20 +211,29 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch { /* keep last value */ }
   }, [axiosInstance]);
 
+  // Single place that applies a GET /salary-cycle/current response to state.
+  // Returns whether a cycle is current.
+  const applyCycleResponse = useCallback((data: CycleResponse): boolean => {
+    const cycle = data.cycle ?? null;
+    const active = data.has_active_cycle ?? false;
+    setCurrentCycle(cycle);
+    setCycleStats(data.cycle_stats ?? null);
+    setHasActiveCycle(active);
+    setResumableCycle(data.resumable_cycle ?? null);
+    setCycleWindow(data.window_start ? { start: data.window_start, end: data.window_end ?? null } : null);
+    setPaydayStatus(data.payday_status ?? 'none');
+    if (cycle) {
+      localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
+    } else {
+      localStorage.removeItem(CYCLE_KEY);
+    }
+    return active;
+  }, []);
+
   const refreshCycle = useCallback(async () => {
     try {
       const res = await axiosInstance.get('/salary-cycle/current');
-      const cycle: SalaryCycle | null = res.data.cycle ?? null;
-      const active: boolean = res.data.has_active_cycle ?? false;
-      setCurrentCycle(cycle);
-      setCycleStats(res.data.cycle_stats ?? null);
-      setHasActiveCycle(active);
-      setResumableCycle(res.data.resumable_cycle ?? null);
-      if (cycle) {
-        localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
-      } else {
-        localStorage.removeItem(CYCLE_KEY);
-      }
+      const active = applyCycleResponse(res.data);
       // The monthly budget window only governs the period when no cycle does.
       if (!active) {
         await refreshBudget();
@@ -208,7 +241,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setBudgetWindow(null);
       }
     } catch { /* keep cached */ }
-  }, [axiosInstance, refreshBudget]);
+  }, [axiosInstance, refreshBudget, applyCycleResponse]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -216,6 +249,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setCurrentCycle(null);
       setCycleStats(null);
       setResumableCycle(null);
+      setCycleWindow(null);
+      setPaydayStatus('none');
       setBudgetWindow(null);
       localStorage.removeItem(CYCLE_KEY);
       return;
@@ -246,17 +281,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
 
-        const cycle: SalaryCycle | null = cycleRes.data.cycle ?? null;
-        const active: boolean = cycleRes.data.has_active_cycle ?? false;
-        setCurrentCycle(cycle);
-        setCycleStats(cycleRes.data.cycle_stats ?? null);
-        setHasActiveCycle(active);
-        setResumableCycle(cycleRes.data.resumable_cycle ?? null);
-        if (cycle) {
-          localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
-        } else {
-          localStorage.removeItem(CYCLE_KEY);
-        }
+        const active = applyCycleResponse(cycleRes.data);
         // No cycle governs the period → load the server monthly budget window.
         if (!active) {
           const budgetRes = await axiosInstance.get('/budget/current');
@@ -270,7 +295,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     fetchProfile();
     return () => { cancelled = true; };
-  }, [isAuthenticated, axiosInstance]);
+  }, [isAuthenticated, axiosInstance, applyCycleResponse]);
 
   const saveSettings = async (next: UserSettings) => {
     setSettings(next);
@@ -307,6 +332,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     cycleStats,
     hasActiveCycle,
     resumableCycle,
+    cycleWindow,
+    paydayStatus,
     refreshCycle,
     budgetWindow,
     refreshBudget,

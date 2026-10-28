@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle, type CycleStats } from '../context/SettingsContext';
 import { savingsPoolBalance } from '../utils/savingsFigure';
+import { txEventTime } from '../utils/categoryWindow';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
@@ -21,6 +22,7 @@ interface Transaction {
   income_type?: string;
   date: string;
   created_at?: string;
+  effective_at?: string;
   category?: { id: number; name: string };
 }
 
@@ -34,6 +36,7 @@ const Dashboard: React.FC = () => {
     expectedSalary,
     currentCycle,
     cycleStats: serverCycleStats,
+    cycleWindow,
     refreshCycle,
     liteMode,
     budgetWindow,
@@ -107,14 +110,15 @@ const Dashboard: React.FC = () => {
 
   const savingsCatId = currentCycle?.saved_money_category_id ?? 0;
   // When a cycle exists (active OR stopped), scope the client-side fallback to
-  // that cycle's own window. Otherwise stopping a cycle would flip these figures
-  // to an ALL-TIME sum (inflating "Income" for multi-cycle users). No cycle at
-  // all → all-time, as before.
+  // that cycle's own window — exactly as the server reports it, with each
+  // transaction placed by its server effective_at. Otherwise stopping a cycle
+  // would flip these figures to an ALL-TIME sum (inflating "Income" for
+  // multi-cycle users). No cycle at all → all-time, as before.
   const inCycleWindow = (tx: Transaction): boolean => {
-    if (!currentCycle) return true;
-    const ev = new Date(tx.created_at ?? tx.date).getTime();
-    if (ev < new Date(currentCycle.cycle_start_at).getTime()) return false;
-    if (currentCycle.next_payday_at && ev > new Date(currentCycle.next_payday_at).getTime()) return false;
+    if (!cycleWindow) return true;
+    const ev = txEventTime(tx).getTime();
+    if (ev < new Date(cycleWindow.start).getTime()) return false;
+    if (cycleWindow.end && ev >= new Date(cycleWindow.end).getTime()) return false;
     return true;
   };
   const legacyIncome = transactions

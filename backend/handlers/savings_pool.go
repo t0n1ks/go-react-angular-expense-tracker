@@ -45,6 +45,14 @@ func savingsRoundingRemainder(income, savingsPct float64) float64 {
 // savings-history modal, AI payload) must read it from here so they can never
 // disagree.
 
+// isSavingsPoolTx reports whether a transaction is a savings-pool movement —
+// by explicit type, or (legacy) by being in the pool category. Pool movements
+// are never cycle income/expense: they would double-count the pool.
+func isSavingsPoolTx(tx models.Transaction, savedMoneyCatID uint) bool {
+	return tx.Type == "savings_deposit" || tx.Type == "savings_withdrawal" ||
+		(savedMoneyCatID > 0 && tx.CategoryID == savedMoneyCatID)
+}
+
 // isSavingsPoolInflow reports whether a pool transaction adds money to the pool.
 // Anything else in the pool category (savings_withdrawal, expense) takes it out.
 func isSavingsPoolInflow(txType string) bool {

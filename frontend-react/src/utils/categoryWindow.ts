@@ -10,15 +10,19 @@
 
 export interface CategoryWindowInput {
   hasActiveCycle: boolean;
+  /** Server-reported cycle window (GET /salary-cycle/current window_start). */
   cycleStartAt?: string | null;
-  nextPaydayAt?: string | null;
+  /** Server-reported EXCLUSIVE window end (window_end); null = open — the
+   *  cycle is current until the next one starts, even after its payday. */
+  windowEndAt?: string | null;
   /** Injected for deterministic testing; defaults to now at call sites. */
   now: Date;
 }
 
 export interface DateWindow {
   start: Date;
-  /** null → open-ended up to `now` (used for the current-month default). */
+  /** Exclusive end; null → open-ended (current-month default, or a cycle that
+   *  has not been handed over yet). */
   end: Date | null;
   source: 'cycle' | 'default';
 }
@@ -33,7 +37,7 @@ function currentMonthWindow(now: Date): DateWindow {
 }
 
 export function resolveCategoryWindow(input: CategoryWindowInput): DateWindow {
-  const { hasActiveCycle, cycleStartAt, nextPaydayAt, now } = input;
+  const { hasActiveCycle, cycleStartAt, windowEndAt, now } = input;
 
   if (!hasActiveCycle || !cycleStartAt) return currentMonthWindow(now);
 
@@ -43,8 +47,8 @@ export function resolveCategoryWindow(input: CategoryWindowInput): DateWindow {
   if (start.getTime() > now.getTime()) return currentMonthWindow(now);
 
   let end: Date | null = null;
-  if (nextPaydayAt) {
-    const parsedEnd = new Date(nextPaydayAt);
+  if (windowEndAt) {
+    const parsedEnd = new Date(windowEndAt);
     if (!isNaN(parsedEnd.getTime())) {
       // Inverted window (end before start) → treat the cycle as needing repair.
       if (parsedEnd.getTime() < start.getTime()) return currentMonthWindow(now);
@@ -64,6 +68,23 @@ export function resolveCategoryWindow(input: CategoryWindowInput): DateWindow {
 export function isInWindow(eventDate: Date, w: DateWindow): boolean {
   if (isNaN(eventDate.getTime())) return false;
   if (eventDate.getTime() < w.start.getTime()) return false;
-  if (w.end && eventDate.getTime() > w.end.getTime()) return false;
+  if (w.end && eventDate.getTime() >= w.end.getTime()) return false; // [start, end)
   return true;
+}
+
+export interface TimedTransaction {
+  date: string;
+  created_at?: string;
+  /** Server-computed instant the transaction counts at for cycle windows. */
+  effective_at?: string;
+}
+
+/**
+ * The instant a transaction counts at for cycle/budget windows. The server's
+ * effective_at is authoritative (entry time when entered on its own date,
+ * else the start of its date in the user's timezone); the fallbacks only cover
+ * a response from an older backend.
+ */
+export function txEventTime(tx: TimedTransaction): Date {
+  return new Date(tx.effective_at ?? tx.created_at ?? tx.date);
 }

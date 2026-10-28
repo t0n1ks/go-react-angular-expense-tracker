@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import CategoryChart from "../components/CategoryChart";
-import { resolveCategoryWindow, isInWindow } from "../utils/categoryWindow";
+import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
@@ -26,6 +26,7 @@ interface Transaction {
   income_type?: string;
   date: string;
   created_at?: string;
+  effective_at?: string;
   category?: { id?: number; name: string; translation_key?: string | null };
 }
 
@@ -46,7 +47,7 @@ const TIMELINE_PERIODS = [
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, currencySymbol, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, liteMode } = useSettings();
+  const { formatAmount, currencySymbol, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, cycleWindow, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -99,15 +100,17 @@ const Statistics: React.FC = () => {
     if (!liteMode) fetchAnalysis();
   }, [fetchData, fetchAnalysis, liteMode]);
 
-  // Donut is scoped to the active salary-cycle window [cycle_start_at,
-  // next_payday_at]. resolveCategoryWindow validates that window and, for
-  // cycle-less or mis-dated users, falls back to the current calendar month
-  // (the same default the forecaster uses) — never to all-time.
+  // Donut is scoped to the EXACT window the server computed the cycle stats
+  // over ([window_start, window_end), open while the cycle is current), and
+  // each transaction is placed by its server effective_at — so the donut and
+  // the dashboard cards always agree. resolveCategoryWindow validates that
+  // window and, for cycle-less or mis-dated users, falls back to the current
+  // calendar month (the same default the forecaster uses) — never to all-time.
   const categoryData = useMemo(() => {
     const catWindow = resolveCategoryWindow({
       hasActiveCycle,
-      cycleStartAt: currentCycle?.cycle_start_at,
-      nextPaydayAt: currentCycle?.next_payday_at,
+      cycleStartAt: cycleWindow?.start,
+      windowEndAt: cycleWindow?.end,
       now: new Date(),
     });
 
@@ -115,7 +118,7 @@ const Statistics: React.FC = () => {
     transactions
       .filter(
         (tx) =>
-          tx.type === "expense" && isInWindow(new Date(tx.created_at ?? tx.date), catWindow),
+          tx.type === "expense" && isInWindow(txEventTime(tx), catWindow),
       )
       .forEach((tx) => {
         // Default categories localize via their key; user categories show as typed.
@@ -127,7 +130,7 @@ const Statistics: React.FC = () => {
       .map((name) => ({ name, value: map[name] }))
       .sort((a, b) => b.value - a.value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, hasActiveCycle, currentCycle, i18n.language]);
+  }, [transactions, hasActiveCycle, cycleWindow, i18n.language]);
 
   // ── Balance Dynamics ──────────────────────────────────────────────────────
   // True cumulative cash flow over time: income adds, expense subtracts. Savings

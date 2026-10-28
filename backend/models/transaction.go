@@ -21,4 +21,7 @@ type Transaction struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Soft-delete: GORM v2 automatically filters deleted_at IS NULL on all queries.
 	DeletedAt gorm.DeletedAt `json:"-"           gorm:"index"`
+	// EffectiveAt is the instant the transaction counts at for cycle/budget
+	// windows (computed per request in the user's timezone, never stored).
+	EffectiveAt *time.Time `json:"effective_at,omitempty" gorm:"-"`
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CalendarDays, TrendingUp, TrendingDown, Info, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
+import { toLocalDateStr } from '../utils/localDate';
 import { useAuth } from '../context/AuthContext';
 import { computeLegacyWeeklyAllowance, clampCanSpend } from '../utils/budgetMath';
 
@@ -20,10 +21,6 @@ interface Props {
   transactions: Transaction[];
   monthlyBudget: number;
   formatAmount: (n: number) => string;
-}
-
-function toLocalDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function safeParseDate(value: string | null | undefined): Date | null {
@@ -46,7 +43,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const { t } = useTranslation();
   const {
     paydayMode, fixedPayday, manualNextPayday, settings, saveSettings,
-    currentCycle, cycleStats, budgetWindow,
+    currentCycle, cycleStats, budgetWindow, paydayStatus,
   } = useSettings();
   const [budgetInput, setBudgetInput] = useState('');
   const [savingBudget, setSavingBudget] = useState(false);
@@ -252,7 +249,13 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     : spentToday > dailyBaseline + 0.01 ? 'down'
     : 'neutral';
 
-  const isPaydayToday = nextPayday?.toISOString().slice(0, 10) === todayStr;
+  // Cycle users: the server evaluates the payday in the user's local timezone.
+  // After the payday the cycle stays current (spending keeps counting) until
+  // the next one is started, so nudge to start it instead of going silent.
+  const isPaydayToday = hasCycle
+    ? paydayStatus === 'today'
+    : nextPayday?.toISOString().slice(0, 10) === todayStr;
+  const isPaydayPassed = hasCycle && paydayStatus === 'passed';
   const nextPaydayDisplay = nextPayday
     ? nextPayday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : '';
@@ -322,6 +325,9 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
 
       {isPaydayToday && (
         <p className="weekly-budget-payday-today">{t('dashboard.weekly_payday_today')}</p>
+      )}
+      {isPaydayPassed && (
+        <p className="weekly-budget-payday-today" role="status">{t('dashboard.weekly_payday_passed')}</p>
       )}
 
       {showCard ? (

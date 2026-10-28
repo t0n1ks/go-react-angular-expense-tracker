@@ -165,12 +165,16 @@ func checkAndUpdateHearts(userID uint) {
 // reuses computeCycleStats and performs no new budget math. Returns "" when there
 // is no active cycle (Python then uses its neutral default).
 func computeBudgetHealth(uid uint) string {
-	var cycle models.SalaryCycle
-	if err := database.DB.Where("user_id = ?", uid).
-		Order("cycle_start_at DESC").First(&cycle).Error; err != nil {
+	all, err := loadUserCycles(uid)
+	if err != nil {
 		return ""
 	}
-	stats := computeCycleStats(uid, cycle)
+	k := userClock(uid)
+	cycle := k.currentCycle(all)
+	if cycle == nil {
+		return ""
+	}
+	stats := computeCycleStatsAt(uid, *cycle, all, k)
 	if stats.CurrentWeekAllowance <= 0 {
 		if stats.CurrentWeekSpent > 0 {
 			return "over"
@@ -328,7 +332,15 @@ type aiSalaryCycleInfo struct {
 	DaysRemainingInWeek int     `json:"days_remaining_in_week"`
 	DaysUntilNextPayout int     `json:"days_until_next_payout"`
 	CycleActive         bool    `json:"cycle_active"`
-	IsLite              bool    `json:"is_lite"`
+
+	// Authoritative cycle totals & timing — the exact figures computeCycleStats
+	// gives the dashboard. Python's forecaster consumes these verbatim instead
+	// of re-deriving the cycle window, length or spend from transaction dates.
+	DaysTotal             int     `json:"days_total"`
+	DaysElapsed           int     `json:"days_elapsed"`
+	VariableAllowance     float64 `json:"variable_allowance"`
+	CycleVariableExpenses float64 `json:"cycle_variable_expenses"`
+	IsLite                bool    `json:"is_lite"`
 }
 
 // aiBudgetWindowInfo carries the authoritative monthly budget window for users
@@ -446,45 +458,49 @@ func AnalyzeBehavior(c *gin.Context) {
 		manualNextPayday = &s
 	}
 
-	// Fetch the active salary cycle for AI analysis context
-	var activeCycle models.SalaryCycle
+	// The current salary cycle (or, with none current, the latest for
+	// reference) — resolved by the same rule the dashboard uses.
+	k := requestClock(c, uid)
+	allCycles, _ := loadUserCycles(uid)
 	var cyclePayload *aiSalaryCycleInfo
-	if err := database.DB.Where("user_id = ?", uid).Order("cycle_start_at DESC").First(&activeCycle).Error; err == nil {
+	if cur, cycleActive := k.currentOrLatest(allCycles); cur != nil {
+		activeCycle := *cur
 		// Compute the authoritative savings pool balance for the AI service
 		// so the forecast uses real pool data, not a generic income-expense net.
 		savedMoneyBalance := savingsPoolBalance(uid, activeCycle.SavedMoneyCategoryID)
 		// Authoritative weekly-pace window — reuse computeCycleStats (the exact
 		// source the budget bar reads) so Python never re-derives weekly math.
-		stats := computeCycleStats(uid, activeCycle)
+		stats := computeCycleStatsAt(uid, activeCycle, allCycles, k)
 		elapsedInWeek := min(max(stats.DaysElapsed-stats.CurrentWeekIndex*7, 0), 7)
 		// The cycle can end before the notional 7-day week completes — never
 		// promise more week than the cycle has left.
 		remainingInWeek := max(min(7-elapsedInWeek, stats.DaysRemaining), 0)
-		now := time.Now()
-		cycleActive := !activeCycle.CycleStartAt.After(now) &&
-			(activeCycle.NextPaydayAt == nil || !now.After(*activeCycle.NextPaydayAt))
 
 		cyclePayload = &aiSalaryCycleInfo{
-			TotalIncome:          activeCycle.TotalIncome,
-			NeedsPct:             activeCycle.NeedsPct,
-			WantsPct:             activeCycle.WantsPct,
-			SavingsPct:           activeCycle.SavingsPct,
-			SavingsLimit:         activeCycle.SavingsLimit,
-			FixedNeedsTotal:      activeCycle.FixedNeedsTotal,
-			FixedWantsTotal:      activeCycle.FixedWantsTotal,
-			VarNeedsBudget:       activeCycle.VarNeedsBudget,
-			VarWantsBudget:       activeCycle.VarWantsBudget,
-			FixedExpCategoryID:   int(activeCycle.FixedExpCategoryID),
-			SavedMoneyCategoryID: int(activeCycle.SavedMoneyCategoryID),
-			SavedMoneyBalance:    savedMoneyBalance,
-			CycleStartAt:         activeCycle.CycleStartAt.Format(time.RFC3339),
-			WeeklyAllowance:      stats.CurrentWeekAllowance,
-			SpentThisWeek:        stats.CurrentWeekSpent,
-			DaysElapsedInWeek:    elapsedInWeek,
-			DaysRemainingInWeek:  remainingInWeek,
-			DaysUntilNextPayout:  stats.DaysRemaining,
-			CycleActive:          cycleActive,
-			IsLite:               user.LiteMode,
+			TotalIncome:           activeCycle.TotalIncome,
+			NeedsPct:              activeCycle.NeedsPct,
+			WantsPct:              activeCycle.WantsPct,
+			SavingsPct:            activeCycle.SavingsPct,
+			SavingsLimit:          activeCycle.SavingsLimit,
+			FixedNeedsTotal:       activeCycle.FixedNeedsTotal,
+			FixedWantsTotal:       activeCycle.FixedWantsTotal,
+			VarNeedsBudget:        activeCycle.VarNeedsBudget,
+			VarWantsBudget:        activeCycle.VarWantsBudget,
+			FixedExpCategoryID:    int(activeCycle.FixedExpCategoryID),
+			SavedMoneyCategoryID:  int(activeCycle.SavedMoneyCategoryID),
+			SavedMoneyBalance:     savedMoneyBalance,
+			CycleStartAt:          activeCycle.CycleStartAt.Format(time.RFC3339),
+			WeeklyAllowance:       stats.CurrentWeekAllowance,
+			SpentThisWeek:         stats.CurrentWeekSpent,
+			DaysElapsedInWeek:     elapsedInWeek,
+			DaysRemainingInWeek:   remainingInWeek,
+			DaysUntilNextPayout:   stats.DaysRemaining,
+			CycleActive:           cycleActive,
+			DaysTotal:             stats.DaysTotal,
+			DaysElapsed:           stats.DaysElapsed,
+			VariableAllowance:     stats.VariableAllowance,
+			CycleVariableExpenses: stats.CycleVariableExpenses,
+			IsLite:                user.LiteMode,
 		}
 		if activeCycle.NextPaydayAt != nil {
 			cyclePayload.NextPaydayAt = activeCycle.NextPaydayAt.Format(time.RFC3339)
@@ -498,7 +514,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	// finished cycle correctly routes here too.
 	var budgetPayload *aiBudgetWindowInfo
 	if cyclePayload == nil || !cyclePayload.CycleActive {
-		bw := computeBudgetWindow(uid, user.MonthlySpendingGoal, time.Now())
+		bw := computeBudgetWindow(uid, user.MonthlySpendingGoal, k.Now)
 		budgetPayload = &aiBudgetWindowInfo{
 			HasGoal:               bw.HasGoal,
 			MonthlyBudget:         bw.MonthlyBudget,

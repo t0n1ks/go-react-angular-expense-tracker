@@ -19,4 +19,7 @@ type User struct {
 	// LiteMode: opt-in "track-only" mode. Hides salary-cycle/analytics UI and
 	// suppresses Python analytics/forecast calls. Advisor (joke/fact) stays on.
 	LiteMode bool `gorm:"default:false" json:"lite_mode"`
+	// Timezone is the IANA zone last reported by the user's device
+	// (X-User-Timezone). Cycle boundaries are evaluated in it; "" = UTC.
+	Timezone string `gorm:"type:varchar(64);default:''" json:"timezone"`
 }

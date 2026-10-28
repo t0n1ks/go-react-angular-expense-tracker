@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCategoryWindow, isInWindow, MAX_CYCLE_SPAN_DAYS } from './categoryWindow';
+import { resolveCategoryWindow, isInWindow, txEventTime, MAX_CYCLE_SPAN_DAYS } from './categoryWindow';
 
 const now = new Date('2026-07-18T12:00:00');
 
@@ -20,7 +20,7 @@ describe('resolveCategoryWindow (Bug B regression)', () => {
     const w = resolveCategoryWindow({
       hasActiveCycle: true,
       cycleStartAt: '2026-07-01T12:00:00',
-      nextPaydayAt: '2026-07-31T00:00:00Z',
+      windowEndAt: '2026-07-31T00:00:00Z',
       now,
     });
     expect(w.source).toBe('cycle');
@@ -32,7 +32,7 @@ describe('resolveCategoryWindow (Bug B regression)', () => {
     const w = resolveCategoryWindow({
       hasActiveCycle: true,
       cycleStartAt: '2026-01-01T12:00:00', // ~198 days before now
-      nextPaydayAt: null, // open-ended, so span = now - start > MAX
+      windowEndAt: null, // open-ended, so span = now - start > MAX
       now,
     });
     expect(w.source).toBe('default');
@@ -42,7 +42,7 @@ describe('resolveCategoryWindow (Bug B regression)', () => {
     const w = resolveCategoryWindow({
       hasActiveCycle: true,
       cycleStartAt: '2026-07-10T12:00:00',
-      nextPaydayAt: '2026-07-05T00:00:00',
+      windowEndAt: '2026-07-05T00:00:00',
       now,
     });
     expect(w.source).toBe('default');
@@ -52,7 +52,7 @@ describe('resolveCategoryWindow (Bug B regression)', () => {
     const w = resolveCategoryWindow({
       hasActiveCycle: true,
       cycleStartAt: '2026-08-01T12:00:00',
-      nextPaydayAt: '2026-08-31T00:00:00',
+      windowEndAt: '2026-08-31T00:00:00',
       now,
     });
     expect(w.source).toBe('default');
@@ -66,5 +66,29 @@ describe('resolveCategoryWindow (Bug B regression)', () => {
     const tooOld = new Date(now.getTime() - (MAX_CYCLE_SPAN_DAYS + 5) * 86_400_000);
     const bad = resolveCategoryWindow({ hasActiveCycle: true, cycleStartAt: tooOld.toISOString(), now });
     expect(bad.source).toBe('default');
+  });
+});
+
+describe('server window semantics', () => {
+  it('window end is exclusive: the handover instant belongs to the next cycle', () => {
+    const w = resolveCategoryWindow({
+      hasActiveCycle: true,
+      cycleStartAt: '2026-09-28T08:00:00Z',
+      windowEndAt: '2026-10-28T15:00:00Z',
+      now: new Date('2026-10-28T15:00:00Z'),
+    });
+    expect(isInWindow(new Date('2026-10-28T14:59:00Z'), w)).toBe(true);
+    expect(isInWindow(new Date('2026-10-28T15:00:00Z'), w)).toBe(false);
+  });
+
+  it('txEventTime prefers the server effective_at over entry time and date', () => {
+    const tx = {
+      date: '2026-10-28T00:00:00Z',
+      created_at: '2026-10-29T09:00:00Z', // entered the day after
+      effective_at: '2026-10-27T23:00:00Z', // start of the 28th, Berlin
+    };
+    expect(txEventTime(tx).toISOString()).toBe('2026-10-27T23:00:00.000Z');
+    expect(txEventTime({ date: '2026-10-28T00:00:00Z', created_at: '2026-10-28T10:00:00Z' }).toISOString())
+      .toBe('2026-10-28T10:00:00.000Z');
   });
 });
