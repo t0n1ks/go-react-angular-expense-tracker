@@ -233,13 +233,18 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="stat-content">
             <p className="label">{t('dashboard.saved_money')}</p>
-            <p className="value" style={{ color: '#10b981' }}>{formatAmount(dynamicSavings)}</p>
-            {savedMoneyBalance > 0 && (
+            {/* Headline = LIVE remaining pool balance (allocated − withdrawn +
+                additions), the same figure Statistics and the savings history
+                show. The planned allocation is context, not the balance. */}
+            <p className="value" style={{ color: savedMoneyBalance < 0 ? '#ef4444' : '#10b981' }}>
+              {savedMoneyBalance < 0 ? '-' : ''}{formatAmount(savedMoneyBalance)}
+            </p>
+            {dynamicSavings > 0 && (
               <p className="income-breakdown">
-                {t('dashboard.savings_pool_total')}: {formatAmount(savedMoneyBalance)}
+                {t('dashboard.savings_planned_this_cycle')}: {formatAmount(dynamicSavings)}
               </p>
             )}
-            <p className="stat-sublabel">{t('salary_cycle.savings_pool')}</p>
+            <p className="stat-sublabel">{t('dashboard.savings_remaining_hint')}</p>
           </div>
         </div>
 

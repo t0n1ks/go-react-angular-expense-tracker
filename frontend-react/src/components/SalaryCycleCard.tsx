@@ -5,6 +5,7 @@ import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCir
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import CyclePaydayEditor from './CyclePaydayEditor';
+import { splitIncome } from '../utils/savingsFigure';
 import './SalaryCycleCard.css';
 
 // Clickable info icon — opens a dismissible modal with the full explanation.
@@ -121,9 +122,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
 
   const totalIncome = (parseFloat(baseSalary) || 0) + (parseFloat(bonuses) || 0);
   const [needsPct, wantsPct, savingsPct] = getRatioValues();
-  const needsLimit = totalIncome * needsPct / 100;
-  const wantsLimit = totalIncome * wantsPct / 100;
-  const savingsLimit = totalIncome * savingsPct / 100;
+  const { needsLimit, wantsLimit, savingsLimit } = splitIncome(totalIncome, needsPct, wantsPct, savingsPct);
 
   const fixedNeedsTotal = fixedExpenses
     .filter(fe => fe.category_type === 'need')

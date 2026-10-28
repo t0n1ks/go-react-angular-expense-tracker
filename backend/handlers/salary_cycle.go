@@ -36,9 +36,11 @@ type FixedExpenseInput struct {
 }
 
 func ComputeBudgetFramework(totalIncome, needsPct, wantsPct, savingsPct float64, fixedExpenses []FixedExpenseInput) BudgetFramework {
+	// Savings is rounded down to whole units; the cents it sheds go to Wants
+	// (spendable), so needs + wants + savings still equals totalIncome exactly.
 	needsLimit := totalIncome * needsPct / 100
-	wantsLimit := totalIncome * wantsPct / 100
-	savingsLimit := totalIncome * savingsPct / 100
+	wantsLimit := totalIncome*wantsPct/100 + savingsRoundingRemainder(totalIncome, savingsPct)
+	savingsLimit := plannedSavingsAllocation(totalIncome, savingsPct)
 
 	var fixedNeedsTotal, fixedWantsTotal float64
 	for _, fe := range fixedExpenses {
@@ -167,26 +169,14 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 
 	// Dynamic savings allocation — scales with actual income so ghost data
 	// (snapshot values from a deleted salary tx) cannot persist.
-	dynamicSavings := income * cycle.SavingsPct / 100
+	// Whole units only; the rounded-off cents stay in the variable allowance below.
+	dynamicSavings := plannedSavingsAllocation(income, cycle.SavingsPct)
 
 	// Variable Allowance = what's truly available for discretionary spending.
 	variableAllowance := math.Max(0, income-dynamicSavings-fixedExp)
 
-	// All-time savings pool balance (all users' transactions to the saved-money cat).
-	var savedMoneyBalance float64
-	if cycle.SavedMoneyCategoryID > 0 {
-		var pool []models.Transaction
-		database.DB.
-			Where("user_id = ? AND category_id = ?", uid, cycle.SavedMoneyCategoryID).
-			Find(&pool)
-		for _, p := range pool {
-			if p.Type == "income" || p.Type == "savings_deposit" {
-				savedMoneyBalance += p.Amount
-			} else {
-				savedMoneyBalance -= p.Amount
-			}
-		}
-	}
+	// Live remaining savings-pool balance (allocated − withdrawn + additions).
+	savedMoneyBalance := savingsPoolBalance(uid, cycle.SavedMoneyCategoryID)
 
 	// Previous savings = net all-time minus net this cycle.
 	var allIncome, allExpense float64
@@ -614,7 +604,7 @@ func StartSalaryCycle(c *gin.Context) {
 				}
 			}
 
-			prevSavingsAlloc := prevIncome * prevCycle.SavingsPct / 100
+			prevSavingsAlloc := plannedSavingsAllocation(prevIncome, prevCycle.SavingsPct)
 			prevVarAllowance := math.Max(0, prevIncome-prevSavingsAlloc-prevFixed)
 			remainingBalance := prevVarAllowance - prevVariable
 
@@ -662,10 +652,11 @@ func StartSalaryCycle(c *gin.Context) {
 		// ── Auto savings deposit ───────────────────────────────────────────
 		// Transfer the planned savings allocation straight into the pool so
 		// the savings card shows the correct balance from day one (digital
-		// piggy bank). Amount = salary × savings_pct%; excluded from cycle
-		// income by type + category checks in computeCycleStats.
-		if req.SavingsPct > 0 && savedCat.ID > 0 {
-			savingsAmount := totalIncome * req.SavingsPct / 100
+		// piggy bank). Amount = salary × savings_pct% rounded down to whole
+		// units (fw.SavingsLimit); excluded from cycle income by type +
+		// category checks in computeCycleStats.
+		if fw.SavingsLimit > 0 && savedCat.ID > 0 {
+			savingsAmount := fw.SavingsLimit
 			autoSavingsTx := models.Transaction{
 				UserID:      uid,
 				CategoryID:  savedCat.ID,
@@ -1424,18 +1415,9 @@ func GetSavingsHistory(c *gin.Context) {
 		Order("created_at DESC").
 		Find(&txs)
 
-	var balance float64
-	for _, tx := range txs {
-		if tx.Type == "income" || tx.Type == "savings_deposit" {
-			balance += tx.Amount
-		} else {
-			balance -= tx.Amount
-		}
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"transactions":        txs,
-		"balance":             balance,
+		"balance":             savingsPoolNet(txs),
 		"savings_category_id": cycle.SavedMoneyCategoryID,
 	})
 }

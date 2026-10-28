@@ -18,3 +18,30 @@ export function savingsPoolBalance(
   const v = cycleStats?.saved_money_balance;
   return typeof v === 'number' ? v : undefined;
 }
+
+const round2 = (v: number): number => Math.round(v * 100) / 100;
+
+export interface IncomeSplit {
+  needsLimit: number;
+  wantsLimit: number;
+  savingsLimit: number;
+}
+
+/**
+ * Pre-start PREVIEW mirror of the Go ComputeBudgetFramework split (the server
+ * stays authoritative once the cycle exists). The automatic savings allocation
+ * is rounded DOWN to whole currency units (€504 × 20% → €100) and the shed cents
+ * go to Wants (spendable), so needs + wants + savings still equals the income.
+ */
+export function splitIncome(
+  totalIncome: number, needsPct: number, wantsPct: number, savingsPct: number,
+): IncomeSplit {
+  const exactSavings = totalIncome > 0 && savingsPct > 0 ? round2(totalIncome * savingsPct / 100) : 0;
+  const savingsLimit = Math.floor(exactSavings);
+  const remainder = round2(exactSavings - savingsLimit);
+  return {
+    needsLimit: totalIncome * needsPct / 100,
+    wantsLimit: totalIncome * wantsPct / 100 + remainder,
+    savingsLimit,
+  };
+}

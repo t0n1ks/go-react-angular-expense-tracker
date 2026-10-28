@@ -452,20 +452,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	if err := database.DB.Where("user_id = ?", uid).Order("cycle_start_at DESC").First(&activeCycle).Error; err == nil {
 		// Compute the authoritative savings pool balance for the AI service
 		// so the forecast uses real pool data, not a generic income-expense net.
-		var savedMoneyBalance float64
-		if activeCycle.SavedMoneyCategoryID > 0 {
-			var pool []models.Transaction
-			database.DB.
-				Where("user_id = ? AND category_id = ?", uid, activeCycle.SavedMoneyCategoryID).
-				Find(&pool)
-			for _, p := range pool {
-				if p.Type == "income" || p.Type == "savings_deposit" {
-					savedMoneyBalance += p.Amount
-				} else {
-					savedMoneyBalance -= p.Amount
-				}
-			}
-		}
+		savedMoneyBalance := savingsPoolBalance(uid, activeCycle.SavedMoneyCategoryID)
 		// Authoritative weekly-pace window — reuse computeCycleStats (the exact
 		// source the budget bar reads) so Python never re-derives weekly math.
 		stats := computeCycleStats(uid, activeCycle)
