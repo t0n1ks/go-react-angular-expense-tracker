@@ -1,13 +1,22 @@
 // Series for the "Balance dynamics" chart.
 //
 // Users with a salary cycle get the server's REAL-MONEY series
-// (GET /api/balance/timeline: cycle spendable remainder + savings pool per
-// day, from the first cycle; the latest point is today's money on hand). The
-// client never re-derives it. Users who never had a cycle keep the plain
-// cash-flow series built here (unchanged behaviour).
+// (GET /api/balance/timeline: per day, from the first cycle, the cycle's
+// spendable remainder and the savings-pool balance — plotted as two separate
+// lines whose latest points are today's dashboard figures). The client never
+// re-derives it. Users who never had a cycle keep the plain cash-flow series
+// built here (unchanged behaviour).
 
 import { toLocalDateStr } from './localDate';
 
+/** One day of the server's real-money series. */
+export interface MoneyPoint {
+  date: string; // YYYY-MM-DD
+  spendable: number; // = cycle_stats.spendable_remaining on the latest day
+  savings: number; // = cycle_stats.saved_money_balance on the latest day
+}
+
+/** One day of the no-cycle cash-flow series. */
 export interface TimelinePoint {
   date: string; // YYYY-MM-DD
   balance: number;
@@ -43,7 +52,7 @@ export function cashFlowSeries(transactions: CashFlowTx[]): TimelinePoint[] {
  * Keeps the points inside the selected period (0 = all time). Sliced AFTER
  * the series is built, so the first visible point keeps its true balance.
  */
-export function withinPeriod(points: TimelinePoint[], periodDays: number, now = new Date()): TimelinePoint[] {
+export function withinPeriod<T extends { date: string }>(points: T[], periodDays: number, now = new Date()): T[] {
   if (periodDays <= 0) return points;
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - periodDays);

@@ -146,6 +146,48 @@
     font-weight: 700;
 }
 
+/* Two-line chart (savings vs. spendable): legend + tooltip rows */
+.balance-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.balance-tooltip-label {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.balance-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin: 0 0 0.6rem;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.balance-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.balance-legend-swatch {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.balance-legend-swatch--spendable { background: #38bdf8; }
+.balance-legend-swatch--savings { background: #10b981; }
+
 .forecast-section {
     margin-top: 2rem;
     max-width: 540px;

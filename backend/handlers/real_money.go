@@ -19,8 +19,8 @@ import (
 // the handover carry-over and the deposit guard use; the pool from
 // savingsPoolNet. Money only enters through income and only leaves through
 // expenses and withdrawals from savings; moving budget → savings is net-zero.
-// The balance timeline replays the same functions day by day, so its latest
-// point is exactly today's figure.
+// The balance timeline replays the same functions day by day and reports the
+// two components separately, so its latest point is exactly today's figures.
 
 // cycleTotals is the ledger tally of one cycle's transactions.
 type cycleTotals struct {
@@ -282,18 +282,24 @@ func cyclesAsOf(all []models.SalaryCycle, at time.Time) []models.SalaryCycle {
 	return out
 }
 
+// moneySplit is the user's real money in its two components.
+type moneySplit struct {
+	Spendable float64 // the cycle's spendable remainder (negative = overspent)
+	Savings   float64 // the savings-pool balance
+}
+
 // moneyOnHandAt is the user's real money just before `at` (nil = now, with
 // everything recorded, matching the dashboard): the latest cycle's spendable
-// remainder — settled at its end or stop, like at a handover — plus the pool.
+// remainder — settled at its end or stop, like at a handover — and the pool.
 // ok is false before the first cycle. `all` sorted by start ASC; txs carry
 // their event instants.
-func moneyOnHandAt(all []models.SalaryCycle, txs []windowTx, poolCat uint, at *time.Time) (float64, bool) {
+func moneyOnHandAt(all []models.SalaryCycle, txs []windowTx, poolCat uint, at *time.Time) (moneySplit, bool) {
 	cycles := all
 	if at != nil {
 		cycles = cyclesAsOf(all, *at)
 	}
 	if len(cycles) == 0 {
-		return 0, false
+		return moneySplit{}, false
 	}
 	c := cycles[len(cycles)-1]
 
@@ -316,7 +322,10 @@ func moneyOnHandAt(all []models.SalaryCycle, txs []windowTx, poolCat uint, at *t
 			pool = append(pool, t.Transaction)
 		}
 	}
-	return round2(tallyCycle(c, own).remaining(c) + savingsPoolNet(pool)), true
+	return moneySplit{
+		Spendable: round2(tallyCycle(c, own).remaining(c)),
+		Savings:   round2(savingsPoolNet(pool)),
+	}, true
 }
 
 // poolCategoryOf is the user's savings-pool category (the latest cycle's).
@@ -329,10 +338,12 @@ func poolCategoryOf(all []models.SalaryCycle) uint {
 	return 0
 }
 
-// timelinePoint is the money on hand at the end of one local day.
+// timelinePoint is the money on hand at the end of one local day, by
+// component (deliberately no combined total).
 type timelinePoint struct {
-	Date    string  `json:"date"` // YYYY-MM-DD, user's local day
-	Balance float64 `json:"balance"`
+	Date      string  `json:"date"`      // YYYY-MM-DD, user's local day
+	Spendable float64 `json:"spendable"` // = cycle_stats.spendable_remaining today
+	Savings   float64 `json:"savings"`   // = cycle_stats.saved_money_balance today
 }
 
 // balanceTimeline replays the ledger from the first cycle's day to today:
@@ -360,15 +371,16 @@ func balanceTimeline(uid uint, k cycleClock) []timelinePoint {
 			at = &end
 		}
 		if v, ok := moneyOnHandAt(all, txs, poolCat, at); ok {
-			points = append(points, timelinePoint{Date: day.Format("2006-01-02"), Balance: v})
+			points = append(points, timelinePoint{Date: day.Format("2006-01-02"), Spendable: v.Spendable, Savings: v.Savings})
 		}
 	}
 	return points
 }
 
 // GetBalanceTimeline — GET /api/balance/timeline
-// The "real money on hand" series for the balance chart. Empty when the user
-// never had a salary cycle (the client keeps its cash-flow chart then).
+// The "real money on hand" series for the balance chart: spendable budget and
+// savings pool per day. Empty when the user never had a salary cycle (the
+// client keeps its cash-flow chart then).
 func GetBalanceTimeline(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {

@@ -16,7 +16,7 @@ import {
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
-import { cashFlowSeries, withinPeriod, type TimelinePoint } from "../utils/balanceTimeline";
+import { cashFlowSeries, withinPeriod, type MoneyPoint } from "../utils/balanceTimeline";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -38,6 +38,11 @@ interface AnalysisResult {
   spending_tier: string;
 }
 
+// Two-line balance chart colours: savings matches the dashboard savings card,
+// the spendable budget matches the budget bar.
+const SAVINGS_COLOR = "#10b981";
+const SPENDABLE_COLOR = "#38bdf8";
+
 // Balance-timeline period filter options. `days: 0` means all-time.
 const TIMELINE_PERIODS = [
   { days: 30, labelKey: "statistics.period_30" },
@@ -57,7 +62,7 @@ const Statistics: React.FC = () => {
   const [forecastOpen, setForecastOpen] = useState(false);
   const [timelinePeriod, setTimelinePeriod] = useState<number>(90); // days; 0 = all time
   // Server real-money series (cycle users); empty → no-cycle cash-flow chart.
-  const [moneySeries, setMoneySeries] = useState<TimelinePoint[]>([]);
+  const [moneySeries, setMoneySeries] = useState<MoneyPoint[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -109,7 +114,7 @@ const Statistics: React.FC = () => {
     if (liteMode) return;
     axiosInstance
       .get("/balance/timeline")
-      .then((res: { data: { points?: TimelinePoint[] } }) =>
+      .then((res: { data: { points?: MoneyPoint[] } }) =>
         setMoneySeries(Array.isArray(res.data.points) ? res.data.points : []),
       )
       .catch(() => setMoneySeries([]));
@@ -148,21 +153,27 @@ const Statistics: React.FC = () => {
   }, [transactions, hasActiveCycle, cycleWindow, i18n.language]);
 
   // ── Balance Dynamics ──────────────────────────────────────────────────────
-  // Cycle users: the server's real money on hand per day (spendable remainder +
-  // savings pool, from the first cycle) — spending from savings lowers it,
-  // moving budget → savings does not. Users who never had a cycle keep the
-  // cumulative cash-flow series. See utils/balanceTimeline.
-  const timelineData = useMemo(() => {
-    const series = moneySeries.length > 0 ? moneySeries : cashFlowSeries(transactions);
-    return withinPeriod(series, timelinePeriod).map(({ date, balance }) => {
+  // Cycle users: two server lines per day from the first cycle — the spendable
+  // budget (saw-tooth: up on payday, down through the cycle, below zero when
+  // overspent) and the savings pool (cumulative). Their latest points are the
+  // dashboard's figures; no combined total is shown. Users who never had a
+  // cycle keep the single cumulative cash-flow line. See utils/balanceTimeline.
+  const splitTimeline = moneySeries.length > 0;
+  const timelineData = useMemo<Array<{ date: string; spendable?: number; savings?: number; balance?: number }>>(() => {
+    const dayLabel = (date: string) => {
       const [y, m, d] = date.split("-").map(Number);
-      const label = new Date(y, m - 1, d).toLocaleDateString(i18n.language, {
-        day: "2-digit",
-        month: "short",
-      });
-      return { date: label, balance };
-    });
-  }, [moneySeries, transactions, i18n.language, timelinePeriod]);
+      return new Date(y, m - 1, d).toLocaleDateString(i18n.language, { day: "2-digit", month: "short" });
+    };
+    if (splitTimeline) {
+      return withinPeriod(moneySeries, timelinePeriod).map((p) => ({ ...p, date: dayLabel(p.date) }));
+    }
+    return withinPeriod(cashFlowSeries(transactions), timelinePeriod).map((p) => ({ ...p, date: dayLabel(p.date) }));
+  }, [splitTimeline, moneySeries, transactions, i18n.language, timelinePeriod]);
+  const latestMoney = splitTimeline ? moneySeries[moneySeries.length - 1] : null;
+  const reduceMotion = useMemo(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
 
   const nextPayday = useMemo((): Date | null => {
     if (paydayMode === 'fixed' && fixedPayday > 0) {
@@ -364,11 +375,32 @@ const Statistics: React.FC = () => {
               ))}
             </div>
           </div>
+          {splitTimeline && timelineData.length > 0 && (
+            <ul className="balance-legend">
+              <li><span className="balance-legend-swatch balance-legend-swatch--spendable" aria-hidden="true" />{t("statistics.line_spendable")}</li>
+              <li><span className="balance-legend-swatch balance-legend-swatch--savings" aria-hidden="true" />{t("statistics.line_savings")}</li>
+            </ul>
+          )}
           {timelineData.length > 0 ? (
-            <div style={{ width: "100%", height: 300, minWidth: 0 }}>
+            <div
+              style={{ width: "100%", height: 300, minWidth: 0 }}
+              role="img"
+              aria-label={
+                latestMoney
+                  ? t("statistics.balance_chart_aria", {
+                      spendable: formatAmount(latestMoney.spendable),
+                      savings: formatAmount(latestMoney.savings),
+                    })
+                  : t("statistics.balance_timeline")
+              }
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={timelineData} margin={{ top: 10, right: 14, bottom: 0, left: 0 }}>
                   <defs>
+                    <linearGradient id="colorSpendable" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={SPENDABLE_COLOR} stopOpacity={0.18} />
+                      <stop offset="95%" stopColor={SPENDABLE_COLOR} stopOpacity={0} />
+                    </linearGradient>
                     <linearGradient
                       id="colorBalance"
                       x1="0"
@@ -405,6 +437,29 @@ const Statistics: React.FC = () => {
                   <Tooltip
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
+                      if (splitTimeline) {
+                        const p = payload[0].payload as { spendable: number; savings: number };
+                        return (
+                          <div className="balance-tooltip">
+                            <span className="balance-tooltip-date">{String(label)}</span>
+                            {([
+                              ["spendable", "statistics.line_spendable", p.spendable],
+                              ["savings", "statistics.line_savings", p.savings],
+                            ] as const).map(([key, labelKey, v]) => (
+                              <span key={key} className="balance-tooltip-row">
+                                <span className={`balance-legend-swatch balance-legend-swatch--${key}`} aria-hidden="true" />
+                                <span className="balance-tooltip-label">{t(labelKey)}</span>
+                                <span
+                                  className="balance-tooltip-amount"
+                                  style={{ color: v < 0 ? "#f87171" : undefined }}
+                                >
+                                  {formatAmount(v)}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      }
                       const val =
                         typeof payload[0].value === "number" ? payload[0].value : 0;
                       return (
@@ -420,14 +475,42 @@ const Statistics: React.FC = () => {
                       );
                     }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="balance"
-                    stroke="#10b981"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorBalance)"
-                  />
+                  {splitTimeline ? (
+                    <>
+                      {/* Step lines: money changes at moments, not gradually —
+                          a payday is a vertical jump, not a slope. */}
+                      <Area
+                        type="stepAfter"
+                        dataKey="spendable"
+                        name={t("statistics.line_spendable")}
+                        stroke={SPENDABLE_COLOR}
+                        strokeWidth={2.5}
+                        fillOpacity={1}
+                        fill="url(#colorSpendable)"
+                        isAnimationActive={!reduceMotion}
+                      />
+                      <Area
+                        type="stepAfter"
+                        dataKey="savings"
+                        name={t("statistics.line_savings")}
+                        stroke={SAVINGS_COLOR}
+                        strokeWidth={2.5}
+                        fillOpacity={1}
+                        fill="url(#colorBalance)"
+                        isAnimationActive={!reduceMotion}
+                      />
+                    </>
+                  ) : (
+                    <Area
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorBalance)"
+                      isAnimationActive={!reduceMotion}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>

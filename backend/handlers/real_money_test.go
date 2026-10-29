@@ -265,7 +265,8 @@ func TestTimelineEndsAtMoneyOnHand(t *testing.T) {
 		t.Errorf("chart must start at the first cycle: %s, want %s", pts[0].Date, udate(-30))
 	}
 	last := pts[len(pts)-1]
-	approx(t, "latest point = money on hand", last.Balance, s.MoneyOnHand)
+	approx(t, "budget line ends at the live spendable", last.Spendable, s.SpendableRemaining)
+	approx(t, "savings line ends at the live pool", last.Savings, s.SavedMoneyBalance)
 	approx(t, "money on hand = remainder + pool", s.MoneyOnHand, s.SpendableRemaining+s.SavedMoneyBalance)
 
 	callHandlerTZ(u.ID, map[string]any{"amount": -30.0}, AddSavingsManual, "UTC")
@@ -273,11 +274,16 @@ func TestTimelineEndsAtMoneyOnHand(t *testing.T) {
 	approx(t, "pool −30", s2.SavedMoneyBalance, s.SavedMoneyBalance-30)
 	approx(t, "money on hand −30", s2.MoneyOnHand, s.MoneyOnHand-30)
 	pts = timeline(t, u.ID)
-	approx(t, "chart −30", pts[len(pts)-1].Balance, last.Balance-30)
+	approx(t, "savings line −30", pts[len(pts)-1].Savings, last.Savings-30)
+	approx(t, "budget line untouched by spending from savings", pts[len(pts)-1].Spendable, last.Spendable)
 
-	deposit(u.ID, 5)
+	deposit(u.ID, 1.50)
 	pts = timeline(t, u.ID)
-	approx(t, "budget → savings is net-zero on the chart", pts[len(pts)-1].Balance, last.Balance-30)
+	approx(t, "deposit: budget line −1.50", pts[len(pts)-1].Spendable, last.Spendable-1.50)
+	approx(t, "deposit: savings line +1.50", pts[len(pts)-1].Savings, last.Savings-30+1.50)
+	if pts[0].Spendable != 404 || pts[0].Savings != 100 {
+		t.Errorf("first day: want 404 spendable / 100 saved, got %+v", pts[0])
+	}
 }
 
 // The handover moves the remainder into the new cycle's carry-over, so the
@@ -301,10 +307,13 @@ func TestTimelineContinuousAcrossHandover(t *testing.T) {
 	}
 	justBefore := handover
 	v1, _ := moneyOnHandAt(all, txs, 9, &justBefore)
-	approx(t, "before handover: 394 left + 100 saved", v1, 494)
+	approx(t, "before handover: 394 left", v1.Spendable, 394)
+	approx(t, "before handover: 100 saved", v1.Savings, 100)
 	justAfter := handover.Add(time.Second)
 	v2, _ := moneyOnHandAt(all, txs, 9, &justAfter)
-	approx(t, "after: 404 + 394 carried + 200 saved (only the new salary added)", v2, 494+504)
+	approx(t, "after: 404 + 394 carried (saw-tooth up on payday)", v2.Spendable, 798)
+	approx(t, "after: 200 saved", v2.Savings, 200)
+	approx(t, "only the new salary is added in total", v2.Spendable+v2.Savings, v1.Spendable+v1.Savings+504)
 	if _, ok := moneyOnHandAt(all, txs, 9, &start); ok {
 		t.Error("no point before the first cycle")
 	}
