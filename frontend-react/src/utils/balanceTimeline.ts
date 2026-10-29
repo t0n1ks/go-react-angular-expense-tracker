@@ -31,6 +31,22 @@ export interface SavingsForecast {
   rough: boolean; // no completed cycle yet — first-month estimate
 }
 
+/**
+ * End-of-period budget forecast (the cycle_end block of GET /balance/forecast):
+ * budget left at payday (basis "cycle") or at month end against the monthly
+ * goal (basis "month"). All math is the server's; the client only renders.
+ */
+export interface PeriodEndForecast {
+  basis: 'cycle' | 'month';
+  position: number; // budget left now (the dashboard's figure)
+  spent: number; // variable spending so far this period
+  days_elapsed: number;
+  days_left: number;
+  daily_pace: number; // spent ÷ days elapsed (plan-blended in the first 3 days)
+  projected_end: number; // position − daily_pace × days_left; negative = deficit
+  rough: boolean; // fewer than 3 days of history
+}
+
 /** One day of the no-cycle cash-flow series. */
 export interface TimelinePoint {
   date: string; // YYYY-MM-DD

@@ -6,9 +6,10 @@ import { useSettings } from "../context/SettingsContext";
 import "./ForecastCard.css";
 
 interface Props {
-  predictedBalance: number | null;
-  spendingTier: string;
-  dailyRate: number;
+  predictedBalance: number; // budget left at the period's end; negative = deficit
+  spendingTier: string | null; // AI pace verdict; no badge while it is unknown
+  dailyRate: number; // the real average daily pace the projection uses
+  rough: boolean; // fewer than 3 days of history
   onClick: () => void;
 }
 
@@ -16,15 +17,17 @@ const ForecastCard: React.FC<Props> = ({
   predictedBalance,
   spendingTier,
   dailyRate,
+  rough,
   onClick,
 }) => {
   const { t } = useTranslation();
   const { formatAmount } = useSettings();
 
-  const isPositive = predictedBalance !== null && predictedBalance >= 0;
+  const isPositive = predictedBalance >= 0;
 
-  const tierKey = `ai.forecast_tier.${spendingTier}` as const;
-  const tierLabel = t(tierKey, { defaultValue: spendingTier.replace(/_/g, " ") });
+  const tierLabel = spendingTier
+    ? t(`ai.forecast_tier.${spendingTier}`, { defaultValue: spendingTier.replace(/_/g, " ") })
+    : null;
 
   return (
     <motion.div
@@ -47,24 +50,21 @@ const ForecastCard: React.FC<Props> = ({
       </div>
 
       <div className="forecast-card-body">
-        {predictedBalance === null ? (
-          <span className="forecast-card-unavail">{t("statistics.forecast_unavailable")}</span>
-        ) : (
-          <>
-            <div className={`forecast-balance ${isPositive ? "forecast-balance--pos" : "forecast-balance--neg"}`}>
-              {isPositive ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
-              <span className="forecast-balance-amount">{formatAmount(Math.abs(predictedBalance))}</span>
-              <span className="forecast-balance-sign">{isPositive ? t("statistics.forecast_surplus") : t("statistics.forecast_deficit")}</span>
-            </div>
+        <div className={`forecast-balance ${isPositive ? "forecast-balance--pos" : "forecast-balance--neg"}`}>
+          {isPositive ? <TrendingUp size={22} aria-hidden="true" /> : <TrendingDown size={22} aria-hidden="true" />}
+          <span className="forecast-balance-amount">
+            {isPositive ? "" : "−"}{formatAmount(Math.abs(predictedBalance))}
+          </span>
+          <span className="forecast-balance-sign">{isPositive ? t("statistics.forecast_surplus") : t("statistics.forecast_deficit")}</span>
+        </div>
 
-            <p className="forecast-rate-line">
-              {t("statistics.forecast_rate_line", { rate: formatAmount(dailyRate) })}
-            </p>
-          </>
-        )}
+        <p className="forecast-rate-line">
+          {t("statistics.forecast_rate_line", { rate: formatAmount(dailyRate) })}
+        </p>
+        {rough && <p className="forecast-rough">{t("statistics.forecast_rough")}</p>}
       </div>
 
-      <div className="forecast-tier-badge">{tierLabel}</div>
+      {tierLabel && <div className="forecast-tier-badge">{tierLabel}</div>}
     </motion.div>
   );
 };

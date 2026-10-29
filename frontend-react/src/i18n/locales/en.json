@@ -291,6 +291,7 @@
     "forecast_deficit": "deficit",
     "forecast_unavailable": "AI forecast unavailable",
     "forecast_rate_line": "Spending at {{rate}}/day",
+    "forecast_rough": "Rough estimate — your pace settles after the first 3 days.",
     "forecast_positive": "Projected surplus by end of month",
     "forecast_negative": "Projected deficit by end of month",
     "forecast_modal_title": "End-of-Month Projection",

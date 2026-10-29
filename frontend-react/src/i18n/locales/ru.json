@@ -291,6 +291,7 @@
     "forecast_deficit": "дефицит",
     "forecast_unavailable": "Прогноз ИИ недоступен",
     "forecast_rate_line": "Расход {{rate}}/день",
+    "forecast_rough": "Примерная оценка — темп уточнится после первых 3 дней.",
     "forecast_positive": "Прогнозируется профицит к концу месяца",
     "forecast_negative": "Прогнозируется дефицит к концу месяца",
     "forecast_modal_title": "Прогноз на конец месяца",

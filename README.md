@@ -48,13 +48,14 @@ A filter bar above the history combines three optional filters with AND — use 
 
 Results keep the month grouping, so you still see *which* months a category was spent in; months with no matches drop out, and each remaining header's count and totals reflect the filtered subset. A results count, a distinct "nothing found" empty state, and a one-click reset round it out. Matching months auto-expand while a filter is active, and collapsing one is remembered only for that filter — your normal browsing accordion state is left untouched. Filtering is pure client-side work over the already-loaded list (`GET /transactions` is not paginated), so there are **no extra network round-trips**; the filtered result is memoized and the search haystack is rebuilt only when the list or language changes. The bar is one inline row on desktop and collapses behind a "Filters" disclosure below 900 px, staying usable down to 344 px.
 
-### ML-Powered End-of-Month Forecast
-The Statistics page shows a **live end-of-month balance projection** computed by the Python AI brain using `scikit-learn` LinearRegression on cumulative daily expense data. The forecast card displays:
-- Projected surplus or deficit (green / red with trend icon)
-- Daily spending velocity (`total_expenses_this_month / days_elapsed`)
-- Spending tier badge ("on track", "over budget", etc.)
+### End-of-Month Forecast
+The Statistics page projects where your budget will be when the period ends, using the server's own figures (`GET /api/balance/forecast`, `cycle_end`):
+- **With a salary cycle:** budget left at payday = "can spend" now (`spendable_remaining`, negative if overspent) − your daily pace × days left. Fixed expenses are already deducted at cycle start, so they are never projected again.
+- **Without a cycle:** the same rule against your monthly goal (goal − spent this month − pace × days left in the month). No goal → the card is hidden; Lite mode hides it too.
+- **Daily pace ("Spending at €X/day")** is the plain average: variable spending so far ÷ days elapsed, so one expensive day among cheap ones is smoothed out. In the first 3 days it slides from the planned even pace to the real average and the card says it is a rough estimate.
+- **Honest sign:** a projected deficit is shown as a deficit (red, with a minus) — never clamped to zero or capped.
 
-Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining. When payday is configured the card switches to a "balance at payday" projection. Degrades gracefully to hidden state when the AI service is offline.
+Clicking the card opens a **detail modal** with the same pace, days left and a one-line summary. The AI service receives this projection from Go and uses it as-is, so the tamagotchi's nudges never contradict the card.
 
 ### Transaction Detail Modal (Mini-Receipt)
 Clicking any transaction row or mobile card opens a **receipt-style overlay** showing the full timestamp (date + `HH:mm:ss` from GORM's `created_at`), category, formatted amount, transaction type, and the user's original description. Uses Framer Motion spring animation — slide-up on mobile, fade-scale on desktop.
@@ -189,7 +190,7 @@ middleware/security.go — Security response headers + request body size cap
 | Protected | GET | `/api/salary-cycle/savings-history` | — | savings-pool transactions + running balance |
 | Protected | POST | `/api/salary-cycle/savings` | — | manual savings deposit (from the spendable budget; rejected beyond what is left) / withdrawal |
 | Protected | GET | `/api/budget/current` | — | monthly budget window + safe weekly allowance (no-salary users) |
-| Protected | GET | `/api/balance/forecast` | — | savings forecast from the real-money history: projected cycle result, annual change, money now and in a year; `null` without cycles |
+| Protected | GET | `/api/balance/forecast` | — | `forecast`: savings forecast from the real-money history (projected cycle result, annual change, money now and in a year; `null` without cycles). `cycle_end`: end-of-period budget forecast (position, daily pace, days left, projected end, rough; `null` for Lite or no-cycle users without a goal) |
 | Protected | GET | `/api/balance/timeline` | — | daily money on hand from the first cycle: `spendable` (cycle remainder), `savings` (pool) and `total` (their sum); empty without cycles |
 | Protected | POST | `/api/ai/analyze` | 20 / min per user | full behavior analysis — scores, mood, nudge, ML forecast |
 | Protected | GET | `/api/ai/next-action` | 20 / min per user | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |

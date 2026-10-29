@@ -291,6 +291,7 @@
     "forecast_deficit": "дефіцит",
     "forecast_unavailable": "Прогноз ШІ недоступний",
     "forecast_rate_line": "Витрати {{rate}}/день",
+    "forecast_rough": "Приблизна оцінка — темп уточниться після перших 3 днів.",
     "forecast_positive": "Очікується профіцит наприкінці місяця",
     "forecast_negative": "Очікується дефіцит наприкінці місяця",
     "forecast_modal_title": "Проекція на кінець місяця",

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
@@ -84,11 +85,7 @@ func completedCycleResults(l ledger, k cycleClock) []cycleResult {
 func currentCycleResult(l ledger, c models.SalaryCycle, k cycleClock) cycleResult {
 	start := c.CycleStartAt
 	total := float64(k.cycleLengthDays(c))
-	elapsed := math.Max(0, k.Now.Sub(start).Hours()/24)
-	remainingDays := math.Max(0, total-elapsed)
-	if k.paydayStatus(c) == paydayStatusPassed {
-		remainingDays = 0
-	}
+	elapsed, remainingDays := cycleDays(c, k)
 
 	var own []windowTx
 	w := cycleWindow{Start: start}
@@ -164,8 +161,9 @@ func forecastSavings(uid uint, k cycleClock) *savingsForecast {
 }
 
 // GetSavingsForecast — GET /api/balance/forecast
-// The savings forecast (see forecastSavings); {"forecast": null} for users who
-// never had a cycle.
+// The savings forecast (see forecastSavings; null for users who never had a
+// cycle) and the end-of-period budget forecast (see periodEndForecastFor;
+// null for Lite users and no-cycle users without a monthly goal).
 func GetSavingsForecast(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -173,5 +171,14 @@ func GetSavingsForecast(c *gin.Context) {
 		return
 	}
 	uid := userID.(uint)
-	c.JSON(http.StatusOK, gin.H{"forecast": forecastSavings(uid, requestClock(c, uid))})
+	var user models.User
+	if err := database.DB.First(&user, uid).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	k := requestClock(c, uid)
+	c.JSON(http.StatusOK, gin.H{
+		"forecast":  forecastSavings(uid, k),
+		"cycle_end": periodEndForecastFor(user, k),
+	})
 }

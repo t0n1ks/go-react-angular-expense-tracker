@@ -291,6 +291,7 @@
     "forecast_deficit": "Defizit",
     "forecast_unavailable": "KI-Prognose nicht verfügbar",
     "forecast_rate_line": "Ausgaben bei {{rate}}/Tag",
+    "forecast_rough": "Grobe Schätzung — dein Tempo steht nach den ersten 3 Tagen fest.",
     "forecast_positive": "Voraussichtlicher Überschuss zum Monatsende",
     "forecast_negative": "Voraussichtliches Defizit zum Monatsende",
     "forecast_modal_title": "Monatsendprojektion",

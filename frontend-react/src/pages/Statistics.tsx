@@ -6,7 +6,7 @@ import { PieChart as PieIcon, PiggyBank } from "lucide-react";
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
-import { type MoneyPoint, type SavingsForecast } from "../utils/balanceTimeline";
+import { type MoneyPoint, type PeriodEndForecast, type SavingsForecast } from "../utils/balanceTimeline";
 import BalanceChart from "../components/BalanceChart";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
@@ -23,14 +23,13 @@ interface Transaction {
 }
 
 interface AnalysisResult {
-  predicted_end_of_month_balance: number | null;
   predicted_savings_balance: number | null;
   spending_tier: string;
 }
 
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, cycleWindow, liteMode } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, cycleStats, hasActiveCycle, cycleWindow, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +39,8 @@ const Statistics: React.FC = () => {
   const [moneySeries, setMoneySeries] = useState<MoneyPoint[]>([]);
   // Server savings forecast from the same real-money history (cycle users).
   const [savingsForecast, setSavingsForecast] = useState<SavingsForecast | null>(null);
+  // Server end-of-period budget forecast (same request as the savings forecast).
+  const [periodEnd, setPeriodEnd] = useState<PeriodEndForecast | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -59,10 +60,6 @@ const Statistics: React.FC = () => {
       const { data } = await axiosInstance.post(`/ai/analyze?language=${lang}`);
       if (data && typeof data === "object") {
         setAnalysis({
-          predicted_end_of_month_balance:
-            typeof data.predicted_end_of_month_balance === "number"
-              ? data.predicted_end_of_month_balance
-              : null,
           predicted_savings_balance:
             typeof data.predicted_savings_balance === "number"
               ? data.predicted_savings_balance
@@ -94,8 +91,14 @@ const Statistics: React.FC = () => {
       .catch(() => setMoneySeries([]));
     axiosInstance
       .get("/balance/forecast")
-      .then((res: { data: { forecast?: SavingsForecast | null } }) => setSavingsForecast(res.data.forecast ?? null))
-      .catch(() => setSavingsForecast(null));
+      .then((res: { data: { forecast?: SavingsForecast | null; cycle_end?: PeriodEndForecast | null } }) => {
+        setSavingsForecast(res.data.forecast ?? null);
+        setPeriodEnd(res.data.cycle_end ?? null);
+      })
+      .catch(() => {
+        setSavingsForecast(null);
+        setPeriodEnd(null);
+      });
   }, [axiosInstance, liteMode, cycleStats]);
 
   // Donut is scoped to the EXACT window the server computed the cycle stats
@@ -177,68 +180,10 @@ const Statistics: React.FC = () => {
     return Math.max(0, lastDay - now.getDate());
   }, [nextPayday]);
 
-  // ── Cycle-aware blended burn-rate forecast ───────────────────────────────
-  // When a salary cycle is active we forecast end-of-cycle solvency from the
-  // server-authoritative cycle stats instead of naive `balance − days × rate`
-  // division (which produced alarming, alienating deficits). The burn rate is a
-  // BLEND of the real rolling 7-day spending velocity and the even-pace budget
-  // ceiling, capped so a single heavy week cannot project an unhinged shortfall.
-  const cycleForecast = useMemo(() => {
-    if (!hasActiveCycle || !cycleStats || !currentCycle) return null;
-
-    const variableAllowance = cycleStats.variable_allowance ?? 0;
-    const variableSpent = cycleStats.cycle_variable_expenses ?? 0;
-    const fixedExpenses = cycleStats.cycle_fixed_expenses ?? 0;
-    const totalIncome = cycleStats.cycle_income || currentCycle.total_income || 0;
-    const remainingAllowance = Math.max(0, variableAllowance - variableSpent);
-    const daysLeft = Math.max(0, cycleStats.days_remaining ?? 0);
-
-    // Even-pace ceiling rate: spread whatever allowance remains evenly.
-    const evenPace = daysLeft > 0 ? remainingAllowance / daysLeft : 0;
-
-    // Real rolling 7-day variable spending velocity (fixed expenses excluded —
-    // they're committed and already in the cycle budget).
-    const fixedCatId = Number(currentCycle.fixed_exp_category_id ?? 0);
-    const cutoff = Date.now() - 7 * 86_400_000;
-    const last7Variable = transactions
-      .filter(t =>
-        t.type === 'expense' &&
-        new Date(t.date).getTime() >= cutoff &&
-        !(fixedCatId > 0 && Number(t.category?.id) === fixedCatId))
-      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
-    const rolling7 = last7Variable / 7;
-
-    // Blend: weight recent behaviour but anchor to the budget ceiling.
-    const blendedDaily = rolling7 > 0 ? 0.6 * rolling7 + 0.4 * evenPace : evenPace;
-
-    // Project remaining variable spend, capped at +15% of what's actually left.
-    const projectedRemaining = Math.min(blendedDaily * daysLeft, remainingAllowance * 1.15);
-    const projectedTotalVariable = variableSpent + projectedRemaining;
-    const projectedEndState = remainingAllowance - projectedRemaining;
-
-    // HARD deficit only when unavoidable fixed costs + the real projected
-    // variable trend mathematically exceed total aggregate cycle income.
-    const isHardDeficit = fixedExpenses + projectedTotalVariable > totalIncome + 0.01;
-
-    // Present cleanly: surface a negative only for a true hard deficit; otherwise
-    // show the projected leftover (≥ 0) so a tight-but-solvent cycle reads calmly.
-    const displayBalance = isHardDeficit
-      ? totalIncome - (fixedExpenses + projectedTotalVariable)
-      : Math.max(0, projectedEndState);
-
-    return { displayBalance, blendedDaily, daysLeft };
-  }, [hasActiveCycle, cycleStats, currentCycle, transactions]);
-
-  const periodLabel = cycleForecast || nextPayday !== null ? 'payday' : 'month';
-
-  // Prefer the cycle-aware blended forecast; otherwise fall back to Python's
-  // already-stabilized end-of-month prediction (never the naive client calc).
-  const displayedPredictedBalance = cycleForecast
-    ? cycleForecast.displayBalance
-    : analysis?.predicted_end_of_month_balance ?? null;
-
-  const displayDailyRate = cycleForecast ? cycleForecast.blendedDaily : dailySpendingRate;
-  const displayDaysRemaining = cycleForecast ? cycleForecast.daysLeft : daysRemaining;
+  // End-of-period forecast: entirely the server's (budget left at payday or
+  // month end, at the real average pace); null → the card is hidden.
+  const periodLabel = periodEnd?.basis === 'month' ? 'month' : 'payday';
+  const periodDaysLeft = periodEnd ? Math.ceil(periodEnd.days_left) : 0;
 
   // Savings forecast: cycle income vs projected expenses → monthly & annual rate
   const cycleIncome = useMemo(() => {
@@ -309,11 +254,12 @@ const Statistics: React.FC = () => {
 
       {!liteMode && (
       <div className="forecast-row">
-        {analysis && (
+        {periodEnd && (
           <ForecastCard
-            predictedBalance={displayedPredictedBalance}
-            spendingTier={analysis.spending_tier}
-            dailyRate={displayDailyRate}
+            predictedBalance={periodEnd.projected_end}
+            spendingTier={analysis?.spending_tier ?? null}
+            dailyRate={periodEnd.daily_pace}
+            rough={periodEnd.rough}
             onClick={() => setForecastOpen(true)}
           />
         )}
@@ -368,10 +314,10 @@ const Statistics: React.FC = () => {
       {!liteMode && (
       <ForecastDetailModal
         open={forecastOpen}
-        predictedBalance={displayedPredictedBalance}
+        predictedBalance={periodEnd?.projected_end ?? null}
         spendingTier={analysis?.spending_tier ?? "pacing_good"}
-        dailyRate={displayDailyRate}
-        daysRemaining={displayDaysRemaining}
+        dailyRate={periodEnd?.daily_pace ?? 0}
+        daysRemaining={periodDaysLeft}
         periodLabel={periodLabel}
         onClose={() => setForecastOpen(false)}
       />

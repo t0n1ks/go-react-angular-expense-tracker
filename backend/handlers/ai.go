@@ -386,6 +386,9 @@ type analyzeBehaviorRequest struct {
 	// Present whenever no salary cycle is currently active — the no-cycle
 	// counterpart of SalaryCycle's authoritative weekly window.
 	BudgetWindow *aiBudgetWindowInfo `json:"budget_window,omitempty"`
+	// Go's end-of-period budget projection (the forecast card's number), so
+	// the AI's nudges never contradict it. Absent when there is none.
+	PeriodEndForecast *float64 `json:"period_end_forecast,omitempty"`
 }
 
 // neutralAnalysisResponse is the safe, score-less analysis payload returned when
@@ -570,13 +573,19 @@ func AnalyzeBehavior(c *gin.Context) {
 		})
 	}
 
+	var periodEnd *float64
+	if f := periodEndForecastFor(user, k); f != nil {
+		periodEnd = &f.ProjectedEnd
+	}
+
 	payload := analyzeBehaviorRequest{
-		UserProfile:    profile,
-		Transactions:   aiTxs,
-		AnalysisDate:   time.Now().Format("2006-01-02"),
-		UserCategories: catNames,
-		SalaryCycle:    cyclePayload,
-		BudgetWindow:   budgetPayload,
+		UserProfile:       profile,
+		Transactions:      aiTxs,
+		AnalysisDate:      time.Now().Format("2006-01-02"),
+		UserCategories:    catNames,
+		SalaryCycle:       cyclePayload,
+		BudgetWindow:      budgetPayload,
+		PeriodEndForecast: periodEnd,
 	}
 
 	body, err := json.Marshal(payload)
