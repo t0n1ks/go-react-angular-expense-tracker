@@ -722,3 +722,20 @@
   color: var(--color-text-muted);
   font-size: 0.85rem;
 }
+
+/* Entry time under / next to the date — only when it is a real entry time */
+.tx-time {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-card-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-card-time::before {
+  content: " · ";
+}

@@ -14,6 +14,7 @@ import {
 } from '../utils/groupTransactionsByMonth';
 import { categoryLabel } from '../utils/categoryLabel';
 import { savingsMoveError } from '../utils/savingsMoveError';
+import { compareByTimeThenAmount, entryTime, formatEntryTime, formatTxDate } from '../utils/transactionTime';
 import {
   buildSearchIndex,
   filterTransactions,
@@ -37,11 +38,19 @@ interface Transaction {
   amount: number;
   date: string;
   created_at?: string;
+  /** Server-computed instant the transaction counts at (2.16 cycle time). */
+  effective_at?: string;
   description: string;
   type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
   income_type?: string;
   category: Category;
 }
+
+/** Entry time shown next to the date — only when it is a real one. */
+const TxTime: React.FC<{ tx: Transaction; className: string }> = ({ tx, className }) => {
+  const at = entryTime(tx);
+  return at ? <time className={className} dateTime={at.toISOString()}>{formatEntryTime(at)}</time> : null;
+};
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
@@ -200,14 +209,21 @@ const Transactions: React.FC = () => {
   // label *as displayed* — so searching "Еда" in Russian finds built-in Food
   // rows, and a custom category matches by the name the user typed. Rebuilt
   // only when the list or the language changes, not on every keystroke.
+  // Newest time first; same instant (e.g. a salary and its fixed payments) →
+  // largest amount first. Filtering and month grouping keep this order.
+  const sortedTransactions = useMemo(
+    () => [...transactions].sort(compareByTimeThenAmount),
+    [transactions],
+  );
+
   const searchIndex = useMemo(
-    () => buildSearchIndex(transactions, tx => categoryLabel(tx.category, t, '')),
-    [transactions, t],
+    () => buildSearchIndex(sortedTransactions, tx => categoryLabel(tx.category, t, '')),
+    [sortedTransactions, t],
   );
 
   const filteredTransactions = useMemo(
-    () => filterTransactions(transactions, appliedFilters, searchIndex),
-    [transactions, appliedFilters, searchIndex],
+    () => filterTransactions(sortedTransactions, appliedFilters, searchIndex),
+    [sortedTransactions, appliedFilters, searchIndex],
   );
 
   // Months with no matches disappear by construction: grouping runs over the
@@ -620,7 +636,10 @@ const Transactions: React.FC = () => {
                           </tr>
                         ) : (
                           <tr key={tr.id} className="tx-row-clickable" onClick={() => setSelectedTx(tr)}>
-                            <td>{new Date(tr.date).toLocaleDateString()}</td>
+                            <td>
+                              {formatTxDate(tr.date)}
+                              <TxTime tx={tr} className="tx-time" />
+                            </td>
                             <td><span className="category-tag">{categoryLabel(tr.category, t, t('transactions.no_category'))}</span></td>
                             <td>{tr.description || '—'}</td>
                             <td>
@@ -802,7 +821,10 @@ const Transactions: React.FC = () => {
                                     </span>
                                   </div>
                                   <div className="tx-card-meta">
-                                    <span className="tx-card-date">{new Date(tr.date).toLocaleDateString()}</span>
+                                    <span className="tx-card-date">
+                                      {formatTxDate(tr.date)}
+                                      <TxTime tx={tr} className="tx-card-time" />
+                                    </span>
                                     {tr.description && <span className="tx-card-desc">{tr.description}</span>}
                                   </div>
                                   <div className="tx-card-actions">
