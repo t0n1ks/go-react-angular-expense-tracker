@@ -219,8 +219,9 @@ func collectCandidates(in reactionInput) []candidate {
 		}
 	}
 
-	// 4 — rhythm of the period.
-	if f.Active {
+	// 4 — rhythm of the period (its "left / a day" numbers only make sense
+	// while the budget is not overspent; the overspent message covers that).
+	if f.Active && !f.Overspent {
 		today := in.K.dayStart(in.Now)
 		paydayTomorrow := sig.PaydayStart != nil && today.AddDate(0, 0, 1).Equal(*sig.PaydayStart)
 		if paydayTomorrow && in.Memory.firedAt("payday_tomorrow").Before(sig.PeriodStart) {

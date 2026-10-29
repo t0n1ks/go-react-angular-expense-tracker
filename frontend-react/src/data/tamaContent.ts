@@ -1,7 +1,9 @@
 // Keyed Tamagotchi content registry + resolution helpers.
 //
-// The canonical content (all 4 languages per stable key) lives in the
-// auto-generated `tamaContentData.ts`, kept in sync with the Python AI service.
+// `tamaContentData.ts` is the app's OFFLINE set (all 4 languages per stable
+// key), used when the AI service is unreachable. The full, no-repeat pool
+// lives in the AI service (app/data/pool) and is never shipped to the browser;
+// its items reach the journal with their translations attached.
 // This module adds the lookup/identity logic used by the journal & favorites:
 // discoveries are stored as stable keys (e.g. "joke_045") and resolved to the
 // active UI language at render time, so switching languages re-renders the list.

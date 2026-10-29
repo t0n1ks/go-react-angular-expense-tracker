@@ -527,3 +527,41 @@ func TestCompanionWeekOneHasNoProjection(t *testing.T) {
 		t.Errorf("a big initial shop never hurts in the grace days, got %+v", v)
 	}
 }
+
+func TestRhythmMessagesWaitWhileOverspent(t *testing.T) {
+	in := baseInput()
+	in.Sig.Facts.Overspent, in.Sig.Remaining, in.Sig.DaysLeft = true, -12, 2
+	in.WasOverspent = true
+	for _, c := range collectCandidates(in) {
+		if companionRules[c.Type].Priority == 4 {
+			t.Errorf("%s would show a negative 'left' figure", c.Type)
+		}
+	}
+}
+
+func TestLocalizedSlotsNameBuiltInCategories(t *testing.T) {
+	slots := map[string]any{"category": "Food", "category_key": "category.food", "amount": 80.0}
+	if got := localizedSlots(slots, "de")["category"]; got != "Essen" {
+		t.Errorf("built-in category in German: %v", got)
+	}
+	if slots["category"] != "Food" {
+		t.Error("the message's own slots must stay untouched")
+	}
+	own := map[string]any{"category": "Kino"}
+	if got := localizedSlots(own, "ru")["category"]; got != "Kino" {
+		t.Errorf("a user's own category keeps its name: %v", got)
+	}
+}
+
+func TestWeekOneMessagesCarryTheCalibratingFlag(t *testing.T) {
+	u := newTZUser(t, "companioncalflag")
+	startUTC(t, u.ID, udate(-2), udate(28))
+	companionGet(t, u.ID) // first meeting primes the memory
+	cat := models.Category{}
+	database.DB.Where("user_id = ?", u.ID).First(&cat)
+	callHandlerTZ(u.ID, map[string]any{"category_id": cat.ID, "amount": 50.0, "date": udate(0), "type": "income"}, CreateTransaction, "UTC")
+	v := companionGet(t, u.ID)
+	if v.Message == nil || v.Message.Type != "income" || v.Message.Slots["calibrating"] != true {
+		t.Fatalf("week-one income message must be flagged calibrating, got %+v", v.Message)
+	}
+}

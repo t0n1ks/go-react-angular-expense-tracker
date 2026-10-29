@@ -187,7 +187,7 @@ func GetCategorizedContent(c *gin.Context) {
 
 	category := strings.ToLower(strings.TrimSpace(c.Query("category")))
 	switch category {
-	case "joke", "fact", "advice":
+	case "joke", "fact", "exit", "advice":
 		// valid
 	default:
 		c.JSON(http.StatusOK, gin.H{"type": "NONE", "content": nil})

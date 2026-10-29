@@ -12,7 +12,7 @@
 // Callers always compute their local pick up-front, so a slow or hung service
 // just loses the race — it can never stall the interaction.
 
-export type BrainCategory = 'joke' | 'fact' | 'advice';
+export type BrainCategory = 'joke' | 'fact' | 'exit' | 'advice';
 
 // Each category must resolve to exactly its own response type — strict isolation
 // so e.g. the Cow (joke) can never display advice/fact content, even if the
@@ -20,8 +20,13 @@ export type BrainCategory = 'joke' | 'fact' | 'advice';
 const CATEGORY_TYPE: Record<BrainCategory, string> = {
   joke: 'JOKE',
   fact: 'FACT',
+  exit: 'EXIT',
   advice: 'ADVICE',
 };
+
+// Past the daily cap (2 jokes, 2 facts) the service answers the cow / star
+// with a short QUOTA line instead — shown, but not a find for the journal.
+const QUOTA_CATEGORIES: ReadonlySet<BrainCategory> = new Set(['joke', 'fact']);
 
 interface AxiosLikeGet {
   get: (url: string, config?: { signal?: AbortSignal }) => Promise<{ data: unknown }>;
@@ -39,7 +44,7 @@ export async function fetchBrainContent(
   category: BrainCategory,
   language: string,
   opts: { aiServiceMode?: string; timeoutMs?: number } = {},
-): Promise<{ text: string; translations?: Record<string, string> | null } | null> {
+): Promise<{ text: string; translations?: Record<string, string> | null; quota?: boolean } | null> {
   const { aiServiceMode, timeoutMs = 1200 } = opts;
 
   // Fast path: known-offline → skip the network entirely, use the local pool.
@@ -55,6 +60,7 @@ export async function fetchBrainContent(
     const data = res?.data as BrainContentResponse | undefined;
     const text = data?.content?.trim();
     if (!data || data.type === 'NONE' || !text) return null;
+    if (data.type === 'QUOTA' && QUOTA_CATEGORIES.has(category)) return { text, quota: true };
     // Strict categorization: only accept content of the exact requested type.
     if (data.type !== CATEGORY_TYPE[category]) return null;
     // Pass through all-language translations so the journal/favorites can

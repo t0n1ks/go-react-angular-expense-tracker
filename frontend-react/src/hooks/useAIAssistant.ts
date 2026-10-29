@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
-// Ambient companion lines from the AI service (greetings, encouragements),
+// Ambient companion lines from the AI service (greetings, a tip at most once a
+// day, encouragements),
 // polled every 10 minutes. Financial reactions (pace, overspending, big
 // expenses, payday…) are NOT decided here any more: the server's companion
 // engine owns them (see useCompanion / GET /api/companion/state), so the UFO
@@ -20,7 +21,7 @@ interface Options {
 }
 
 // Ambient types the proactive channel shows; everything else has its own home.
-const AMBIENT_TYPES = new Set(['GREETING', 'ENCOURAGEMENT']);
+const AMBIENT_TYPES = new Set(['GREETING', 'TIP', 'ENCOURAGEMENT']);
 
 export function useAIAssistant({
   aiAdviceEnabled,

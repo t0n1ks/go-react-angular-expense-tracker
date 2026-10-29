@@ -220,6 +220,11 @@ func runReactions(user models.User, k cycleClock, sig financeSignals, st *models
 		st.QuestAskedAt = &now
 	}
 	m := chosen.toMessage(now)
+	if sig.Calibrating {
+		// The forecast is still collecting data: wording may say so (Stage D's
+		// week-one variants). A flag for the words only — numbers are unchanged.
+		m.Slots["calibrating"] = true
+	}
 	return &m
 }
 
@@ -238,9 +243,10 @@ func renderCompanionText(user models.User, m companionMessage, lang string) stri
 	if atomic.LoadInt32(&brainStatus) != 1 {
 		return ""
 	}
+	lang = normalizeLangForBrain(lang)
 	body, _ := json.Marshal(map[string]any{
-		"user_id": user.ID, "type": m.Type, "tone": m.Tone, "slots": m.Slots,
-		"language": normalizeLangForBrain(lang), "currency": user.Currency,
+		"user_id": user.ID, "type": m.Type, "tone": m.Tone, "slots": localizedSlots(m.Slots, lang),
+		"language": lang, "currency": user.Currency,
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), companionRenderTimeout)
 	defer cancel()
@@ -262,6 +268,23 @@ func renderCompanionText(user models.User, m companionMessage, lang string) stri
 		return ""
 	}
 	return strings.TrimSpace(*out.Text)
+}
+
+// localizedSlots names a built-in category in the message's language (the AI
+// service words the message but does not know the app's category names); a
+// user-created category keeps the name as typed.
+func localizedSlots(slots map[string]any, lang string) map[string]any {
+	key, _ := slots["category_key"].(string)
+	if key == "" {
+		return slots
+	}
+	out := make(map[string]any, len(slots))
+	for k, v := range slots {
+		out[k] = v
+	}
+	name, _ := slots["category"].(string)
+	out["category"] = pdfCategoryLabel(lang, key, name, name)
+	return out
 }
 
 // companionUser resolves the authenticated user, writing the error response.

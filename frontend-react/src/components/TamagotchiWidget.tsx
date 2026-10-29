@@ -32,6 +32,7 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
+const EXIT_LINE_WAIT_MS = 600; // pool exit line, else the built-in one
 const MSG_SHOW_DELAY  = 3_000;
 
 // Global entity spawner pacing — one entity (cow OR calendar) at a time, with a
@@ -261,6 +262,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const rainbowTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const msgsSinceHintRef   = useRef(0);
   const pendingJokeRef     = useRef<SavedItem | null>(null);
+  const pendingQuotaRef    = useRef<string | null>(null);
   const starCooldownRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calTickRef         = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   // ── Global entity spawner: one drifting entity (cow OR calendar) at a time ──
@@ -556,12 +558,14 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, [onCatch]);
 
   // ── A short line, then the UFO flies a lap round the moon ────────────────
-  const flyOffWithLine = useCallback(() => {
+  const flyOffWithLine = useCallback(async () => {
     clearTimeout(flyTimerRef.current);
     clearTimeout(fly1Ref.current);
     clearTimeout(fly2Ref.current);
     clearTimeout(autoDismissRef.current);
-    setBubbleText(pickExitLine(t));
+    const pooled = await fetchBrainContent(axiosInstance, 'exit', i18n.language, { aiServiceMode, timeoutMs: EXIT_LINE_WAIT_MS });
+    if (modeRef.current !== 'idle' && modeRef.current !== 'choice') return; // something else took the stage
+    setBubbleText(pooled?.text ?? pickExitLine(t));
     setFromHook(false);
     setMode('ai_bubble');
     flyTimerRef.current = setTimeout(() => {
@@ -578,7 +582,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         }, 5000);
       }, 5000);
     }, 1500);
-  }, [t]);
+  }, [t, axiosInstance, i18n.language, aiServiceMode]);
 
   // ── Dismiss bubble (✕) — never a vote, never a health effect ─────────────
   const dismissBubble = () => {
@@ -586,7 +590,8 @@ const TamagotchiWidget: React.FC<Props> = ({
     clearTimeout(exitTimerRef.current);
     if (fromHook && onMessageAction) {
       onMessageAction('close');
-      flyOffWithLine();
+      setMode('idle');
+      void flyOffWithLine();
       return;
     }
     if (fromHook) onDismiss();
@@ -618,6 +623,14 @@ const TamagotchiWidget: React.FC<Props> = ({
     // AI-first within a short charge window; fall back to the local pool. Computing
     // the local pick only on miss avoids burning a shuffled item when AI wins.
     const ai = await fetchBrainContent(axiosInstance, 'fact', i18n.language, { aiServiceMode, timeoutMs: 1000 });
+    if (ai?.quota) {
+      if (modeRef.current !== 'idle') return;
+      clearTimeout(autoDismissRef.current);
+      setBubbleText(ai.text);
+      setFromHook(false);
+      setMode('ai_bubble');
+      return;
+    }
     const item: SavedItem = ai
       ? buildItem('fact', { text: ai.text, translations: ai.translations })
       : buildItem('fact', { key: getNextKeyFromCycle('fact', user?.id ?? 'anon') });
@@ -660,8 +673,13 @@ const TamagotchiWidget: React.FC<Props> = ({
     // so there is a single bubble render and zero added latency. The spawner is
     // released in onAnimationComplete via endEntity().
     pendingJokeRef.current = buildItem('joke', { key: getNextKeyFromCycle('joke', user?.id ?? 'anon') });
+    pendingQuotaRef.current = null;
     fetchBrainContent(axiosInstance, 'joke', i18n.language, { aiServiceMode })
-      .then(res => { if (res) pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations }); })
+      .then(res => {
+        if (!res) return;
+        if (res.quota) pendingQuotaRef.current = res.text;
+        else pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations });
+      })
       .catch(() => { /* keep local fallback */ });
   }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction]);
 
@@ -676,7 +694,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Choice: No → short line → moon orbit (health-neutral) ────────────────
   const handleChoiceNo = useCallback(() => {
     reportInteraction('journal_no');
-    flyOffWithLine();
+    void flyOffWithLine();
   }, [reportInteraction, flyOffWithLine]);
 
   // ── Choice: Yes → open journal modal ─────────────────────────────────────
@@ -794,7 +812,15 @@ const TamagotchiWidget: React.FC<Props> = ({
                   : { duration: 18, ease: 'linear' }
               }
               onAnimationComplete={() => {
-                if (cowExiting && pendingJokeRef.current) {
+                if (cowExiting && pendingQuotaRef.current) {
+                  // Today's two jokes are done: the cow says so (not a find).
+                  clearTimeout(autoDismissRef.current);
+                  setBubbleText(pendingQuotaRef.current);
+                  setFromHook(false);
+                  setMode('ai_bubble');
+                  pendingQuotaRef.current = null;
+                  pendingJokeRef.current = null;
+                } else if (cowExiting && pendingJokeRef.current) {
                   const jokeItem = pendingJokeRef.current;
                   clearTimeout(autoDismissRef.current);
                   addDiscovery(user?.id ?? 'anon', 'joke', jokeItem);

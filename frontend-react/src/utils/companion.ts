@@ -8,7 +8,7 @@ import type { TFunction } from 'i18next';
 
 export type CompanionMood = 'thriving' | 'content' | 'worried' | 'stressed' | 'exhausted';
 export type CompanionBasis = 'cycle' | 'month' | 'none';
-export type SlotValue = number | string;
+export type SlotValue = number | string | boolean; // booleans are context flags (e.g. calibrating)
 export type Slots = Record<string, SlotValue>;
 
 export interface CompanionReason {
@@ -87,6 +87,7 @@ export function weekdayName(day: number, locale: string): string {
 export function formatSlots(slots: Slots | undefined, t: TFunction, formatAmount: FormatAmount, locale: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(slots ?? {})) {
+    if (typeof value === 'boolean') continue;
     if (typeof value === 'number' && AMOUNT_SLOTS.has(key)) out[key] = signedAmount(value, formatAmount);
     else if (key === 'weekday' && typeof value === 'number') out[key] = weekdayName(value, locale);
     else if (typeof value === 'number') out[key] = value.toLocaleString(locale, { maximumFractionDigits: 1 });
