@@ -35,7 +35,10 @@ export interface CompanionState {
 }
 
 export type CatchKind = 'star' | 'cow';
-export type MessageReaction = 'tapped' | 'dismissed';
+/** An explicit vote on a message type; closing a message is never a vote. */
+export type MessageVote = 'liked' | 'disliked';
+/** What the user can do with a companion message bubble. */
+export type MessageAction = 'like' | 'dislike' | 'close';
 
 /** Every message type the server can send (each has a text in 4 languages). */
 export const COMPANION_MESSAGE_TYPES = [
@@ -118,4 +121,47 @@ export function healthChangeText(health: number, previous: number | null, reason
   return delta < 0
     ? t('companion.health_dropped', { value: health, delta: `−${Math.abs(delta)}`, reason })
     : t('companion.health_now', { value: health, reason });
+}
+
+/**
+ * What an action on a companion message does. 👍 / 👎 send a vote (the type is
+ * shown a bit more / less often); ✕ only closes it — no vote, no effect on
+ * health — and the UFO answers with a short line and flies on.
+ */
+export function messageActionEffect(action: MessageAction): { vote: MessageVote | null; flyOff: boolean } {
+  switch (action) {
+    case 'like':
+      return { vote: 'liked', flyOff: false };
+    case 'dislike':
+      return { vote: 'disliked', flyOff: false };
+    default:
+      return { vote: null, flyOff: true };
+  }
+}
+
+/** Everything the user can do with the UFO and its bubbles. */
+export type CompanionInteraction =
+  | CatchKind
+  | 'journal_yes' // ✓ on "show my finds / moo-jokes?"
+  | 'journal_no' // ✕ on that prompt
+  | 'message_close'
+  | 'message_vote';
+
+/**
+ * Only catching the shining star or the cow counts for the weekly quest (and
+ * so for health). Prompts, jokes, finds and closing any bubble are health-
+ * neutral — dismissing never counts as "not engaging".
+ */
+export function countsForQuest(interaction: CompanionInteraction): interaction is CatchKind {
+  return interaction === 'star' || interaction === 'cow';
+}
+
+/**
+ * The UFO's short line when a bubble is closed with ✕ (or the journal prompt
+ * is declined) before it flies on. Placeholder pool until Stage D's content.
+ */
+export function pickExitLine(t: TFunction, random: () => number = Math.random): string {
+  const pool = t('ai.exit_phrases', { returnObjects: true }) as unknown;
+  if (!Array.isArray(pool) || pool.length === 0) return '';
+  return String(pool[Math.floor(random() * pool.length)]);
 }

@@ -2,9 +2,10 @@ import React, { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CompanionMood } from '../utils/companion';
 
-// The UFO's health: a bar (an ARIA meter) with the percentage and the mood
-// written out — never colour alone. Tapping the label explains why health is
-// where it is, in plain words (the server's reason).
+// The UFO's health: a bar with the percentage written inside it; its colour
+// follows the mood (green → amber → red). The mood word is not shown — it is
+// part of the meter's accessible text ("72% — calm"), so colour is never the
+// only signal. The whole bar is tappable: it explains the current health.
 
 interface Props {
   health: number;
@@ -16,13 +17,13 @@ interface Props {
 const CompanionHealthMeter: React.FC<Props> = ({ health, mood, reason, onExplain }) => {
   const { t } = useTranslation();
   const reasonId = useId();
-  const moodLabel = t(`companion.mood.${mood}`);
   const value = Math.max(0, Math.min(100, Math.round(health)));
+  const moodLabel = t(`companion.mood.${mood}`);
 
   return (
     <div className="tama-health">
       <div
-        className="tama-health-track"
+        className={`tama-health-track tama-health-track--${mood}`}
         role="meter"
         aria-label={t('companion.health_label')}
         aria-valuemin={0}
@@ -31,17 +32,18 @@ const CompanionHealthMeter: React.FC<Props> = ({ health, mood, reason, onExplain
         aria-valuetext={t('companion.health_valuetext', { value, mood: moodLabel })}
         aria-describedby={reasonId}
       >
-        <span className={`tama-health-fill tama-health-fill--${mood}`} style={{ width: `${value}%` }} />
+        <span className="tama-health-fill" style={{ width: `${value}%` }} />
+        <span className="tama-health-value" aria-hidden="true">{value}%</span>
       </div>
+      {/* Covers the bar: tap or Enter explains why. */}
       <button
         type="button"
-        className="tama-health-text"
+        className="tama-health-explain"
         onClick={onExplain}
+        aria-label={t('companion.health_explain', { value, mood: moodLabel })}
         aria-describedby={reasonId}
         title={reason}
-      >
-        {t('companion.health_short', { value, mood: moodLabel })}
-      </button>
+      />
       <span id={reasonId} hidden>{reason}</span>
     </div>
   );

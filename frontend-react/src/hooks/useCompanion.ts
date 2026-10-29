@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CatchKind, CompanionMessage, CompanionState, MessageReaction } from '../utils/companion';
+import { messageActionEffect, type CatchKind, type CompanionMessage, type CompanionState, type MessageAction } from '../utils/companion';
 
 // The companion's state from the server (GET /api/companion/state): read on
 // mount, every 10 minutes, and whenever `refreshKey` changes (e.g. the cycle
@@ -51,23 +51,18 @@ export function useCompanion({ axiosInstance, language, refreshKey }: Options) {
       .catch(() => { /* the catch still counts locally for the joke/fact */ });
   }, [axiosInstance]);
 
-  // One reaction per message: the first tap or the dismissal counts.
+  // 👍 / 👎 send one vote for the message's type; ✕ sends nothing. Every
+  // action closes the message.
   const messageRef = useRef<CompanionMessage | null>(null);
-  const reactedRef = useRef<Set<string>>(new Set());
   useEffect(() => { messageRef.current = message; }, [message]);
 
-  const react = useCallback((reaction: MessageReaction) => {
+  const act = useCallback((action: MessageAction) => {
     const current = messageRef.current;
     if (!current) return;
-    if (!reactedRef.current.has(current.id)) {
-      reactedRef.current.add(current.id);
-      axiosInstance.post('/companion/reaction', { type: current.type, reaction }).catch(() => {});
-    }
-    if (reaction === 'dismissed') setMessage(null);
+    const { vote } = messageActionEffect(action);
+    if (vote) axiosInstance.post('/companion/reaction', { type: current.type, reaction: vote }).catch(() => {});
+    setMessage(null);
   }, [axiosInstance]);
 
-  /** The message finished showing without a reaction (or was replaced). */
-  const clearMessage = useCallback(() => setMessage(null), []);
-
-  return { state, message, catchEntity, react, clearMessage };
+  return { state, message, catchEntity, act };
 }

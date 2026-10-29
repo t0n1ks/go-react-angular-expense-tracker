@@ -768,13 +768,15 @@
   },
   "companion": {
     "health_label": "UFO health",
-    "health_valuetext": "{{value}}%, {{mood}}",
-    "health_short": "{{value}}% · {{mood}}",
+    "health_valuetext": "{{value}}% — {{mood}}",
+    "health_explain": "Health {{value}}% — {{mood}}. Why?",
     "health_now": "Health {{value}}%: {{reason}}",
     "health_dropped": "Health {{value}}% ({{delta}}%): {{reason}}",
     "catch_star": "Catch the shining star",
     "catch_cow": "Catch the space cow",
     "close": "Close",
+    "vote_like": "Helpful — show this kind more often",
+    "vote_dislike": "Not helpful — show this kind less often",
     "mood": {
       "thriving": "thriving",
       "content": "calm",

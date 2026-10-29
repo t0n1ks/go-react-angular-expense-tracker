@@ -231,6 +231,8 @@
   /* The catchable star stays visible and still (gold, enlarged). */
   .tama-star--rainbow { animation: none; background: #ffd700; transform: scale(1.6); }
   .tama-health-fill { transition: none; }
+  .tama-ufo-bob { animation: none; }
+  .tama-vote { transition: none; }
 }
 
 /* ── Moon ───────────────────────────────────────────────────────────────────── */
@@ -517,7 +519,7 @@
 
 /* ── Hearts health bar ───────────────────────────────────────────────────────── */
 
-/* ── Companion health: bar + "72% · calm" (tap explains why) ─────────────── */
+/* ── Companion health: a bar with the % inside, coloured by mood ─────────── */
 .tama-health {
   position: absolute;
   bottom: 4px;
@@ -525,63 +527,108 @@
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 6px;
+  height: 24px; /* the explain button's touch target */
   z-index: 10;
-  max-width: calc(100% - 16px);
 }
 
 .tama-health-track {
-  flex: 0 0 56px;
-  height: 5px;
+  position: relative;
+  width: 64px;
+  height: 15px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   overflow: hidden;
 }
 
 .tama-health-fill {
-  display: block;
-  height: 100%;
+  position: absolute;
+  inset: 0 auto 0 0;
   border-radius: inherit;
-  transition: width 1.2s ease;
+  transition: width 1.2s ease, background-color 1.2s ease;
 }
-.tama-health-fill--thriving  { background: #10b981; }
-.tama-health-fill--content   { background: #a78bfa; }
-.tama-health-fill--worried   { background: #fbbf24; }
-.tama-health-fill--stressed  { background: #fb923c; }
-.tama-health-fill--exhausted { background: #f87171; }
+/* green → amber → red as health falls (the % is always written inside) */
+.tama-health-track--thriving  .tama-health-fill { background: #16a34a; }
+.tama-health-track--content   .tama-health-fill { background: #65a30d; }
+.tama-health-track--worried   .tama-health-fill { background: #d97706; }
+.tama-health-track--stressed  .tama-health-fill { background: #ea580c; }
+.tama-health-track--exhausted .tama-health-fill { background: #dc2626; }
 
-.tama-health-text {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: 2px 4px;
-  min-height: 24px;
-  font: 600 10.5px/1.2 'Courier New', monospace;
-  color: rgba(255, 255, 255, 0.85);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.tama-health-text:focus-visible,
-.tama-star-hitbox:focus-visible,
-.tama-space-cow:focus-visible,
-.tama-bubble-tap:focus-visible {
-  outline: 2px solid #ffd700;
-  outline-offset: 2px;
+.tama-health-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 10px/1 'Courier New', monospace;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 1px 2px rgba(0, 0, 0, 0.9);
+  font-variant-numeric: tabular-nums;
 }
 
-/* A companion message is tappable (counts as "helpful"); it reads as text. */
-.tama-bubble-tap {
+/* Transparent button over the bar: tap / Enter explains the health. */
+.tama-health-explain {
+  position: absolute;
+  inset: 0;
   appearance: none;
   border: none;
   background: transparent;
   padding: 0;
-  margin: 0;
-  width: 100%;
-  text-align: inherit;
   cursor: pointer;
+  border-radius: 999px;
+}
+
+.tama-health-explain:focus-visible,
+.tama-star-hitbox:focus-visible,
+.tama-space-cow:focus-visible,
+.tama-vote:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+}
+
+/* ── 👍 / 👎 on a companion message (✕ stays top-right, neutral) ────────── */
+.tama-bubble-votes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 0.35rem;
+}
+
+.tama-vote {
+  appearance: none;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tama-vote:hover { background: rgba(255, 215, 0, 0.16); }
+
+/* ── Lottie UFO (44 px box; the static saucer shows while it loads) ─────── */
+.tama-ufo-art {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+.tama-ufo-lottie,
+.tama-ufo-lottie > svg {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+.tama-ufo-static {
+  position: absolute;
+  left: 7px;
+  top: 13px;
+  width: 30px;
+  height: 18px;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */

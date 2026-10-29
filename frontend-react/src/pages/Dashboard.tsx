@@ -188,11 +188,8 @@ const Dashboard: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companionHealth, user?.id]);
 
+  // A companion message (with 👍 / 👎 / neutral ✕) takes the bubble first.
   const shownMessage = companionText ?? ambientMessage;
-  const dismissShown = useCallback(() => {
-    if (companionText) companion.react('dismissed');
-    else dismissAmbient();
-  }, [companionText, companion, dismissAmbient]);
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
     setLocalCycleStats(null);
@@ -455,8 +452,8 @@ const Dashboard: React.FC = () => {
 
       <TamagotchiWidget
         message={shownMessage}
-        onDismiss={dismissShown}
-        onMessageTap={companionText ? () => companion.react('tapped') : undefined}
+        onDismiss={dismissAmbient}
+        onMessageAction={companionText ? companion.act : undefined}
         mood={companion.state?.mood}
         animationHint={animationHint}
         aiServiceMode={aiServiceMode}

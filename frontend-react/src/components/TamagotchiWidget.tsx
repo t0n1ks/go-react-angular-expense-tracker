@@ -5,7 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import TamagotchiJournalModal from './TamagotchiJournalModal';
 import CompanionHealthMeter from './CompanionHealthMeter';
-import type { CatchKind, CompanionMood } from '../utils/companion';
+import CompanionUfo from './CompanionUfo';
+import {
+  countsForQuest,
+  pickExitLine,
+  type CatchKind,
+  type CompanionInteraction,
+  type CompanionMood,
+  type MessageAction,
+} from '../utils/companion';
 import { fetchBrainContent } from '../utils/brainContent';
 import { addDiscovery } from '../utils/tamaStorage';
 import {
@@ -35,8 +43,8 @@ const PROACTIVE_CYCLE_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3h
 
 const BUBBLE_TOP_PAD = 24;
 const UFO_GAP        = 8;
-const UFO_HALF_H     = 9;
-const HEARTS_BOTTOM  = 28;
+const UFO_HALF_H     = 22; // the Lottie UFO's box is 44 px
+const HEARTS_BOTTOM  = 30; // room for the health bar under the UFO
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
@@ -116,27 +124,6 @@ function parseDisplayName(raw: string | undefined | null): string {
 
 // ── SVG sprites ───────────────────────────────────────────────────────────────
 
-const MOOD_UFO_COLOR: Record<string, string> = {
-  thriving:  '#10b981',
-  content:   '#a78bfa',
-  worried:   '#fbbf24',
-  stressed:  '#fb923c',
-  exhausted: '#f87171',
-};
-
-const UfoSvg: React.FC<{ mood?: string }> = ({ mood }) => {
-  const bodyColor = (mood && MOOD_UFO_COLOR[mood]) ?? '#d8d8d8';
-  return (
-    <svg width="30" height="18" viewBox="0 0 30 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="15" cy="12" rx="14" ry="4.5" fill={bodyColor} stroke="#ffffff" strokeWidth="0.8"/>
-      <ellipse cx="15" cy="9.5" rx="6.5" ry="5" fill="#ffffff" stroke="#c8c8c8" strokeWidth="0.5"/>
-      <circle cx="6"  cy="13" r="1.6" fill="#ffd700"/>
-      <circle cx="15" cy="15" r="1.6" fill="#ffd700"/>
-      <circle cx="24" cy="13" r="1.6" fill="#ffd700"/>
-    </svg>
-  );
-};
-
 const PixelMoon: React.FC = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="10" cy="10" r="8.5" fill="#ffd700" opacity="0.9"/>
@@ -209,7 +196,9 @@ type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fly_t
 interface Props {
   message: string | null;
   onDismiss: () => void;
-  onMessageTap?: () => void;
+  // Set while the shown message is a companion message: 👍 / 👎 / ✕ go here
+  // (✕ is neutral — no vote). Other bubbles just close via onDismiss.
+  onMessageAction?: (action: MessageAction) => void;
   mood?: CompanionMood;
   animationHint?: string | null;
   aiServiceMode?: 'online' | 'autonomous' | 'initializing';
@@ -228,7 +217,7 @@ interface Props {
 const TamagotchiWidget: React.FC<Props> = ({
   message,
   onDismiss,
-  onMessageTap,
+  onMessageAction,
   mood,
   aiServiceMode,
   health,
@@ -558,11 +547,56 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('idle');
   };
 
-  // ── Dismiss bubble (✕) ───────────────────────────────────────────────────
+  // ── Health-neutral by design ───────────────────────────────────────────────
+  // Only catching the star or the cow is reported (it answers the weekly
+  // quest). Prompts, jokes, finds and closing any bubble never reach the
+  // server, so they can never cost health.
+  const reportInteraction = useCallback((interaction: CompanionInteraction) => {
+    if (countsForQuest(interaction)) onCatch?.(interaction);
+  }, [onCatch]);
+
+  // ── A short line, then the UFO flies a lap round the moon ────────────────
+  const flyOffWithLine = useCallback(() => {
+    clearTimeout(flyTimerRef.current);
+    clearTimeout(fly1Ref.current);
+    clearTimeout(fly2Ref.current);
+    clearTimeout(autoDismissRef.current);
+    setBubbleText(pickExitLine(t));
+    setFromHook(false);
+    setMode('ai_bubble');
+    flyTimerRef.current = setTimeout(() => {
+      setFlyPhase('approach');
+      setMode('fly_to_moon');
+      fly1Ref.current = setTimeout(() => {
+        setFlyPhase('orbit');
+        fly2Ref.current = setTimeout(() => {
+          setFlyPhase('return');
+          flyTimerRef.current = setTimeout(() => {
+            setFlyPhase(null);
+            setMode('idle');
+          }, 5000);
+        }, 5000);
+      }, 5000);
+    }, 1500);
+  }, [t]);
+
+  // ── Dismiss bubble (✕) — never a vote, never a health effect ─────────────
   const dismissBubble = () => {
     clearTimeout(autoDismissRef.current);
     clearTimeout(exitTimerRef.current);
+    if (fromHook && onMessageAction) {
+      onMessageAction('close');
+      flyOffWithLine();
+      return;
+    }
     if (fromHook) onDismiss();
+    setMode('idle');
+  };
+
+  // ── 👍 / 👎 on a companion message ────────────────────────────────────────
+  const voteOnMessage = (action: 'like' | 'dislike') => {
+    clearTimeout(autoDismissRef.current);
+    onMessageAction?.(action);
     setMode('idle');
   };
 
@@ -578,7 +612,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     // Instant click feedback: clear the star + arm the cooldown synchronously.
     setRainbowStarIdx(null);
     navigator.vibrate?.(50);
-    onCatch?.('star');
+    reportInteraction('star');
     starCooldownRef.current = setTimeout(() => { starCooldownRef.current = null; }, 30_000);
 
     // AI-first within a short charge window; fall back to the local pool. Computing
@@ -607,7 +641,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         msgsSinceHintRef.current = 0;
       }
     }, 45_000);
-  }, [rainbowStarIdx, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, onCatch]);
+  }, [rainbowStarIdx, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction]);
 
   // ── Space cow click → JOKE (AI-first, local fallback) ─────────────────────
   const handleCowClick = useCallback(() => {
@@ -618,7 +652,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     setFlyPhase(null);
     setCowExiting(true);
     navigator.vibrate?.(200);
-    onCatch?.('cow');
+    reportInteraction('cow');
 
     // Local pick first — the guaranteed fallback shown when the cow finishes its
     // ~3s exit animation. The brain fetch runs during that window and overwrites
@@ -629,7 +663,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     fetchBrainContent(axiosInstance, 'joke', i18n.language, { aiServiceMode })
       .then(res => { if (res) pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations }); })
       .catch(() => { /* keep local fallback */ });
-  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, onCatch]);
+  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
@@ -639,36 +673,18 @@ const TamagotchiWidget: React.FC<Props> = ({
     setMode('choice');
   }, [t]);
 
-  // ── Choice: No → random exit phrase → moon orbit ─────────────────────────
+  // ── Choice: No → short line → moon orbit (health-neutral) ────────────────
   const handleChoiceNo = useCallback(() => {
-    clearTimeout(flyTimerRef.current);
-    clearTimeout(fly1Ref.current);
-    clearTimeout(fly2Ref.current);
-    const phrases = t('ai.exit_phrases', { returnObjects: true }) as string[];
-    setBubbleText(phrases[Math.floor(Math.random() * phrases.length)]);
-    setFromHook(false);
-    setMode('ai_bubble');
-    flyTimerRef.current = setTimeout(() => {
-      setFlyPhase('approach');
-      setMode('fly_to_moon');
-      fly1Ref.current = setTimeout(() => {
-        setFlyPhase('orbit');
-        fly2Ref.current = setTimeout(() => {
-          setFlyPhase('return');
-          flyTimerRef.current = setTimeout(() => {
-            setFlyPhase(null);
-            setMode('idle');
-          }, 5000);
-        }, 5000);
-      }, 5000);
-    }, 1500);
-  }, [t]);
+    reportInteraction('journal_no');
+    flyOffWithLine();
+  }, [reportInteraction, flyOffWithLine]);
 
   // ── Choice: Yes → open journal modal ─────────────────────────────────────
   const handleChoiceYes = useCallback(() => {
+    reportInteraction('journal_yes');
     setMode('idle');
     setShowJournal(true);
-  }, []);
+  }, [reportInteraction]);
 
   // ── Cleanup all timers on unmount ─────────────────────────────────────────
   useEffect(() => {
@@ -858,7 +874,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           onClick={handleUfoClick}
         >
           <div className="tama-ufo-bob">
-            <UfoSvg mood={mood} />
+            <CompanionUfo />
           </div>
         </motion.div>
 
@@ -929,12 +945,16 @@ const TamagotchiWidget: React.FC<Props> = ({
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
-            {fromHook && onMessageTap ? (
-              <button type="button" className="tama-bubble-text tama-bubble-tap" onClick={onMessageTap}>
-                {bubbleText}
-              </button>
-            ) : (
-              <p className="tama-bubble-text">{bubbleText}</p>
+            <p className="tama-bubble-text">{bubbleText}</p>
+            {fromHook && onMessageAction && (
+              <div className="tama-bubble-votes">
+                <button type="button" className="tama-vote" onClick={() => voteOnMessage('like')} aria-label={t('companion.vote_like')} title={t('companion.vote_like')}>
+                  <span aria-hidden="true">👍</span>
+                </button>
+                <button type="button" className="tama-vote" onClick={() => voteOnMessage('dislike')} aria-label={t('companion.vote_dislike')} title={t('companion.vote_dislike')}>
+                  <span aria-hidden="true">👎</span>
+                </button>
+              </div>
             )}
             <button className="tama-bubble-close" onClick={dismissBubble} aria-label={t('companion.close')}>✕</button>
           </motion.div>

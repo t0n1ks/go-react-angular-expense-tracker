@@ -23,16 +23,17 @@ import (
 //	5 quest          "catch me a star or a cow"
 //
 // Pacing: at most 4 messages a day; rhythm and quest also keep 3 hours apart;
-// every type has its own cooldown, stretched for types the user keeps
-// dismissing (tapped vs dismissed, neutral start). Texts are never chosen
+// every type has its own cooldown, which the user's explicit 👍 / 👎 on that
+// type shortens or stretches (a neutral start; closing a message with ✕ is
+// never a signal). Critical messages are never slowed. Texts are never chosen
 // here: a message is a type + the numbers it needs (Stage D renders it).
 
 const (
-	companionDailyCap  = 4
-	companionQuietGap  = 3 * time.Hour
-	responsivenessMin  = 4 // reactions before the score may stretch a cooldown
-	responsivenessBase = 0.5
-	maxCooldownStretch = 4.0
+	companionDailyCap = 4
+	companionQuietGap = 3 * time.Hour
+	neutralPreference = 0.5
+	minCooldownFactor = 0.5 // liked types: cooldown down to half
+	maxCooldownFactor = 4.0 // disliked types: cooldown up to 4× (at least a day)
 )
 
 // companionMessage is what the client shows: a type and its numbers; Text is
@@ -68,21 +69,32 @@ var companionRules = map[string]messageRule{
 	"quest_ask":        {5, "playful", 0},
 }
 
-// companionMemory is the decoded JSON memory of the state row.
-type companionMemory struct {
-	Fired     map[string]int64  // type → unix seconds last shown
-	Reactions map[string][2]int // type → [tapped, dismissed]
+// votes are the user's explicit reactions to one message type.
+type votes struct {
+	Liked    int `json:"l"`
+	Disliked int `json:"d"`
 }
 
+// companionMemory is the decoded JSON memory of the state row.
+type companionMemory struct {
+	Fired     map[string]int64 // type → unix seconds last shown
+	Reactions map[string]votes // type → 👍 / 👎 counts
+}
+
+// decodeMemory reads the row's JSON memory. Reactions stored in the older
+// [tapped, dismissed] shape (where ✕ counted against a type) do not decode
+// as votes and are dropped, so a stray ✕ from before never weighs on a type.
 func decodeMemory(st models.CompanionState) companionMemory {
-	m := companionMemory{Fired: map[string]int64{}, Reactions: map[string][2]int{}}
+	m := companionMemory{Fired: map[string]int64{}, Reactions: map[string]votes{}}
 	_ = json.Unmarshal([]byte(st.Fired), &m.Fired)
-	_ = json.Unmarshal([]byte(st.Reactions), &m.Reactions)
+	if json.Unmarshal([]byte(st.Reactions), &m.Reactions) != nil {
+		m.Reactions = map[string]votes{}
+	}
 	if m.Fired == nil {
 		m.Fired = map[string]int64{}
 	}
 	if m.Reactions == nil {
-		m.Reactions = map[string][2]int{}
+		m.Reactions = map[string]votes{}
 	}
 	return m
 }
@@ -101,20 +113,17 @@ func (m companionMemory) firedAt(typ string) time.Time {
 	return time.Time{}
 }
 
-// responsiveness is the tapped share with a neutral Beta(1,1) start.
-func (m companionMemory) responsiveness(typ string) float64 {
-	r := m.Reactions[typ]
-	return float64(r[0]+1) / float64(r[0]+r[1]+2)
+// preference is the liked share with a neutral Beta(1,1) start: 0.5 with no
+// votes, rising with 👍 and falling with 👎 — one vote already nudges it.
+func (m companionMemory) preference(typ string) float64 {
+	v := m.Reactions[typ]
+	return float64(v.Liked+1) / float64(v.Liked+v.Disliked+2)
 }
 
-// cooldownStretch: 1× for a neutral or welcome type, up to 4× for one the
-// user keeps dismissing (only once enough reactions exist).
-func (m companionMemory) cooldownStretch(typ string) float64 {
-	r := m.Reactions[typ]
-	if r[0]+r[1] < responsivenessMin {
-		return 1
-	}
-	return math.Max(1, math.Min(maxCooldownStretch, responsivenessBase/m.responsiveness(typ)))
+// cooldownFactor scales a type's cooldown: 1× when neutral, down to ½× for a
+// liked type (shown more often), up to 4× for a disliked one (less often).
+func (m companionMemory) cooldownFactor(typ string) float64 {
+	return math.Max(minCooldownFactor, math.Min(maxCooldownFactor, neutralPreference/m.preference(typ)))
 }
 
 // candidate is a message that is true right now.
@@ -251,7 +260,8 @@ type gateState struct {
 type messageChooser func(cands []candidate, mem companionMemory, gate gateState, now time.Time) *candidate
 
 // chooseByRules: highest priority first, within the daily cap, the quiet gap
-// (rhythm and quest only) and each type's (possibly stretched) cooldown.
+// (rhythm and quest only) and each type's cooldown as the user's votes scale
+// it. Critical (priority 1) messages ignore votes.
 func chooseByRules(cands []candidate, mem companionMemory, gate gateState, now time.Time) *candidate {
 	if gate.DayCount >= companionDailyCap {
 		return nil
@@ -268,8 +278,11 @@ func chooseByRules(cands []candidate, mem companionMemory, gate gateState, now t
 		}
 		cooldown := rule.Cooldown
 		if rule.Priority > 1 {
-			if stretch := mem.cooldownStretch(c.Type); stretch > 1 {
-				cooldown = time.Duration(float64(max(cooldown, 24*time.Hour)) * stretch)
+			switch factor := mem.cooldownFactor(c.Type); {
+			case factor > 1: // disliked: rarer, at least a day apart
+				cooldown = time.Duration(float64(max(cooldown, 24*time.Hour)) * factor)
+			case factor < 1: // liked: sooner
+				cooldown = time.Duration(float64(cooldown) * factor)
 			}
 		}
 		if last := mem.firedAt(c.Type); cooldown > 0 && !last.IsZero() && now.Sub(last) < cooldown {

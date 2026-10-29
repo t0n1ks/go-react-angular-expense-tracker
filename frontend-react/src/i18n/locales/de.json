@@ -718,13 +718,15 @@
   },
   "companion": {
     "health_label": "UFO-Gesundheit",
-    "health_valuetext": "{{value}}%, {{mood}}",
-    "health_short": "{{value}}% · {{mood}}",
+    "health_valuetext": "{{value}}% — {{mood}}",
+    "health_explain": "Gesundheit {{value}}% — {{mood}}. Warum?",
     "health_now": "Gesundheit {{value}}%: {{reason}}",
     "health_dropped": "Gesundheit {{value}}% ({{delta}}%): {{reason}}",
     "catch_star": "Den leuchtenden Stern fangen",
     "catch_cow": "Die Weltraumkuh fangen",
     "close": "Schließen",
+    "vote_like": "Hilfreich — so etwas öfter zeigen",
+    "vote_dislike": "Nicht hilfreich — so etwas seltener zeigen",
     "mood": {
       "thriving": "bestens",
       "content": "entspannt",

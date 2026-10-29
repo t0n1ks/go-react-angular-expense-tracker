@@ -718,13 +718,15 @@
   },
   "companion": {
     "health_label": "Здоровье НЛО",
-    "health_valuetext": "{{value}}%, {{mood}}",
-    "health_short": "{{value}}% · {{mood}}",
+    "health_valuetext": "{{value}}% — {{mood}}",
+    "health_explain": "Здоровье {{value}}% — {{mood}}. Почему?",
     "health_now": "Здоровье {{value}}%: {{reason}}",
     "health_dropped": "Здоровье {{value}}% ({{delta}}%): {{reason}}",
     "catch_star": "Поймать сияющую звезду",
     "catch_cow": "Поймать космическую корову",
     "close": "Закрыть",
+    "vote_like": "Полезно — показывать такое чаще",
+    "vote_dislike": "Не нужно — показывать такое реже",
     "mood": {
       "thriving": "отлично",
       "content": "спокойно",

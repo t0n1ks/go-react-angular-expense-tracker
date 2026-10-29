@@ -24,7 +24,7 @@ import (
 //
 //	GET  /api/companion/state     health, mood, reason, quest, next message
 //	POST /api/companion/catch     a star or a cow was caught
-//	POST /api/companion/reaction  a message was tapped or dismissed
+//	POST /api/companion/reaction  👍 / 👎 on a message type (✕ is never sent)
 //
 // Go owns the companion: health and mood come from companion_health.go over
 // the dashboard's own figures; the AI service only words a chosen message.
@@ -314,7 +314,9 @@ func CatchCompanionEntity(c *gin.Context) {
 }
 
 // ReactToCompanionMessage — POST /api/companion/reaction
-// {"type": "<message type>", "reaction": "tapped"|"dismissed"}
+// {"type": "<message type>", "reaction": "liked"|"disliked"}
+// Only explicit votes exist: closing a message (✕) is not a reaction and is
+// never sent. Votes only tune how often a type is shown — never health.
 func ReactToCompanionMessage(c *gin.Context) {
 	user, ok := companionUser(c)
 	if !ok {
@@ -328,7 +330,7 @@ func ReactToCompanionMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if _, known := companionRules[body.Type]; !known || (body.Reaction != "tapped" && body.Reaction != "dismissed") {
+	if _, known := companionRules[body.Type]; !known || (body.Reaction != "liked" && body.Reaction != "disliked") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unknown message type or reaction"})
 		return
 	}
@@ -338,13 +340,13 @@ func ReactToCompanionMessage(c *gin.Context) {
 		primeReactionMemory(user.ID, companionFinance(user, k), &st)
 	}
 	mem := decodeMemory(st)
-	r := mem.Reactions[body.Type]
-	if body.Reaction == "tapped" {
-		r[0]++
+	v := mem.Reactions[body.Type]
+	if body.Reaction == "liked" {
+		v.Liked++
 	} else {
-		r[1]++
+		v.Disliked++
 	}
-	mem.Reactions[body.Type] = r
+	mem.Reactions[body.Type] = v
 	mem.encode(&st)
 	saveCompanionState(&st)
 	c.Status(http.StatusNoContent)

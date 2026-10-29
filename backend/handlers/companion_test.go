@@ -205,7 +205,7 @@ func baseInput() reactionInput {
 			Basis: periodBasisCycle, Facts: dayFacts(20, 405), Remaining: 45, DaysLeft: 10.5,
 			PeriodStart: k.Now.AddDate(0, 0, -20), WeekStart: k.Now.AddDate(0, 0, -6), WeekIndex: 2,
 		},
-		Memory: companionMemory{Fired: map[string]int64{}, Reactions: map[string][2]int{}},
+		Memory: companionMemory{Fired: map[string]int64{}, Reactions: map[string]votes{}},
 	}
 }
 
@@ -287,29 +287,58 @@ func TestReactionPacing(t *testing.T) {
 	}
 }
 
-func TestDismissedTypesAreShownLess(t *testing.T) {
+func TestVotesTuneFrequency(t *testing.T) {
 	in := baseInput()
 	now := in.Now
 	big := []candidate{{Type: "big_expense", Slots: map[string]any{}}}
-	in.Memory.Fired["big_expense"] = now.Add(-30 * time.Hour).Unix()
 
+	// 👍 shortens the 12h cooldown: shown 8h later only when liked.
+	in.Memory.Fired["big_expense"] = now.Add(-8 * time.Hour).Unix()
+	if chooseByRules(big, in.Memory, gateState{}, now) != nil {
+		t.Fatal("neutral: still inside the 12h cooldown")
+	}
+	in.Memory.Reactions["big_expense"] = votes{Liked: 3}
+	if f := in.Memory.cooldownFactor("big_expense"); f >= 1 || f < minCooldownFactor {
+		t.Errorf("liked factor = %v, want in [0.5, 1)", f)
+	}
+	if chooseByRules(big, in.Memory, gateState{}, now) == nil {
+		t.Error("a liked type is shown sooner")
+	}
+
+	// 👎 stretches it: one vote already nudges, many reach 4 × a day.
+	in.Memory.Fired["big_expense"] = now.Add(-30 * time.Hour).Unix()
+	in.Memory.Reactions["big_expense"] = votes{}
 	if chooseByRules(big, in.Memory, gateState{}, now) == nil {
 		t.Fatal("neutral: the 12h cooldown has passed")
 	}
-	in.Memory.Reactions["big_expense"] = [2]int{0, 2}
-	if chooseByRules(big, in.Memory, gateState{}, now) == nil {
-		t.Error("too few reactions to judge: unchanged")
+	in.Memory.Reactions["big_expense"] = votes{Disliked: 1}
+	if f := in.Memory.cooldownFactor("big_expense"); f <= 1 {
+		t.Errorf("one 👎 must already nudge, factor %v", f)
 	}
-	in.Memory.Reactions["big_expense"] = [2]int{0, 6}
-	if s := in.Memory.cooldownStretch("big_expense"); s != maxCooldownStretch {
-		t.Errorf("stretch = %v, want %v", s, maxCooldownStretch)
+	in.Memory.Reactions["big_expense"] = votes{Disliked: 6}
+	if f := in.Memory.cooldownFactor("big_expense"); f != maxCooldownFactor {
+		t.Errorf("factor = %v, want %v", f, maxCooldownFactor)
 	}
 	if chooseByRules(big, in.Memory, gateState{}, now) != nil {
-		t.Error("a type the user keeps dismissing waits longer (4 × 24h)")
+		t.Error("a disliked type waits longer (4 × 24h)")
 	}
-	in.Memory.Reactions["big_expense"] = [2]int{6, 0}
-	if s := in.Memory.cooldownStretch("big_expense"); s != 1 {
-		t.Errorf("a welcome type is never slowed, stretch %v", s)
+}
+
+func TestCriticalMessagesIgnoreVotes(t *testing.T) {
+	in := baseInput()
+	in.Memory.Reactions["overspent"] = votes{Disliked: 50}
+	in.Memory.Fired["overspent"] = in.Now.Add(-time.Minute).Unix()
+	got := chooseByRules([]candidate{{Type: "overspent", Slots: map[string]any{}}}, in.Memory, gateState{}, in.Now)
+	if got == nil || got.Type != "overspent" {
+		t.Error("over budget still fires, whatever the votes")
+	}
+}
+
+func TestOldDismissCountsAreDropped(t *testing.T) {
+	// Stage C stored [tapped, dismissed]; ✕ presses must not become dislikes.
+	m := decodeMemory(models.CompanionState{Reactions: `{"income":[0,5]}`})
+	if len(m.Reactions) != 0 || m.cooldownFactor("income") != 1 {
+		t.Errorf("legacy dismissals must be ignored, got %+v", m.Reactions)
 	}
 }
 
@@ -373,6 +402,15 @@ func TestHeavyWeekdayNeedsFourWeeks(t *testing.T) {
 }
 
 // ── Handler flows ────────────────────────────────────────────────────────────
+
+// companionHealthNow reads health without running the reaction engine.
+func companionHealthNow(t *testing.T, uid uint) int {
+	t.Helper()
+	var user models.User
+	database.DB.First(&user, uid)
+	InvalidateCycleCache(uid)
+	return companionCheck(user, userClock(uid), "", false).Health
+}
 
 func companionGet(t *testing.T, uid uint) companionView {
 	t.Helper()
@@ -441,19 +479,35 @@ func TestCompanionCycleFlow(t *testing.T) {
 		t.Error("an event is reacted to once")
 	}
 
-	// Reactions and catches.
-	if w := callHandlerTZ(u.ID, map[string]any{"type": "income", "reaction": "dismissed"}, ReactToCompanionMessage, "UTC"); w.Code != http.StatusNoContent {
-		t.Errorf("reaction: %d", w.Code)
+	// Votes: only 👍 / 👎 exist; ✕ ("dismissed") is not a reaction at all.
+	before := companionHealthNow(t, u.ID)
+	for _, r := range []string{"liked", "disliked", "disliked"} {
+		if w := callHandlerTZ(u.ID, map[string]any{"type": "income", "reaction": r}, ReactToCompanionMessage, "UTC"); w.Code != http.StatusNoContent {
+			t.Errorf("vote %s: %d", r, w.Code)
+		}
 	}
-	if w := callHandlerTZ(u.ID, map[string]any{"type": "nope", "reaction": "tapped"}, ReactToCompanionMessage, "UTC"); w.Code != http.StatusBadRequest {
+	for _, r := range []string{"dismissed", "tapped"} {
+		if w := callHandlerTZ(u.ID, map[string]any{"type": "income", "reaction": r}, ReactToCompanionMessage, "UTC"); w.Code != http.StatusBadRequest {
+			t.Errorf("%q is not a vote, got %d", r, w.Code)
+		}
+	}
+	if w := callHandlerTZ(u.ID, map[string]any{"type": "nope", "reaction": "liked"}, ReactToCompanionMessage, "UTC"); w.Code != http.StatusBadRequest {
 		t.Errorf("unknown type must be rejected, got %d", w.Code)
+	}
+	if after := companionHealthNow(t, u.ID); after != before {
+		t.Errorf("votes never touch health: %v → %v", before, after)
+	}
+	// Joke/find prompts never reach the server; the only catchable kinds are
+	// the quest's star and cow.
+	if w := callHandlerTZ(u.ID, map[string]any{"kind": "joke"}, CatchCompanionEntity, "UTC"); w.Code != http.StatusBadRequest {
+		t.Errorf("only a star or cow counts for the quest, got %d", w.Code)
 	}
 	if w := callHandlerTZ(u.ID, map[string]any{"kind": "star"}, CatchCompanionEntity, "UTC"); w.Code != http.StatusOK {
 		t.Errorf("catch: %d", w.Code)
 	}
 	var st models.CompanionState
 	database.DB.First(&st, "user_id = ?", u.ID)
-	if st.LastCatchAt == nil || decodeMemory(st).Reactions["income"] != [2]int{0, 1} {
+	if st.LastCatchAt == nil || decodeMemory(st).Reactions["income"] != (votes{Liked: 1, Disliked: 2}) {
 		t.Errorf("catch and reaction stored, got %+v", st)
 	}
 }

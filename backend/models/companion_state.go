@@ -22,7 +22,7 @@ type CompanionState struct {
 	Overspent bool       `json:"-"`                  // budget was overspent at the last check
 	LastTxID  uint       `json:"-"`                  // newest transaction already considered
 	Fired     string     `gorm:"type:text" json:"-"` // JSON {type: unix seconds last shown}
-	Reactions string     `gorm:"type:text" json:"-"` // JSON {type: [tapped, dismissed]}
+	Reactions string     `gorm:"type:text" json:"-"` // JSON {type: {l: 👍, d: 👎}}
 	DayKey    string     `gorm:"size:10" json:"-"`   // local day of DayCount
 	DayCount  int        `json:"-"`                  // proactive messages shown on DayKey
 	LastMsgAt *time.Time `json:"-"`

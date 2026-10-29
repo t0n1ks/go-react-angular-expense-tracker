@@ -16,6 +16,7 @@
     "framer-motion": "^12.38.0",
     "i18next": "^26.0.8",
     "i18next-browser-languagedetector": "^8.2.1",
+    "lottie-web": "5.13.0",
     "lucide-react": "^0.548.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -41,5 +42,8 @@
     "typescript-eslint": "^8.35.1",
     "vite": "^7.0.4",
     "vitest": "^2.1.9"
+  },
+  "overrides": {
+    "rollup": "4.45.1"
   }
 }
