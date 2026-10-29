@@ -631,6 +631,7 @@
     "next_payday": "Nächster Zahltag",
     "fixed_expenses": "Feste Ausgaben",
     "fixed_expenses_hint": "Von Bedürfnis-/Wunschlimits abgezogen. Ersparnisse unberührt.",
+    "fixed_prefilled_hint": "Aus deinem letzten Zyklus übernommen — bearbeite oder entferne, was du nicht brauchst. Gespeichert wird erst beim Start.",
     "add_fixed": "+ Ausgabe hinzufügen",
     "remove": "Entfernen",
     "category_need": "Bedürfnis",

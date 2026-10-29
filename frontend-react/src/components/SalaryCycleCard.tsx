@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Banknote, ChevronDown, ChevronUp, Plus, Trash2, AlertTriangle, CheckCircle, Rocket, Info, X, Ban, RotateCcw } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useSettings, type SalaryCycle } from '../context/SettingsContext';
 import CyclePaydayEditor from './CyclePaydayEditor';
 import { splitIncome } from '../utils/savingsFigure';
 import { toLocalDateStr } from '../utils/localDate';
+import { fixedExpenseDraft } from '../utils/fixedExpenseDraft';
 import './SalaryCycleCard.css';
 
 // Clickable info icon — opens a dismissible modal with the full explanation.
@@ -111,6 +112,12 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const [customWants, setCustomWants] = useState('30');
   const [customSavings, setCustomSavings] = useState('20');
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseRow[]>([]);
+  // Prefill: the previous cycle's stored fixed-expense list, as an editable
+  // draft (form state only — nothing is recorded until start). Never
+  // overwrites rows the user already touched; re-drafted after each start.
+  const [prefilled, setPrefilled] = useState(false);
+  const [draftVersion, setDraftVersion] = useState(0);
+  const fixedTouched = useRef(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -144,15 +151,31 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const ratioSum = needsPct + wantsPct + savingsPct;
   const ratioValid = Math.abs(ratioSum - 100) < 0.1;
 
+  useEffect(() => {
+    let cancelled = false;
+    axiosInstance.get('/salary-cycle/history')
+      .then((res: { data: { cycles?: Parameters<typeof fixedExpenseDraft>[0] } }) => {
+        if (cancelled || fixedTouched.current) return;
+        const draft = fixedExpenseDraft(res.data.cycles);
+        setFixedExpenses(draft.map(d => ({ id: uid(), ...d })));
+        setPrefilled(draft.length > 0);
+      })
+      .catch(() => {}); // no history → the form simply starts empty
+    return () => { cancelled = true; };
+  }, [axiosInstance, draftVersion]);
+
   const addFixedExpense = useCallback(() => {
+    fixedTouched.current = true;
     setFixedExpenses(prev => [...prev, { id: uid(), amount: '', description: '', category_type: 'need' }]);
   }, []);
 
   const removeFixedExpense = useCallback((id: string) => {
+    fixedTouched.current = true;
     setFixedExpenses(prev => prev.filter(fe => fe.id !== id));
   }, []);
 
   const updateFixedExpense = useCallback((id: string, field: keyof FixedExpenseRow, value: string) => {
+    fixedTouched.current = true;
     setFixedExpenses(prev => prev.map(fe => fe.id === id ? { ...fe, [field]: value } : fe));
   }, []);
 
@@ -205,6 +228,9 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
       setReceivedAtTime('00:00');
       setNextPayday('');
       setFixedExpenses([]);
+      setPrefilled(false);
+      fixedTouched.current = false;
+      setDraftVersion(v => v + 1); // next cycle's draft = the list just saved
       setRatioProfile('50/30/20');
     } catch (err: unknown) {
       // Map the server's structured code to a specific, localized hint instead
@@ -444,6 +470,9 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
                   <InfoTip text={t('salary_cycle.fixed_tooltip')} onOpen={setTipContent} />
                 </label>
                 <span className="sc-section-hint">{t('salary_cycle.fixed_expenses_hint')}</span>
+                {prefilled && fixedExpenses.length > 0 && (
+                  <span className="sc-section-hint sc-prefill-hint">{t('salary_cycle.fixed_prefilled_hint')}</span>
+                )}
               </div>
               {fixedExpenses.map(fe => (
                 <div key={fe.id} className="sc-fixed-row">
@@ -484,7 +513,7 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
                     type="button"
                     className="sc-remove-btn"
                     onClick={() => removeFixedExpense(fe.id)}
-                    aria-label={t('salary_cycle.remove')}
+                    aria-label={fe.description.trim() ? `${t('salary_cycle.remove')}: ${fe.description.trim()}` : t('salary_cycle.remove')}
                   >
                     <Trash2 size={15} />
                   </button>

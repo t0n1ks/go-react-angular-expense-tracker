@@ -681,6 +681,7 @@
     "next_payday": "Next Payday Date",
     "fixed_expenses": "Fixed / Committed Expenses",
     "fixed_expenses_hint": "Deducted from Needs/Wants ceilings. Savings pool is never touched.",
+    "fixed_prefilled_hint": "Prefilled from your last cycle — edit or remove any you don't need. Nothing is saved until you start.",
     "add_fixed": "+ Add Expense",
     "remove": "Remove",
     "category_need": "Need",

@@ -529,6 +529,13 @@
   opacity: 0.7;
 }
 
+/* Prefilled-draft note: its own line, readable in both themes */
+.sc-prefill-hint {
+  flex-basis: 100%;
+  opacity: 1;
+  color: var(--color-text-secondary, var(--color-text-muted));
+}
+
 /* ── Ratio tabs ──────────────────────────────────────────────────────────── */
 .sc-ratio-tabs {
   display: flex;
