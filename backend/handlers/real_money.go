@@ -398,12 +398,14 @@ func poolCategoryOf(all []models.SalaryCycle) uint {
 	return 0
 }
 
-// timelinePoint is the money on hand at the end of one local day, by
-// component (deliberately no combined total).
+// timelinePoint is the money on hand at the end of one local day: its two
+// components and their sum. Total is the real-money figure (cycle remainder +
+// savings pool) — never an all-time income − expenses sum.
 type timelinePoint struct {
 	Date      string  `json:"date"`      // YYYY-MM-DD, user's local day
 	Spendable float64 `json:"spendable"` // = cycle_stats.spendable_remaining today
 	Savings   float64 `json:"savings"`   // = cycle_stats.saved_money_balance today
+	Total     float64 `json:"total"`     // = Spendable + Savings (= cycle_stats.money_on_hand today)
 }
 
 // balanceTimeline replays the ledger from the first cycle's day to today:
@@ -425,15 +427,18 @@ func balanceTimeline(uid uint, k cycleClock) []timelinePoint {
 			at = &end
 		}
 		if v, ok := moneyOnHandAt(all, txs, poolCat, at); ok {
-			points = append(points, timelinePoint{Date: day.Format("2006-01-02"), Spendable: v.Spendable, Savings: v.Savings})
+			points = append(points, timelinePoint{
+				Date: day.Format("2006-01-02"), Spendable: v.Spendable, Savings: v.Savings,
+				Total: round2(v.Spendable + v.Savings),
+			})
 		}
 	}
 	return points
 }
 
 // GetBalanceTimeline — GET /api/balance/timeline
-// The "real money on hand" series for the balance chart: spendable budget and
-// savings pool per day. Empty when the user never had a salary cycle (the
+// The "real money on hand" series for the balance chart: spendable budget,
+// savings pool and their total per day. Empty when the user never had a salary cycle (the
 // client keeps its cash-flow chart then).
 func GetBalanceTimeline(c *gin.Context) {
 	userID, exists := c.Get("userID")

@@ -2,9 +2,9 @@
 //
 // Users with a salary cycle get the server's REAL-MONEY series
 // (GET /api/balance/timeline: per day, from the first cycle, the cycle's
-// spendable remainder and the savings-pool balance — plotted as two separate
-// lines whose latest points are today's dashboard figures). The client never
-// re-derives it. Users who never had a cycle keep the plain cash-flow series
+// spendable remainder, the savings-pool balance and their total — shown one
+// view at a time, see balanceView.ts; each line's latest point is today's
+// dashboard figure). The client never re-derives it. Users who never had a cycle keep the plain cash-flow series
 // built here (unchanged behaviour).
 
 import { toLocalDateStr } from './localDate';
@@ -14,6 +14,7 @@ export interface MoneyPoint {
   date: string; // YYYY-MM-DD
   spendable: number; // = cycle_stats.spendable_remaining on the latest day
   savings: number; // = cycle_stats.saved_money_balance on the latest day
+  total: number; // = spendable + savings (server-computed) = cycle_stats.money_on_hand
 }
 
 /**

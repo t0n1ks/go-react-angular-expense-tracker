@@ -146,47 +146,38 @@
     font-weight: 700;
 }
 
-/* Two-line chart (savings vs. spendable): legend + tooltip rows */
-.balance-tooltip-row {
+/* Balance chart: today's figure for the active view, bank-app style */
+.balance-now {
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin: 0 0 0.75rem;
 }
 
-.balance-tooltip-label {
-    flex: 1;
-    font-size: 0.78rem;
-    color: var(--color-text-secondary, #94a3b8);
-}
-
-.balance-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 1rem;
-    margin: 0 0 0.6rem;
-    padding: 0;
-    list-style: none;
-    font-size: 0.8rem;
+.balance-now-label {
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--color-text-secondary, #94a3b8);
 }
 
-.balance-legend li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
+.balance-now-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
 }
 
-.balance-legend-swatch {
-    display: inline-block;
-    flex: 0 0 auto;
-    width: 12px;
-    height: 3px;
-    border-radius: 2px;
+.balance-chart-plot {
+    width: 100%;
+    height: 280px;
+    min-width: 0;
 }
 
-.balance-legend-swatch--spendable { background: #38bdf8; }
-.balance-legend-swatch--savings { background: #10b981; }
+.balance-tooltip-label {
+    font-size: 0.72rem;
+    color: var(--color-text-secondary, #94a3b8);
+}
 
 .forecast-section {
     margin-top: 2rem;

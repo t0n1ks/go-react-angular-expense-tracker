@@ -59,8 +59,8 @@ describe('savingsMoveError', () => {
 describe('withinPeriod on the two-line series', () => {
   it('keeps both components of each day together', () => {
     const pts = [
-      { date: '2026-07-01', spendable: 404, savings: 100 },
-      { date: '2026-10-29', spendable: 11.84, savings: 0 },
+      { date: '2026-07-01', spendable: 404, savings: 100, total: 504 },
+      { date: '2026-10-29', spendable: 11.84, savings: 0, total: 11.84 },
     ];
     expect(withinPeriod(pts, 30, new Date(2026, 9, 29, 12))).toEqual([pts[1]]);
   });

@@ -2,21 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "../context/ThemeContext";
-import { PieChart as PieIcon, TrendingUp, PiggyBank } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart as PieIcon, PiggyBank } from "lucide-react";
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
-import { cashFlowSeries, withinPeriod, type MoneyPoint, type SavingsForecast } from "../utils/balanceTimeline";
+import { type MoneyPoint, type SavingsForecast } from "../utils/balanceTimeline";
+import BalanceChart from "../components/BalanceChart";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -38,29 +29,14 @@ interface AnalysisResult {
   spending_tier: string;
 }
 
-// Two-line balance chart colours: savings matches the dashboard savings card,
-// the spendable budget matches the budget bar.
-const SAVINGS_COLOR = "#10b981";
-const SPENDABLE_COLOR = "#38bdf8";
-
-// Balance-timeline period filter options. `days: 0` means all-time.
-const TIMELINE_PERIODS = [
-  { days: 30, labelKey: "statistics.period_30" },
-  { days: 90, labelKey: "statistics.period_90" },
-  { days: 180, labelKey: "statistics.period_180" },
-  { days: 0, labelKey: "statistics.period_all" },
-] as const;
-
 const Statistics: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, currencySymbol, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, cycleWindow, liteMode } = useSettings();
+  const { formatAmount, paydayMode, fixedPayday, manualNextPayday, monthlySpendingGoal, expectedSalary, currentCycle, cycleStats, hasActiveCycle, cycleWindow, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
-  const { isDark } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
-  const [timelinePeriod, setTimelinePeriod] = useState<number>(90); // days; 0 = all time
   // Server real-money series (cycle users); empty → no-cycle cash-flow chart.
   const [moneySeries, setMoneySeries] = useState<MoneyPoint[]>([]);
   // Server savings forecast from the same real-money history (cycle users).
@@ -158,29 +134,6 @@ const Statistics: React.FC = () => {
       .sort((a, b) => b.value - a.value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, hasActiveCycle, cycleWindow, i18n.language]);
-
-  // ── Balance Dynamics ──────────────────────────────────────────────────────
-  // Cycle users: two server lines per day from the first cycle — the spendable
-  // budget (saw-tooth: up on payday, down through the cycle, below zero when
-  // overspent) and the savings pool (cumulative). Their latest points are the
-  // dashboard's figures; no combined total is shown. Users who never had a
-  // cycle keep the single cumulative cash-flow line. See utils/balanceTimeline.
-  const splitTimeline = moneySeries.length > 0;
-  const timelineData = useMemo<Array<{ date: string; spendable?: number; savings?: number; balance?: number }>>(() => {
-    const dayLabel = (date: string) => {
-      const [y, m, d] = date.split("-").map(Number);
-      return new Date(y, m - 1, d).toLocaleDateString(i18n.language, { day: "2-digit", month: "short" });
-    };
-    if (splitTimeline) {
-      return withinPeriod(moneySeries, timelinePeriod).map((p) => ({ ...p, date: dayLabel(p.date) }));
-    }
-    return withinPeriod(cashFlowSeries(transactions), timelinePeriod).map((p) => ({ ...p, date: dayLabel(p.date) }));
-  }, [splitTimeline, moneySeries, transactions, i18n.language, timelinePeriod]);
-  const latestMoney = splitTimeline ? moneySeries[moneySeries.length - 1] : null;
-  const reduceMotion = useMemo(
-    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-    [],
-  );
 
   const nextPayday = useMemo((): Date | null => {
     if (paydayMode === 'fixed' && fixedPayday > 0) {
@@ -337,18 +290,6 @@ const Statistics: React.FC = () => {
     v === null ? undefined : v >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)';
   const showSavingsForecast = hasActiveCycle || effectiveCycleIncome > 0 || monthlySpendingGoal > 0;
 
-  // Compact, signed currency labels for the balance chart's y-axis (e.g. €1.2k)
-  // so they stay short and readable even on narrow phones.
-  const compactBalance = (v: number): string => {
-    const abs = Math.abs(v);
-    const sign = v < 0 ? "-" : "";
-    if (abs >= 1000) return `${sign}${currencySymbol}${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`;
-    return `${sign}${currencySymbol}${Math.round(abs)}`;
-  };
-  // Restrained grid/axis colours from the theme.
-  const gridColor = isDark ? "#1e2a3a" : "#eef2f7";
-  const axisColor = isDark ? "#2a3852" : "#e2e8f0";
-
   if (loading)
     return <div className="statistics-wrapper">{t("statistics.loading")}</div>;
 
@@ -368,176 +309,7 @@ const Statistics: React.FC = () => {
           )}
         </div>
 
-        {!liteMode && (
-        <div className="stat-chart-card">
-          <div className="stat-chart-head">
-            <h2>
-              <TrendingUp size={22} color="#10b981" /> {t("statistics.balance_timeline")}
-            </h2>
-            <div
-              className="stat-period-filter"
-              role="group"
-              aria-label={t("statistics.balance_timeline")}
-            >
-              {TIMELINE_PERIODS.map((p) => (
-                <button
-                  key={p.days}
-                  type="button"
-                  className={`stat-period-btn${timelinePeriod === p.days ? " stat-period-btn--active" : ""}`}
-                  onClick={() => setTimelinePeriod(p.days)}
-                >
-                  {t(p.labelKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-          {splitTimeline && timelineData.length > 0 && (
-            <ul className="balance-legend">
-              <li><span className="balance-legend-swatch balance-legend-swatch--spendable" aria-hidden="true" />{t("statistics.line_spendable")}</li>
-              <li><span className="balance-legend-swatch balance-legend-swatch--savings" aria-hidden="true" />{t("statistics.line_savings")}</li>
-            </ul>
-          )}
-          {timelineData.length > 0 ? (
-            <div
-              style={{ width: "100%", height: 300, minWidth: 0 }}
-              role="img"
-              aria-label={
-                latestMoney
-                  ? t("statistics.balance_chart_aria", {
-                      spendable: formatAmount(latestMoney.spendable),
-                      savings: formatAmount(latestMoney.savings),
-                    })
-                  : t("statistics.balance_timeline")
-              }
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timelineData} margin={{ top: 10, right: 14, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="colorSpendable" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={SPENDABLE_COLOR} stopOpacity={0.18} />
-                      <stop offset="95%" stopColor={SPENDABLE_COLOR} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="colorBalance"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke={gridColor}
-                  />
-                  <YAxis
-                    width={52}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
-                    tickFormatter={compactBalance}
-                    tickCount={5}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    axisLine={{ stroke: axisColor }}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
-                    dy={10}
-                    padding={{ left: 12, right: 12 }}
-                    minTickGap={44}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload?.length) return null;
-                      if (splitTimeline) {
-                        const p = payload[0].payload as { spendable: number; savings: number };
-                        return (
-                          <div className="balance-tooltip">
-                            <span className="balance-tooltip-date">{String(label)}</span>
-                            {([
-                              ["spendable", "statistics.line_spendable", p.spendable],
-                              ["savings", "statistics.line_savings", p.savings],
-                            ] as const).map(([key, labelKey, v]) => (
-                              <span key={key} className="balance-tooltip-row">
-                                <span className={`balance-legend-swatch balance-legend-swatch--${key}`} aria-hidden="true" />
-                                <span className="balance-tooltip-label">{t(labelKey)}</span>
-                                <span
-                                  className="balance-tooltip-amount"
-                                  style={{ color: v < 0 ? "#f87171" : undefined }}
-                                >
-                                  {formatAmount(v)}
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      }
-                      const val =
-                        typeof payload[0].value === "number" ? payload[0].value : 0;
-                      return (
-                        <div className="balance-tooltip">
-                          <span className="balance-tooltip-date">{String(label)}</span>
-                          <span
-                            className="balance-tooltip-amount"
-                            style={{ color: val >= 0 ? "#10b981" : "#f87171" }}
-                          >
-                            {formatAmount(val)}
-                          </span>
-                        </div>
-                      );
-                    }}
-                  />
-                  {splitTimeline ? (
-                    <>
-                      {/* Step lines: money changes at moments, not gradually —
-                          a payday is a vertical jump, not a slope. */}
-                      <Area
-                        type="stepAfter"
-                        dataKey="spendable"
-                        name={t("statistics.line_spendable")}
-                        stroke={SPENDABLE_COLOR}
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill="url(#colorSpendable)"
-                        isAnimationActive={!reduceMotion}
-                      />
-                      <Area
-                        type="stepAfter"
-                        dataKey="savings"
-                        name={t("statistics.line_savings")}
-                        stroke={SAVINGS_COLOR}
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill="url(#colorBalance)"
-                        isAnimationActive={!reduceMotion}
-                      />
-                    </>
-                  ) : (
-                    <Area
-                      type="monotone"
-                      dataKey="balance"
-                      stroke="#10b981"
-                      strokeWidth={3}
-                      fillOpacity={1}
-                      fill="url(#colorBalance)"
-                      isAnimationActive={!reduceMotion}
-                    />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="no-data-msg">
-              <p>{t("statistics.no_data")}</p>
-              <span>{t("statistics.no_data_sub")}</span>
-            </div>
-          )}
-        </div>
-        )}
+        {!liteMode && <BalanceChart moneySeries={moneySeries} transactions={transactions} />}
       </div>
 
       {!liteMode && (

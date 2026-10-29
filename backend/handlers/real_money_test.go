@@ -267,6 +267,30 @@ func TestTimelineEndsAtMoneyOnHand(t *testing.T) {
 	last := pts[len(pts)-1]
 	approx(t, "budget line ends at the live spendable", last.Spendable, s.SpendableRemaining)
 	approx(t, "savings line ends at the live pool", last.Savings, s.SavedMoneyBalance)
+	if d := last.Total - s.MoneyOnHand; d > 0.0101 || d < -0.0101 {
+		t.Errorf("total line ends at %.2f, money on hand is %.2f", last.Total, s.MoneyOnHand)
+	}
+	// "Общий" is the real-money sum of the two views at EVERY point — never an
+	// all-time income − expenses sum (the pre-cycle 600 income must not count).
+	for _, p := range pts {
+		if p.Total != round2(p.Spendable+p.Savings) {
+			t.Errorf("%s: total %.2f ≠ budget %.2f + savings %.2f", p.Date, p.Total, p.Spendable, p.Savings)
+		}
+	}
+	var naive float64
+	var all []models.Transaction
+	database.DB.Where("user_id = ?", u.ID).Find(&all)
+	for _, tx := range all {
+		switch tx.Type {
+		case "income":
+			naive += tx.Amount
+		case "expense":
+			naive -= tx.Amount
+		}
+	}
+	if d := last.Total - naive; d < 1 && d > -1 {
+		t.Errorf("total %.2f must not be the all-time income − expenses sum %.2f", last.Total, naive)
+	}
 	approx(t, "money on hand = remainder + pool", s.MoneyOnHand, s.SpendableRemaining+s.SavedMoneyBalance)
 
 	callHandlerTZ(u.ID, map[string]any{"amount": -30.0}, AddSavingsManual, "UTC")
