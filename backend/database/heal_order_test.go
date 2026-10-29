@@ -66,19 +66,14 @@ func TestHealThenBackfillRepairsInOnePass(t *testing.T) {
 		SavedMoneyCategoryID: intruderSaved.ID, // WRONG owner
 	}
 	db.Create(&cycle)
-	// Give it an income tx so deleteZeroTransactionCycles doesn't remove it.
 	db.Create(&models.Transaction{
 		UserID: victim.ID, CategoryID: victimFixed.ID, Amount: 2000,
 		Description: "Salary", Date: start, Type: "income",
 		CreatedAt: start, UpdatedAt: start,
 	})
 
-	// Run the startup maintenance sequence in the SAME order Connect() uses.
-	healCrossUserCategoryRefs()
-	backfillFixedExpCategory()
-	backfillSavedMoneyCategory()
-	deduplicateSalaryCycles()
-	deleteZeroTransactionCycles()
+	// Run the real startup maintenance sequence Connect() uses.
+	runStartupMaintenance()
 
 	var got models.SalaryCycle
 	if err := db.First(&got, cycle.ID).Error; err != nil {
