@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown, PiggyBank, Wallet } from "lucide-react";
+import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { categoryLabel } from "../utils/categoryLabel";
 import { isInWindow, txEventTime } from "../utils/categoryWindow";
-import { savingsMoveError, type MoveDirection } from "../utils/savingsMoveError";
+import { savingsMoveError } from "../utils/savingsMoveError";
+import ReturnToBudget from "./ReturnToBudget";
 import "./TransactionDetailModal.css";
 
 interface Category {
@@ -41,14 +42,7 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
 
-  // Amount to move back from savings — defaults to the whole deposit, editable
-  // (exact, cents kept).
-  const [returnAmount, setReturnAmount] = useState("");
-
-  useEffect(() => {
-    setMoveError("");
-    setReturnAmount(tx ? String(tx.amount) : "");
-  }, [tx]);
+  useEffect(() => { setMoveError(""); }, [tx]);
 
   // An expense of the current cycle can be re-filed as money moved to savings
   // (the server re-checks; this only decides whether to offer it).
@@ -61,31 +55,28 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
       source: "cycle",
     });
 
-  // A savings deposit can be moved back into the current cycle's budget — the
-  // reverse of the above, repeatable both ways (the server guards the pool).
-  const canReturnToBudget = !!tx && tx.type === "savings_deposit" && hasActiveCycle;
-  const returnValue = parseFloat(returnAmount);
-  const returnValid = Number.isFinite(returnValue) && returnValue > 0;
+  // Any savings deposit can be moved back into the budget — the reverse of
+  // the above (see ReturnToBudget; it explains itself when there is no cycle).
+  const isDeposit = !!tx && tx.type === "savings_deposit";
+  const afterMove = () => {
+    onMoved?.();
+    onClose();
+  };
 
-  // Both directions share one flow: POST, refresh every figure, close.
-  const move = async (path: string, body: object | undefined, fallbackKey: string, direction: MoveDirection) => {
+  const moveToSavings = async () => {
     if (!tx) return;
     setMoving(true);
     setMoveError("");
     try {
-      await axiosInstance.post(`/transactions/${tx.id}/${path}`, body);
+      await axiosInstance.post(`/transactions/${tx.id}/savings`);
       await refreshCycle();
-      onMoved?.();
-      onClose();
+      afterMove();
     } catch (err) {
-      setMoveError(savingsMoveError(err, t, formatAmount, direction) ?? t(fallbackKey));
+      setMoveError(savingsMoveError(err, t, formatAmount) ?? t("transactions.move_to_savings_error"));
     } finally {
       setMoving(false);
     }
   };
-  const moveToSavings = () => move("savings", undefined, "transactions.move_to_savings_error", "toSavings");
-  const returnToBudget = () =>
-    move("budget", { amount: returnValue }, "transactions.return_to_budget_error", "toBudget");
 
   useEffect(() => {
     if (!tx) return;
@@ -205,35 +196,14 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
               </div>
             )}
 
-            {canReturnToBudget && (
+            {isDeposit && (
               <div className="txd-move">
-                <label className="txd-move-label" htmlFor="txd-return-amount">
-                  {t("transactions.return_to_budget_amount")}
-                </label>
-                <input
-                  id="txd-return-amount"
-                  className="txd-move-input"
-                  type="number"
-                  inputMode="decimal"
-                  min="0.01"
-                  step="0.01"
-                  value={returnAmount}
-                  onChange={(e) => setReturnAmount(e.target.value)}
+                <ReturnToBudget
+                  depositId={tx.id}
+                  depositAmount={tx.amount}
+                  inputId={`txd-return-${tx.id}`}
+                  onDone={afterMove}
                 />
-                <button
-                  type="button"
-                  className="txd-move-btn txd-move-btn--budget"
-                  onClick={returnToBudget}
-                  disabled={moving || !returnValid}
-                  aria-label={t("transactions.return_to_budget_aria", {
-                    amount: formatAmount(returnValid ? returnValue : 0),
-                  })}
-                >
-                  <Wallet size={16} aria-hidden="true" />
-                  {t("transactions.return_to_budget_btn")}
-                </button>
-                <p className="txd-move-hint">{t("transactions.return_to_budget_hint")}</p>
-                {moveError && <p className="txd-move-error" role="alert">{moveError}</p>}
               </div>
             )}
           </motion.div>

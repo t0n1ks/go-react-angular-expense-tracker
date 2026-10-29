@@ -220,6 +220,8 @@
 .edit-field--date { flex: 0 1 160px; }
 .edit-field--desc { flex: 3 1 220px; }
 .edit-field--amount { flex: 0 1 140px; min-width: 110px; }
+/* "Вернуть в бюджет" on a savings deposit: its own full-width line */
+.edit-field--return { flex: 1 1 100%; }
 
 .edit-field-label {
     font-size: 0.7rem;

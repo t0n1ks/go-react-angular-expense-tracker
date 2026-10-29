@@ -441,3 +441,31 @@ func TestReturnToBudgetGuards(t *testing.T) {
 		t.Errorf("no current cycle: want 404, got %d", w.Code)
 	}
 }
+
+// Every deposit kind can go back to the budget: here the carry-over move
+// (and then the allocation), each exact and net-zero.
+func TestReturnFromCarryOverAndAllocationDeposits(t *testing.T) {
+	u := newTZUser(t, "returnkinds")
+	startUTC(t, u.ID, udate(-30), udate(0))
+	spendEarlier(t, u.ID, 10.20, time.Minute) // remainder 393.80 → carried
+	startUTC(t, u.ID, udate(0), udate(30))
+	if w := callHandlerTZ(u.ID, nil, MoveCarryOverToSavings, "UTC"); w.Code != http.StatusCreated {
+		t.Fatalf("move carry: %d", w.Code)
+	}
+	var carryMove models.Transaction
+	database.DB.Where("user_id = ? AND source = ?", u.ID, carryOverToSavingsSource).First(&carryMove)
+	var alloc models.Transaction
+	database.DB.Where("user_id = ? AND description = ?", u.ID, savingsAllocationDescription).Order("id DESC").First(&alloc)
+	before := moneyNow(t, u.ID)
+
+	if w := returnToBudget(u.ID, carryMove.ID, amt(11)); w.Code != http.StatusCreated {
+		t.Fatalf("return from carry move: %d %s", w.Code, w.Body.String())
+	}
+	if w := returnToBudget(u.ID, alloc.ID, nil); w.Code != http.StatusCreated {
+		t.Fatalf("return from allocation: %d %s", w.Code, w.Body.String())
+	}
+	after := moneyNow(t, u.ID)
+	approx(t, "spendable +11 +100", after.SpendableRemaining, before.SpendableRemaining+111)
+	approx(t, "savings −111", after.SavedMoneyBalance, before.SavedMoneyBalance-111)
+	approx(t, "money on hand unchanged", after.MoneyOnHand, before.MoneyOnHand)
+}

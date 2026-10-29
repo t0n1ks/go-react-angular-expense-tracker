@@ -1,0 +1,78 @@
+/* "Вернуть в бюджет" — savings → spendable budget (blue, as the budget line
+   and bar). Used in the edit form (desktop row, mobile card) and the detail
+   view; stacks on narrow screens, sits in one row from ~420px up. */
+.rtb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border-card);
+}
+
+.rtb-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+.rtb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rtb-input {
+  flex: 1 1 120px;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border-card);
+  background: var(--color-bg-input, rgba(148, 163, 184, 0.08));
+  color: var(--color-text-heading);
+  font-size: 1rem;
+}
+.rtb-input:focus-visible { outline: 2px solid #38bdf8; outline-offset: 1px; }
+.rtb-input:disabled { opacity: 0.55; }
+
+.rtb-btn {
+  flex: 1 1 180px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--color-text-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rtb-btn:hover:not(:disabled) { background: rgba(56, 189, 248, 0.22); }
+.rtb-btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.rtb-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.rtb-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.rtb-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rtb-btn { transition: none; }
+}

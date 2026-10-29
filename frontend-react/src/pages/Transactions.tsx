@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
+import ReturnToBudget from '../components/ReturnToBudget';
 import TransactionFilterBar from '../components/TransactionFilterBar';
 import {
   groupTransactionsByMonth,
@@ -346,6 +347,14 @@ const Transactions: React.FC = () => {
 
   const handleCancelEdit = () => setEditingId(null);
 
+  // After "Вернуть в бюджет" from a deposit's edit form: the deposit itself is
+  // unchanged (a new "Returned to budget" entry was added), so close the form
+  // and refresh the list; the component already refreshed the cycle figures.
+  const afterDepositReturned = () => {
+    setEditingId(null);
+    fetchData();
+  };
+
   const handleExportPDF = useCallback(async () => {
     if (isPDFLoading) return;
     setIsPDFLoading(true);
@@ -631,6 +640,17 @@ const Transactions: React.FC = () => {
                                     <X size={18}/>
                                   </button>
                                 </div>
+
+                                {tr.type === 'savings_deposit' && (
+                                  <div className="edit-field edit-field--return">
+                                    <ReturnToBudget
+                                      depositId={tr.id}
+                                      depositAmount={tr.amount}
+                                      inputId={`edit-return-${tr.id}`}
+                                      onDone={afterDepositReturned}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -811,6 +831,14 @@ const Transactions: React.FC = () => {
                                       <X size={16}/>{t('transactions.cancel_btn')}
                                     </button>
                                   </div>
+                                  {tr.type === 'savings_deposit' && (
+                                    <ReturnToBudget
+                                      depositId={tr.id}
+                                      depositAmount={tr.amount}
+                                      inputId={`card-return-${tr.id}`}
+                                      onDone={afterDepositReturned}
+                                    />
+                                  )}
                                 </div>
                               ) : (
                                 <>
