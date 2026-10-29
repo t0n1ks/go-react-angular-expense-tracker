@@ -135,8 +135,8 @@ func GetNextAction(c *gin.Context) {
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 	log.Printf("[ai] next-action uid=%v frontend_lang=%q → python_lang=%q", userID, c.Query("language"), lang)
 
-	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
-		getBrainBaseURL(), userID.(uint), lang)
+	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s&local_date=%s",
+		getBrainBaseURL(), userID.(uint), lang, requestClock(c, userID.(uint)).localDate())
 	if health := companionContext(userID.(uint)); health != "" {
 		url += "&context=" + health
 	}
@@ -195,8 +195,8 @@ func GetCategorizedContent(c *gin.Context) {
 	}
 
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
-	url := fmt.Sprintf("%s/v1/tamagotchi/content?user_id=%d&category=%s&language=%s",
-		getBrainBaseURL(), uid, category, lang)
+	url := fmt.Sprintf("%s/v1/tamagotchi/content?user_id=%d&category=%s&language=%s&local_date=%s",
+		getBrainBaseURL(), uid, category, lang, requestClock(c, uid).localDate())
 	if health := companionContext(uid); health != "" {
 		url += "&context=" + health
 	}
@@ -320,6 +320,9 @@ type analyzeBehaviorRequest struct {
 	// Go's end-of-period budget projection (the forecast card's number), so
 	// the AI's nudges never contradict it. Absent when there is none.
 	PeriodEndForecast *float64 `json:"period_end_forecast,omitempty"`
+	// The user's local calendar day (YYYY-MM-DD): the companion's daily
+	// counters roll over at the user's midnight, not the server's.
+	LocalDate string `json:"local_date"`
 }
 
 // neutralAnalysisResponse is the safe, score-less analysis payload returned when
@@ -517,6 +520,7 @@ func AnalyzeBehavior(c *gin.Context) {
 		SalaryCycle:       cyclePayload,
 		BudgetWindow:      budgetPayload,
 		PeriodEndForecast: periodEnd,
+		LocalDate:         k.localDate(),
 	}
 
 	body, err := json.Marshal(payload)

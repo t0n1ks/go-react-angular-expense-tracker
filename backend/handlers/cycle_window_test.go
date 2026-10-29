@@ -451,3 +451,24 @@ func jsonID(id uint) string {
 	b, _ := json.Marshal(id)
 	return string(b)
 }
+
+// The companion's daily caps (AI service) roll over at the user's local
+// midnight: localDate is the user's calendar day, not UTC's or the server's.
+func TestLocalDateIsTheUsersCalendarDay(t *testing.T) {
+	berlin := time.FixedZone("UTC+1", 3600)
+	newYork := time.FixedZone("UTC-5", -5*3600)
+	late := time.Date(2026, 11, 1, 22, 30, 0, 0, time.UTC)         // 23:30 in Berlin
+	afterMidnight := time.Date(2026, 11, 1, 23, 5, 0, 0, time.UTC) // 00:05 in Berlin
+	if got := newCycleClock(late, berlin).localDate(); got != "2026-11-01" {
+		t.Fatalf("23:30 local = %s, want 2026-11-01", got)
+	}
+	if got := newCycleClock(afterMidnight, berlin).localDate(); got != "2026-11-02" {
+		t.Fatalf("00:05 local = %s, want 2026-11-02", got)
+	}
+	if got := newCycleClock(time.Date(2026, 11, 2, 1, 0, 0, 0, time.UTC), newYork).localDate(); got != "2026-11-01" {
+		t.Fatalf("20:00 New York = %s, want 2026-11-01", got)
+	}
+	if got := newCycleClock(late, nil).localDate(); got != "2026-11-01" {
+		t.Fatalf("unknown zone must fall back to UTC, got %s", got)
+	}
+}

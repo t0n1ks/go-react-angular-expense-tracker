@@ -61,6 +61,10 @@ func (k cycleClock) storedDate(t time.Time) time.Time {
 // today is the user's local calendar day in the date-only storage format.
 func (k cycleClock) today() time.Time { return k.storedDate(k.Now) }
 
+// localDate is the user's local calendar day as YYYY-MM-DD — the day the AI
+// service keys the companion's daily caps on, so they reset at local midnight.
+func (k cycleClock) localDate() string { return k.today().Format("2006-01-02") }
+
 // paydayStart is local midnight opening the planned payday; nil when open-ended.
 func (k cycleClock) paydayStart(c models.SalaryCycle) *time.Time {
 	if c.NextPaydayAt == nil {
