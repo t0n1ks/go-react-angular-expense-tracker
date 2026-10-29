@@ -138,6 +138,11 @@ const Dashboard: React.FC = () => {
   const variableAllowance = hasCycle ? (cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget) : (legacyIncome - legacyExpense);
   const dynamicSavings    = hasCycle ? (cycleStats!.dynamic_savings ?? 0) : 0;
   const savedMoneyBalance = hasCycle ? (cycleStats!.saved_money_balance ?? 0) : 0;
+  // Carry-over from the previous cycle — already part of variableAllowance;
+  // shown so a higher-than-base budget is never a mystery.
+  const carryOver        = hasCycle ? (cycleStats!.carry_over ?? 0) : 0;
+  const carryMoved       = hasCycle ? (cycleStats!.carry_over_to_savings ?? 0) : 0;
+  const carryMovable     = hasCycle ? (cycleStats!.carry_over_movable ?? 0) : 0;
 
   // ── Budget Health: (Variable Allowance - Variable Spent) / Variable Allowance ──
   const budgetMax       = variableAllowance;
@@ -189,6 +194,21 @@ const Dashboard: React.FC = () => {
     runAnalyze(); // real-time AI prediction refresh
   }, [fetchData, refreshCycle, runAnalyze]);
 
+  // Move the carried-over budget into savings (server applies the whole-unit
+  // rule: whole euros move, cents stay spendable).
+  const [movingCarry, setMovingCarry] = useState(false);
+  const moveCarryOverToSavings = useCallback(async () => {
+    setMovingCarry(true);
+    try {
+      const res = await axiosInstance.post('/salary-cycle/carry-over/savings');
+      handleIncomeAdded(res.data.cycle_stats);
+    } catch {
+      refreshCycle(); // e.g. nothing left to move — resync the figures
+    } finally {
+      setMovingCarry(false);
+    }
+  }, [axiosInstance, handleIncomeAdded, refreshCycle]);
+
   // Lite dashboard is content-short. Tag <body> so the shared layout can fit the
   // actual content instead of reserving full-viewport height (which produced a
   // scrollable empty band below the UFO). Removed when Lite turns off / on leave.
@@ -219,6 +239,26 @@ const Dashboard: React.FC = () => {
           <div className="stat-content">
             <p className="label">{t('dashboard.variable_allowance')}</p>
             <p className="value">{formatAmount(variableAllowance)}</p>
+            {carryOver > 0 && (
+              <p className="income-breakdown">
+                {t('dashboard.carry_over_included', { amount: formatAmount(carryOver) })}
+                {carryMoved > 0 && (
+                  <span> · {t('dashboard.carry_over_moved', { amount: formatAmount(carryMoved) })}</span>
+                )}
+              </p>
+            )}
+            {carryMovable >= 1 && (
+              <button
+                type="button"
+                className="carry-over-move-btn"
+                onClick={moveCarryOverToSavings}
+                disabled={movingCarry}
+                aria-label={t('dashboard.carry_over_move_aria', { amount: formatAmount(carryMovable) })}
+              >
+                <PiggyBank size={13} aria-hidden="true" />
+                {t('dashboard.carry_over_move_btn', { amount: formatAmount(carryMovable) })}
+              </button>
+            )}
             <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
           </div>
         </div>

@@ -109,6 +109,12 @@ func handoverAt(c models.SalaryCycle, all []models.SalaryCycle) *time.Time {
 		t := *c.EndedAt
 		return &t
 	}
+	return successorStart(c, all)
+}
+
+// successorStart is the start of the next cycle after c, or nil if c is the
+// latest one.
+func successorStart(c models.SalaryCycle, all []models.SalaryCycle) *time.Time {
 	var next *time.Time
 	for i := range all {
 		o := all[i]
@@ -166,6 +172,33 @@ func (k cycleClock) withinPlannedDates(c models.SalaryCycle) bool {
 	}
 	pe := k.paydayEnd(c)
 	return pe == nil || k.Now.Before(*pe)
+}
+
+// settlementEnd is the end of the period whose leftover budget is settled when
+// the next cycle starts at `next`: that start, or earlier if the cycle already
+// ended (its successor was deleted from history) or was stopped — after a stop
+// the user lives on the no-cycle monthly budget, so later spending is not this
+// cycle's.
+func settlementEnd(c models.SalaryCycle, next time.Time) time.Time {
+	end := next
+	for _, t := range []*time.Time{c.EndedAt, c.StoppedAt} {
+		if t != nil && t.Before(end) {
+			end = *t
+		}
+	}
+	return end
+}
+
+// mayReopen reports whether a cycle whose successor was deleted from history
+// may take over again: now still lies within its own planned dates and no
+// other cycle is current (`all` still has c ended). Otherwise it stays ended
+// and the user falls back to the normal no-cycle state — nothing is
+// force-activated, and a stopped cycle stays stopped (it only becomes
+// resumable again).
+func (k cycleClock) mayReopen(c models.SalaryCycle, all []models.SalaryCycle) bool {
+	reopened := c
+	reopened.EndedAt = nil
+	return k.withinPlannedDates(reopened) && k.currentCycle(all) == nil
 }
 
 // ── Overlap ──────────────────────────────────────────────────────────────────

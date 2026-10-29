@@ -103,10 +103,21 @@ type CycleStats struct {
 	CycleFixedExpenses    float64 `json:"cycle_fixed_expenses"`
 	CycleVariableExpenses float64 `json:"cycle_variable_expenses"`
 
-	// Dynamic Variable Allowance = income − (income×savings_pct%) − fixed_expenses
-	// This is the starting budget for discretionary (variable) spending.
+	// Dynamic Variable Allowance = income − savings allocation − fixed_expenses
+	// (incl. the cents the whole-unit savings rounding sheds) + carry-over
+	// from the previous cycle − carry-over moved to savings. This is the budget
+	// for discretionary (variable) spending.
 	VariableAllowance float64 `json:"variable_allowance"`
-	// DynamicSavings = income × savings_pct% — the portion earmarked for the pool.
+
+	// Carry-over: unspent budget brought in from the previous cycle (part of
+	// VariableAllowance), how much of it the user moved to savings, and how
+	// much can still be moved now (whole units, never more than is unspent).
+	CarryOver          float64 `json:"carry_over"`
+	CarryOverToSavings float64 `json:"carry_over_to_savings"`
+	CarryOverMovable   float64 `json:"carry_over_movable"`
+
+	// DynamicSavings = income × savings_pct%, rounded DOWN to whole units — the
+	// planned allocation earmarked for the pool.
 	DynamicSavings float64 `json:"dynamic_savings"`
 	// SavedMoneyBalance = cumulative all-time net balance of the savings pool.
 	SavedMoneyBalance float64 `json:"saved_money_balance"`
@@ -145,8 +156,11 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.SalaryCycle, k cycleClock) CycleStats {
 	txs := loadWindowTransactions(uid, k.window(cycle, all), k)
 
-	var income, expenses, fixedExp, variableExp float64
+	var income, expenses, fixedExp, variableExp, carryMoved float64
 	for _, tx := range txs {
+		if tx.Source == carryOverToSavingsSource {
+			carryMoved += tx.Amount
+		}
 		if isSavingsPoolTx(tx.Transaction, cycle.SavedMoneyCategoryID) {
 			continue
 		}
@@ -168,8 +182,13 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 	// Whole units only; the rounded-off cents stay in the variable allowance below.
 	dynamicSavings := plannedSavingsAllocation(income, cycle.SavingsPct)
 
-	// Variable Allowance = what's truly available for discretionary spending.
-	variableAllowance := math.Max(0, income-dynamicSavings-fixedExp)
+	// Variable Allowance = what's truly available for discretionary spending,
+	// plus the budget carried in from the previous cycle that is still here.
+	variableAllowance := math.Max(0, income-dynamicSavings-fixedExp) + cycle.CarryOver - carryMoved
+
+	// Carry-over still movable to savings: what's left of it, never more than
+	// the unspent balance, in whole units (same rule as the % allocation).
+	carryMovable, _ := splitToWholeUnits(math.Min(cycle.CarryOver-carryMoved, variableAllowance-variableExp))
 
 	// Live remaining savings-pool balance (allocated − withdrawn + additions).
 	savedMoneyBalance := savingsPoolBalance(uid, cycle.SavedMoneyCategoryID)
@@ -241,6 +260,9 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 		CycleFixedExpenses:     fixedExp,
 		CycleVariableExpenses:  variableExp,
 		VariableAllowance:      variableAllowance,
+		CarryOver:              cycle.CarryOver,
+		CarryOverToSavings:     carryMoved,
+		CarryOverMovable:       carryMovable,
 		DynamicSavings:         dynamicSavings,
 		SavedMoneyBalance:      savedMoneyBalance,
 		NetDiscretionaryBudget: variableAllowance,
@@ -318,43 +340,30 @@ func resolveCycleStart(dateStr, timeStr string, k cycleClock) (time.Time, error)
 }
 
 // cycleToHandOver is the cycle a new one starting at `start` takes over from:
-// the latest cycle starting before it that has not been handed over yet.
+// the latest cycle, if it starts before `start`. Its recorded end may already
+// be set when its previous successor was deleted from history — it is still
+// the one to settle.
 func cycleToHandOver(start time.Time, all []models.SalaryCycle) *models.SalaryCycle {
-	var prev *models.SalaryCycle
-	for i := range all {
-		if all[i].CycleStartAt.Before(start) {
-			prev = &all[i]
-		}
-	}
-	if prev == nil || handoverAt(*prev, all) != nil {
+	if len(all) == 0 {
 		return nil
 	}
-	return prev
+	latest := &all[len(all)-1] // all is sorted by cycle_start_at ASC
+	if !latest.CycleStartAt.Before(start) {
+		return nil
+	}
+	return latest
 }
 
-// previousCycleSurplus is the variable-budget balance left in a cycle over its
-// final window [start, handover): positive = surplus (bonus to the pool),
-// negative = overspend (penalty from the pool).
-func previousCycleSurplus(uid uint, prev models.SalaryCycle, handover time.Time, k cycleClock) float64 {
-	txs := loadWindowTransactions(uid, cycleWindow{Start: prev.CycleStartAt, End: &handover}, k)
-	var income, fixed, variable float64
-	for _, t := range txs {
-		if isSavingsPoolTx(t.Transaction, prev.SavedMoneyCategoryID) {
-			continue
-		}
-		switch t.Type {
-		case "income":
-			income += t.Amount
-		case "expense":
-			if prev.FixedExpCategoryID > 0 && t.CategoryID == prev.FixedExpCategoryID {
-				fixed += t.Amount
-			} else {
-				variable += t.Amount
-			}
-		}
-	}
-	allowance := math.Max(0, income-plannedSavingsAllocation(income, prev.SavingsPct)-fixed)
-	return allowance - variable
+// balanceAtHandover is the spendable budget left in a cycle when the next one
+// starts at `next`: allowance − variable spend over its settlement window,
+// from the same engine as the dashboard. Positive = unspent (carried over),
+// negative = overspent (covered from the savings pool).
+func balanceAtHandover(uid uint, prev models.SalaryCycle, all []models.SalaryCycle, next time.Time, k cycleClock) float64 {
+	closed := prev
+	end := settlementEnd(prev, next)
+	closed.EndedAt = &end
+	s := computeCycleStatsAt(uid, closed, all, k)
+	return round2(s.VariableAllowance - s.CycleVariableExpenses)
 }
 
 // frameworkOf rebuilds the stored budget framework of a cycle.
@@ -500,13 +509,14 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	// The cycle handed over to the new one: the latest one starting before it
-	// that has not been handed over yet. Its leftover variable balance goes to
-	// the savings pool (Pillar 4), computed over its final window.
+	// The cycle handed over to the new one. Its unspent spending budget is
+	// carried into the new cycle's spendable budget (never into savings); an
+	// overspend carries nothing and is covered from the savings pool.
 	prevCycle := cycleToHandOver(cycleStart, allUserCycles)
-	var prevSurplus float64
+	var prevBalance float64
 	if prevCycle != nil {
-		prevSurplus = previousCycleSurplus(uid, *prevCycle, cycleStart, k)
+		prevBalance = balanceAtHandover(uid, *prevCycle, allUserCycles, cycleStart, k)
+		cycle.CarryOver = math.Max(0, prevBalance)
 	}
 
 	var incomeTxID uint
@@ -520,7 +530,7 @@ func StartSalaryCycle(c *gin.Context) {
 		// no instant belongs to both cycles and none to neither. Only the end
 		// instant is recorded — its start and planned payday stay untouched, and
 		// no transaction is moved.
-		if prevCycle != nil {
+		if prevCycle != nil && prevCycle.EndedAt == nil {
 			if err := tx.Model(&models.SalaryCycle{}).Where("id = ?", prevCycle.ID).
 				Update("ended_at", cycleStart).Error; err != nil {
 				return err
@@ -602,33 +612,24 @@ func StartSalaryCycle(c *gin.Context) {
 			return err
 		}
 
-		// ── Pillar 4: End-of-cycle surplus / deficit resolution ────────────
-		// When the user starts a new cycle, compute the previous cycle's
-		// remaining variable balance and inject a real transaction into the
-		// savings pool ("Pleasant bonus" or "Penalty from previous cycle").
-		if prevCycle != nil && savedCat.ID > 0 {
-			remainingBalance := prevSurplus
-			if math.Abs(remainingBalance) > 0.01 {
-				transferType := "savings_deposit"
-				transferDesc := "Pleasant bonus from the previous cycle"
-				if remainingBalance < 0 {
-					transferType = "savings_withdrawal"
-					transferDesc = "Penalty from previous cycle"
-				}
-				savingsTx := models.Transaction{
-					UserID:      uid,
-					CategoryID:  savedCat.ID,
-					Amount:      math.Abs(remainingBalance),
-					Description: transferDesc,
-					Date:        txDate,
-					Type:        transferType,
-					IncomeType:  "one_time",
-					CreatedAt:   receivedAt,
-					UpdatedAt:   receivedAt,
-				}
-				if err := tx.Create(&savingsTx).Error; err != nil {
-					return err
-				}
+		// ── Pillar 4: end-of-cycle overspend ───────────────────────────────
+		// An unspent balance travels as cycle.CarryOver (spendable, not
+		// savings). An overspend carries nothing; it is covered from the
+		// savings pool with a real, visible "Penalty" withdrawal.
+		if prevCycle != nil && savedCat.ID > 0 && prevBalance < -0.01 {
+			penaltyTx := models.Transaction{
+				UserID:      uid,
+				CategoryID:  savedCat.ID,
+				Amount:      -prevBalance,
+				Description: "Penalty from previous cycle",
+				Date:        txDate,
+				Type:        "savings_withdrawal",
+				IncomeType:  "one_time",
+				CreatedAt:   receivedAt,
+				UpdatedAt:   receivedAt,
+			}
+			if err := tx.Create(&penaltyTx).Error; err != nil {
+				return err
 			}
 		}
 
@@ -1383,6 +1384,27 @@ func DeleteSalaryCycle(c *gin.Context) {
 		return
 	}
 
+	k := requestClock(c, uid)
+	allCycles, dbErr := loadUserCycles(uid)
+	if dbErr != nil {
+		log.Printf("delete cycle: fetch user=%v err=%v", uid, dbErr)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
+		return
+	}
+
+	// Soft-delete the cycle's carry-over moves to savings: that carry-over goes
+	// away with the cycle (it returns to the predecessor's unspent balance), so
+	// keeping the deposits would count the same money twice.
+	var carryMoveIDs []uint
+	for _, t := range loadWindowTransactions(uid, k.window(cycle, allCycles), k) {
+		if t.Source == carryOverToSavingsSource {
+			carryMoveIDs = append(carryMoveIDs, t.ID)
+		}
+	}
+	if len(carryMoveIDs) > 0 {
+		database.DB.Where("user_id = ? AND id IN ?", uid, carryMoveIDs).Delete(&models.Transaction{})
+	}
+
 	// 60-second window captures all auto-provisioned transactions (they all
 	// receive CreatedAt == cycleStart during the single atomic write).
 	winEnd := cycle.CycleStartAt.Add(60 * time.Second)
@@ -1419,13 +1441,20 @@ func DeleteSalaryCycle(c *gin.Context) {
 		return
 	}
 
-	// Undo the handover to the deleted cycle: its predecessor is no longer
-	// ended by it, so it becomes current again (payday passed) instead of
-	// leaving a gap. Only the recorded end instant changes; dates stay intact.
-	if err := database.DB.Model(&models.SalaryCycle{}).
-		Where("user_id = ? AND ended_at = ?", uid, cycle.CycleStartAt).
-		Update("ended_at", nil).Error; err != nil {
-		log.Printf("delete cycle: reopen predecessor user=%v err=%v", uid, err)
+	// Undo the handover to the deleted cycle — only if the predecessor
+	// legitimately qualifies (see mayReopen). Otherwise it stays ended and the
+	// user gets the normal no-cycle state. Only the recorded end instant
+	// changes; dates and transactions stay intact.
+	if remaining, err := loadUserCycles(uid); err == nil {
+		for _, pred := range remaining {
+			if pred.EndedAt == nil || !pred.EndedAt.Equal(cycle.CycleStartAt) || !k.mayReopen(pred, remaining) {
+				continue
+			}
+			if err := database.DB.Model(&models.SalaryCycle{}).Where("id = ?", pred.ID).
+				Update("ended_at", nil).Error; err != nil {
+				log.Printf("delete cycle: reopen predecessor user=%v err=%v", uid, err)
+			}
+		}
 	}
 
 	InvalidateCycleCache(uid)
@@ -1579,4 +1608,68 @@ func AddSavingsManual(c *gin.Context) {
 
 	stats := computeCycleStats(uid, *cycle)
 	c.JSON(http.StatusCreated, gin.H{"transaction": newTx, "cycle_stats": stats})
+}
+
+// ── MoveCarryOverToSavings ───────────────────────────────────────────────────
+// POST /api/salary-cycle/carry-over/savings
+// Moves the current cycle's carried-over budget into the savings pool, under
+// the shared whole-unit rule: whole units move, the cents stay spendable. The
+// deposit is marked (Source) so the cycle engine deducts it from the spendable
+// budget. Returns fresh CycleStats.
+func MoveCarryOverToSavings(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	uid := userID.(uint)
+
+	k := requestClock(c, uid)
+	all, err := loadUserCycles(uid)
+	if err != nil {
+		log.Printf("move carry-over: fetch user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
+		return
+	}
+	cycle := k.currentCycle(all)
+	if cycle == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": validationMessage(errNoActiveCycle), "code": errNoActiveCycle})
+		return
+	}
+	if !ensureSavingsCategory(uid, cycle) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
+		return
+	}
+
+	amount := computeCycleStatsAt(uid, *cycle, all, k).CarryOverMovable
+	if amount < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No carried-over budget to move", "code": "NOTHING_TO_MOVE"})
+		return
+	}
+
+	now := time.Now()
+	moveTx := models.Transaction{
+		UserID:      uid,
+		CategoryID:  cycle.SavedMoneyCategoryID,
+		Amount:      amount,
+		Description: "Carry-over moved to savings",
+		Date:        k.today(),
+		Type:        "savings_deposit",
+		IncomeType:  "one_time",
+		Source:      carryOverToSavingsSource,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := database.DB.Create(&moveTx).Error; err != nil {
+		log.Printf("move carry-over: user=%v err=%v", uid, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move carry-over"})
+		return
+	}
+	InvalidateCycleCache(uid)
+	ScheduleBrainResync(uid)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"transaction": moveTx,
+		"cycle_stats": computeCycleStatsAt(uid, *cycle, all, k),
+	})
 }

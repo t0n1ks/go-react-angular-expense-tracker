@@ -17,8 +17,11 @@ type Transaction struct {
 	Date        time.Time `json:"date"        gorm:"not null"`
 	Type        string    `json:"type"        gorm:"type:varchar(30);not null;default:'expense'"`
 	IncomeType  string    `json:"income_type" gorm:"type:varchar(20);not null;default:'one_time'"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// Source marks entries the app creates on the user's behalf from an
+	// action ("carry_over_to_savings"); "" = ordinary entry.
+	Source    string    `json:"source,omitempty" gorm:"type:varchar(30);not null;default:''"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 	// Soft-delete: GORM v2 automatically filters deleted_at IS NULL on all queries.
 	DeletedAt gorm.DeletedAt `json:"-"           gorm:"index"`
 	// EffectiveAt is the instant the transaction counts at for cycle/budget

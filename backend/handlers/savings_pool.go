@@ -7,30 +7,44 @@ import (
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/models"
 )
 
-// plannedSavingsAllocation is the AUTOMATIC percentage-based savings allocation
-// for an income, always rounded DOWN to whole currency units (€504 × 20% =
-// €100.80 → €100). The cents are rounded to 2 decimals first so float noise
-// (99.99999…) can never cost the user a whole unit.
+// splitToWholeUnits is the ONE rounding rule for money the app moves into the
+// savings pool on the user's behalf: the whole currency units move (rounded
+// DOWN) and the cents stay in the spendable budget (€12.80 → €12 moves, €0.80
+// stays). The amount is rounded to cents first so float noise (99.99999…) can
+// never cost the user a whole unit.
 //
-// The leftover cents are not lost: every caller derives the spendable budget
-// as income − this allocation − fixed, so the remainder lands there exactly
-// (see savingsRoundingRemainder). Manual deposits/withdrawals are never
-// rounded — this applies only to the automatic % allocation.
-func plannedSavingsAllocation(income, savingsPct float64) float64 {
-	if income <= 0 || savingsPct <= 0 {
-		return 0
+// It governs the automatic % allocation and moving the carried-over budget into
+// savings. Amounts the user types (manual deposits/withdrawals) are exact and
+// never pass through here.
+func splitToWholeUnits(amount float64) (whole, cents float64) {
+	if amount <= 0 {
+		return 0, 0
 	}
-	return math.Floor(round2(income * savingsPct / 100))
+	exact := round2(amount)
+	whole = math.Floor(exact)
+	return whole, round2(exact - whole)
+}
+
+// plannedSavingsAllocation is the AUTOMATIC percentage-based savings allocation
+// for an income, in whole units (€504 × 20% = €100.80 → €100). The cents go to
+// the spendable budget (see savingsRoundingRemainder).
+func plannedSavingsAllocation(income, savingsPct float64) float64 {
+	whole, _ := splitToWholeUnits(income * savingsPct / 100)
+	return whole
 }
 
 // savingsRoundingRemainder is the cents the whole-unit rounding moved out of
 // the savings allocation and into the spendable budget (€0.80 for €504 × 20%).
 func savingsRoundingRemainder(income, savingsPct float64) float64 {
-	if income <= 0 || savingsPct <= 0 {
-		return 0
-	}
-	return round2(round2(income*savingsPct/100) - plannedSavingsAllocation(income, savingsPct))
+	_, cents := splitToWholeUnits(income * savingsPct / 100)
+	return cents
 }
+
+// carryOverToSavingsSource marks the savings deposit created when the user
+// moves the carried-over budget into savings (Transaction.Source). The cycle
+// engine deducts these from the spendable budget, and deleting the cycle from
+// history removes them.
+const carryOverToSavingsSource = "carry_over_to_savings"
 
 // ── Savings pool ("piggy bank") balance — single source of truth ─────────────
 //

@@ -6,25 +6,30 @@ import "time"
 // "Start New Cycle". cycle_start_at is the authoritative timestamp used to
 // filter income/expenses on the dashboard.
 type SalaryCycle struct {
-	ID                   uint       `json:"id" gorm:"primaryKey"`
-	UserID               uint       `json:"user_id" gorm:"not null;index"`
-	BaseSalary           float64    `json:"base_salary" gorm:"not null;default:0"`
-	Bonuses              float64    `json:"bonuses" gorm:"default:0"`
-	TotalIncome          float64    `json:"total_income" gorm:"not null"`
-	NeedsPct             float64    `json:"needs_pct" gorm:"not null;default:50"`
-	WantsPct             float64    `json:"wants_pct" gorm:"not null;default:30"`
-	SavingsPct           float64    `json:"savings_pct" gorm:"not null;default:20"`
-	NeedsLimit           float64    `json:"needs_limit"`
-	WantsLimit           float64    `json:"wants_limit"`
-	SavingsLimit         float64    `json:"savings_limit"`
-	FixedNeedsTotal      float64    `json:"fixed_needs_total"`
-	FixedWantsTotal      float64    `json:"fixed_wants_total"`
-	VarNeedsBudget       float64    `json:"var_needs_budget"`
-	VarWantsBudget       float64    `json:"var_wants_budget"`
-	FixedExpCategoryID   uint       `json:"fixed_exp_category_id"    gorm:"default:0"`
-	SavedMoneyCategoryID uint       `json:"saved_money_category_id"  gorm:"default:0"`
-	CycleStartAt         time.Time  `json:"cycle_start_at" gorm:"not null"`
-	NextPaydayAt         *time.Time `json:"next_payday_at"`
+	ID                   uint    `json:"id" gorm:"primaryKey"`
+	UserID               uint    `json:"user_id" gorm:"not null;index"`
+	BaseSalary           float64 `json:"base_salary" gorm:"not null;default:0"`
+	Bonuses              float64 `json:"bonuses" gorm:"default:0"`
+	TotalIncome          float64 `json:"total_income" gorm:"not null"`
+	NeedsPct             float64 `json:"needs_pct" gorm:"not null;default:50"`
+	WantsPct             float64 `json:"wants_pct" gorm:"not null;default:30"`
+	SavingsPct           float64 `json:"savings_pct" gorm:"not null;default:20"`
+	NeedsLimit           float64 `json:"needs_limit"`
+	WantsLimit           float64 `json:"wants_limit"`
+	SavingsLimit         float64 `json:"savings_limit"`
+	FixedNeedsTotal      float64 `json:"fixed_needs_total"`
+	FixedWantsTotal      float64 `json:"fixed_wants_total"`
+	VarNeedsBudget       float64 `json:"var_needs_budget"`
+	VarWantsBudget       float64 `json:"var_wants_budget"`
+	FixedExpCategoryID   uint    `json:"fixed_exp_category_id"    gorm:"default:0"`
+	SavedMoneyCategoryID uint    `json:"saved_money_category_id"  gorm:"default:0"`
+	// CarryOver is the unspent spending budget carried in from the previous
+	// cycle when this one started (>= 0; an overspent cycle carries nothing).
+	// Added to this cycle's spendable budget — never to savings. Fixed at the
+	// handover: closed periods are locked.
+	CarryOver    float64    `json:"carry_over" gorm:"not null;default:0"`
+	CycleStartAt time.Time  `json:"cycle_start_at" gorm:"not null"`
+	NextPaydayAt *time.Time `json:"next_payday_at"`
 	// StoppedAt marks a soft-stopped cycle (e.g. job loss). A stopped cycle is
 	// never "active" — the user falls back to the no-salary monthly budget — but
 	// the row and all its history are preserved. nil = not stopped.

@@ -63,8 +63,15 @@ export interface CycleStats {
   cycle_expenses: number;
   cycle_fixed_expenses: number;
   cycle_variable_expenses: number;
-  // Dynamic variable allowance = income − (income×savings_pct%) − fixed_expenses
+  // Dynamic variable allowance = income − savings allocation − fixed_expenses
+  // + carry-over from the previous cycle − carry-over moved to savings
   variable_allowance: number;
+  // Unspent budget carried in from the previous cycle (part of variable_allowance)
+  carry_over?: number;
+  // Carry-over the user moved into savings this cycle (whole units)
+  carry_over_to_savings?: number;
+  // Carry-over that can still be moved to savings now (whole units)
+  carry_over_movable?: number;
   // Portion of income earmarked for the savings pool this cycle
   dynamic_savings: number;
   // Cumulative all-time net balance of the savings pool
