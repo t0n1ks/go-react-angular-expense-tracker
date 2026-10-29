@@ -3,13 +3,14 @@ import { motion } from "framer-motion";
 import { BrainCircuit, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../context/SettingsContext";
+import ForecastCalibrating from "./ForecastCalibrating";
 import "./ForecastCard.css";
 
 interface Props {
   predictedBalance: number; // budget left at the period's end; negative = deficit
   spendingTier: string | null; // AI pace verdict; no badge while it is unknown
   dailyRate: number; // the real average daily pace the projection uses
-  rough: boolean; // fewer than 3 days of history
+  calibrating: boolean; // first week: "collecting data" instead of the figures
   onClick: () => void;
 }
 
@@ -17,13 +18,14 @@ const ForecastCard: React.FC<Props> = ({
   predictedBalance,
   spendingTier,
   dailyRate,
-  rough,
+  calibrating,
   onClick,
 }) => {
   const { t } = useTranslation();
   const { formatAmount } = useSettings();
 
   const isPositive = predictedBalance >= 0;
+  const tone = calibrating ? "calibrating" : isPositive ? "positive" : "negative";
 
   const tierLabel = spendingTier
     ? t(`ai.forecast_tier.${spendingTier}`, { defaultValue: spendingTier.replace(/_/g, " ") })
@@ -31,7 +33,7 @@ const ForecastCard: React.FC<Props> = ({
 
   return (
     <motion.div
-      className={`forecast-card ${isPositive ? "forecast-card--positive" : "forecast-card--negative"}`}
+      className={`forecast-card forecast-card--${tone}`}
       onClick={onClick}
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
@@ -50,18 +52,23 @@ const ForecastCard: React.FC<Props> = ({
       </div>
 
       <div className="forecast-card-body">
-        <div className={`forecast-balance ${isPositive ? "forecast-balance--pos" : "forecast-balance--neg"}`}>
-          {isPositive ? <TrendingUp size={22} aria-hidden="true" /> : <TrendingDown size={22} aria-hidden="true" />}
-          <span className="forecast-balance-amount">
-            {isPositive ? "" : "−"}{formatAmount(Math.abs(predictedBalance))}
-          </span>
-          <span className="forecast-balance-sign">{isPositive ? t("statistics.forecast_surplus") : t("statistics.forecast_deficit")}</span>
-        </div>
+        {calibrating ? (
+          <ForecastCalibrating />
+        ) : (
+          <>
+            <div className={`forecast-balance ${isPositive ? "forecast-balance--pos" : "forecast-balance--neg"}`}>
+              {isPositive ? <TrendingUp size={22} aria-hidden="true" /> : <TrendingDown size={22} aria-hidden="true" />}
+              <span className="forecast-balance-amount">
+                {isPositive ? "" : "−"}{formatAmount(Math.abs(predictedBalance))}
+              </span>
+              <span className="forecast-balance-sign">{isPositive ? t("statistics.forecast_surplus") : t("statistics.forecast_deficit")}</span>
+            </div>
 
-        <p className="forecast-rate-line">
-          {t("statistics.forecast_rate_line", { rate: formatAmount(dailyRate) })}
-        </p>
-        {rough && <p className="forecast-rough">{t("statistics.forecast_rough")}</p>}
+            <p className="forecast-rate-line">
+              {t("statistics.forecast_rate_line", { rate: formatAmount(dailyRate) })}
+            </p>
+          </>
+        )}
       </div>
 
       {tierLabel && <div className="forecast-tier-badge">{tierLabel}</div>}

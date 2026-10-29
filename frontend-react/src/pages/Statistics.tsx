@@ -259,7 +259,7 @@ const Statistics: React.FC = () => {
             predictedBalance={periodEnd.projected_end}
             spendingTier={analysis?.spending_tier ?? null}
             dailyRate={periodEnd.daily_pace}
-            rough={periodEnd.rough}
+            calibrating={periodEnd.calibrating}
             onClick={() => setForecastOpen(true)}
           />
         )}
@@ -318,6 +318,7 @@ const Statistics: React.FC = () => {
         spendingTier={analysis?.spending_tier ?? "pacing_good"}
         dailyRate={periodEnd?.daily_pace ?? 0}
         daysRemaining={periodDaysLeft}
+        calibrating={periodEnd?.calibrating ?? false}
         periodLabel={periodLabel}
         onClose={() => setForecastOpen(false)}
       />

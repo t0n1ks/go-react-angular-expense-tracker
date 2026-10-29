@@ -23,8 +23,11 @@ import (
 //
 // Early on there is too little history for a stable pace (the same 3-day
 // threshold as the savings forecast): until then the pace slides linearly
-// from the planned even pace (position ÷ days left) to the real average, and
-// the result is marked rough.
+// from the planned even pace (position ÷ days left) to the real average.
+//
+// For the whole first week the period is "calibrating": the client shows a
+// calm "collecting data" state instead of the projection, so one big shop on
+// day 1 never reads as an alarming deficit. From day 8 the figure is shown.
 
 // periodEndForecast is the cycle_end block of GET /api/balance/forecast.
 type periodEndForecast struct {
@@ -35,12 +38,14 @@ type periodEndForecast struct {
 	DaysLeft     float64 `json:"days_left"`     // fractional days until it ends
 	DailyPace    float64 `json:"daily_pace"`    // the pace the projection uses
 	ProjectedEnd float64 `json:"projected_end"` // position − daily_pace × days_left
-	Rough        bool    `json:"rough"`         // fewer than 3 days of history
+	Calibrating  bool    `json:"calibrating"`   // still in the first week: projection not shown
 }
 
 const (
 	periodBasisCycle = "cycle"
 	periodBasisMonth = "month"
+
+	periodCalibrationDays = 7 // full days elapsed before the projection is shown
 )
 
 // projectPeriodEnd is the whole projection. Pure.
@@ -70,7 +75,7 @@ func projectPeriodEnd(basis string, position, spent, elapsed, left float64) peri
 		DaysLeft:     left,
 		DailyPace:    pace,
 		ProjectedEnd: round2(position - pace*left),
-		Rough:        elapsed < forecastPaceMinDays,
+		Calibrating:  elapsed < periodCalibrationDays,
 	}
 }
 

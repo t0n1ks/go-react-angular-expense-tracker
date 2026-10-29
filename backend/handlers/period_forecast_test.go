@@ -16,9 +16,6 @@ func TestPeriodPaceIsThePlainAverage(t *testing.T) {
 	f := projectPeriodEnd(periodBasisCycle, 300, 30+4*2, 5, 25)
 	approx(t, "pace", f.DailyPace, 7.60)
 	approx(t, "projected = position − pace × days left", f.ProjectedEnd, 300-7.60*25)
-	if f.Rough {
-		t.Error("5 days of history is not rough")
-	}
 }
 
 func TestPeriodOverspendProjectsDeficit(t *testing.T) {
@@ -39,13 +36,10 @@ func TestPeriodOverspentBudgetIsNotClamped(t *testing.T) {
 }
 
 func TestPeriodEarlyFallbackTightensToThePace(t *testing.T) {
-	// Day 0: nothing known yet → the planned even pace; lands on 0, rough.
+	// Day 0: nothing known yet → the planned even pace; lands on 0.
 	f := projectPeriodEnd(periodBasisCycle, 300, 0, 0, 30)
 	approx(t, "day 0 pace = plan", f.DailyPace, 10)
 	approx(t, "day 0 projection", f.ProjectedEnd, 0)
-	if !f.Rough {
-		t.Error("day 0 must be rough")
-	}
 	// Half-way through the warm-up: half real average, half plan.
 	f = projectPeriodEnd(periodBasisCycle, 270, 30, 1.5, 28.5)
 	approx(t, "blend", f.DailyPace, round2(0.5*20+0.5*270/28.5))
@@ -57,8 +51,18 @@ func TestPeriodEarlyFallbackTightensToThePace(t *testing.T) {
 	// From day 3 it is exactly the average (no jump at the threshold).
 	f = projectPeriodEnd(periodBasisCycle, 210, 90, 3, 27)
 	approx(t, "day 3 = plain average", f.DailyPace, 30)
-	if f.Rough {
-		t.Error("day 3 is no longer rough")
+}
+
+// The first week is "collecting data"; the start of day 8 switches cleanly.
+func TestPeriodCalibratesForTheFirstWeek(t *testing.T) {
+	for _, c := range []struct {
+		elapsed     float64
+		calibrating bool
+	}{{0, true}, {0.5, true}, {3, true}, {6.99, true}, {7, false}, {7.01, false}, {20, false}} {
+		f := projectPeriodEnd(periodBasisCycle, 300, 100, c.elapsed, 30-c.elapsed)
+		if f.Calibrating != c.calibrating {
+			t.Errorf("day %.2f elapsed: calibrating = %v, want %v", c.elapsed, f.Calibrating, c.calibrating)
+		}
 	}
 }
 
@@ -113,7 +117,7 @@ func TestCycleEndReconcilesWithDashboard(t *testing.T) {
 		t.Fatal("no cycle stats")
 	}
 	f := periodEndNow(t, u.ID)
-	if f == nil || f.Basis != periodBasisCycle || f.Rough {
+	if f == nil || f.Basis != periodBasisCycle || f.Calibrating {
 		t.Fatalf("want a settled cycle forecast, got %+v", f)
 	}
 	approx(t, "position = dashboard spendable_remaining", f.Position, r.Stats.SpendableRemaining)
@@ -123,6 +127,18 @@ func TestCycleEndReconcilesWithDashboard(t *testing.T) {
 	}
 	approx(t, "projected = spendable_remaining − pace × days left",
 		f.ProjectedEnd, round2(r.Stats.SpendableRemaining-f.DailyPace*f.DaysLeft))
+}
+
+// A big shop on day 1 of a fresh cycle: the endpoint marks it calibrating, so
+// the card shows "collecting data", not the extrapolated deficit.
+func TestCycleEndCalibratingInFirstWeek(t *testing.T) {
+	u := newTZUser(t, "cycleendweek1")
+	startUTC(t, u.ID, udate(-1), udate(29))
+	addExpense(t, u.ID, 250, udate(-1))
+	f := periodEndNow(t, u.ID)
+	if f == nil || !f.Calibrating {
+		t.Fatalf("first week must be calibrating, got %+v", f)
+	}
 }
 
 func TestCycleEndAbsentForLiteAndGoalLessUsers(t *testing.T) {

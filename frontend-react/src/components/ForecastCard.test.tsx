@@ -9,7 +9,8 @@ import uk from '../i18n/locales/uk.json';
 
 // The month-end forecast card renders the server's numbers as they are: a
 // deficit is shown as a deficit (minus sign + label), the rate is the server's
-// real average pace, and the first days carry a "rough estimate" note.
+// real average pace, and during the first week a calm "collecting data"
+// state replaces the figures (no alarming deficit from almost no data).
 
 vi.mock('../context/SettingsContext', () => ({
   useSettings: () => ({ formatAmount: (n: number) => `€${n.toFixed(2)}` }),
@@ -28,9 +29,9 @@ beforeAll(async () => {
   });
 });
 
-const render = (predictedBalance: number, rough = false, spendingTier: string | null = 'pacing_good') =>
+const render = (predictedBalance: number, calibrating = false, spendingTier: string | null = 'pacing_good') =>
   renderToStaticMarkup(
-    <ForecastCard predictedBalance={predictedBalance} spendingTier={spendingTier} dailyRate={7.6} rough={rough} onClick={() => {}} />,
+    <ForecastCard predictedBalance={predictedBalance} spendingTier={spendingTier} dailyRate={7.6} calibrating={calibrating} onClick={() => {}} />,
   );
 
 describe('ForecastCard', () => {
@@ -52,10 +53,24 @@ describe('ForecastCard', () => {
     expect(html).toContain(i18n.t('statistics.forecast_surplus'));
   });
 
-  it.each(LANGS)('marks the first days as a rough estimate (%s)', async (lng) => {
+  it.each(LANGS)('shows "collecting data" instead of any figure in the first week (%s)', async (lng) => {
     await i18n.changeLanguage(lng);
-    expect(render(0, true)).toContain(i18n.t('statistics.forecast_rough'));
-    expect(render(0, false)).not.toContain('forecast-rough');
+    const html = render(-314.73, true);
+    expect(html).toContain(i18n.t('statistics.forecast_calibrating_title'));
+    expect(html).toContain(i18n.t('statistics.forecast_calibrating_hint'));
+    expect(html).toContain('role="status"');
+    expect(html).toContain('forecast-card--calibrating');
+    expect(html).not.toContain('314.73');
+    expect(html).not.toContain('€7.60');
+    expect(html).not.toContain(i18n.t('statistics.forecast_deficit'));
+    expect(html).not.toMatch(/statistics\./);
+  });
+
+  it('shows the real figure once the week is over', async () => {
+    await i18n.changeLanguage('ru');
+    const html = render(-314.73, false);
+    expect(html).toContain('−€314.73');
+    expect(html).not.toContain(i18n.t('statistics.forecast_calibrating_title'));
   });
 
   it('hides the tier badge until the AI verdict is known', async () => {

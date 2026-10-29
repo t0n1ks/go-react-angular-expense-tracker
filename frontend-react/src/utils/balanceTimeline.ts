@@ -44,7 +44,7 @@ export interface PeriodEndForecast {
   days_left: number;
   daily_pace: number; // spent ÷ days elapsed (plan-blended in the first 3 days)
   projected_end: number; // position − daily_pace × days_left; negative = deficit
-  rough: boolean; // fewer than 3 days of history
+  calibrating: boolean; // first week: the client shows "collecting data", not the projection
 }
 
 /** One day of the no-cycle cash-flow series. */

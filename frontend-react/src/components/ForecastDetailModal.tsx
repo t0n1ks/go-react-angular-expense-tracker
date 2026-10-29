@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, BrainCircuit, Flame, CalendarCheck2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../context/SettingsContext";
+import ForecastCalibrating from "./ForecastCalibrating";
 import "./ForecastDetailModal.css";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   spendingTier: string;
   dailyRate: number;
   daysRemaining: number;
+  calibrating: boolean; // first week: "collecting data" instead of the figures
   periodLabel?: 'payday' | 'month';
   onClose: () => void;
 }
@@ -21,6 +23,7 @@ const ForecastDetailModal: React.FC<Props> = ({
   spendingTier,
   dailyRate,
   daysRemaining,
+  calibrating,
   periodLabel = 'month',
   onClose,
 }) => {
@@ -38,6 +41,21 @@ const ForecastDetailModal: React.FC<Props> = ({
 
   const tierKey = `ai.forecast_tier.${spendingTier}` as const;
   const tierLabel = t(tierKey, { defaultValue: spendingTier.replace(/_/g, " ") });
+
+  // Days until payday / month end — factual, so shown in every state.
+  const daysLeftRow = (
+    <div className="fmd-row">
+      <CalendarCheck2 size={16} className="fmd-row-icon" />
+      <div className="fmd-row-content">
+        <span className="fmd-row-label">
+          {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_until_payday" : "statistics.forecast_modal_days_left")}
+        </span>
+        <span className="fmd-row-value">
+          {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_payday_count" : "statistics.forecast_modal_days_remaining", { count: daysRemaining })}
+        </span>
+      </div>
+    </div>
+  );
 
   return (
     <AnimatePresence>
@@ -73,6 +91,19 @@ const ForecastDetailModal: React.FC<Props> = ({
 
             {predictedBalance === null ? (
               <p className="fmd-unavail">{t("statistics.forecast_unavailable")}</p>
+            ) : calibrating ? (
+              <>
+                <ForecastCalibrating />
+
+                <div className="fmd-divider" />
+
+                <div className="fmd-rows">{daysLeftRow}</div>
+
+                <div className="fmd-tier-row">
+                  <span className="fmd-tier-label">{t("statistics.forecast_modal_tier")}</span>
+                  <span className="fmd-tier-value">{tierLabel}</span>
+                </div>
+              </>
             ) : (
               <>
                 <div className={`fmd-balance ${isPositive ? "fmd-balance--pos" : "fmd-balance--neg"}`}>
@@ -95,17 +126,7 @@ const ForecastDetailModal: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="fmd-row">
-                    <CalendarCheck2 size={16} className="fmd-row-icon" />
-                    <div className="fmd-row-content">
-                      <span className="fmd-row-label">
-                        {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_until_payday" : "statistics.forecast_modal_days_left")}
-                      </span>
-                      <span className="fmd-row-value">
-                        {t(periodLabel === 'payday' ? "statistics.forecast_modal_days_payday_count" : "statistics.forecast_modal_days_remaining", { count: daysRemaining })}
-                      </span>
-                    </div>
-                  </div>
+                  {daysLeftRow}
                 </div>
 
                 <div className="fmd-divider" />

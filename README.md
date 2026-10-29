@@ -52,7 +52,8 @@ Results keep the month grouping, so you still see *which* months a category was 
 The Statistics page projects where your budget will be when the period ends, using the server's own figures (`GET /api/balance/forecast`, `cycle_end`):
 - **With a salary cycle:** budget left at payday = "can spend" now (`spendable_remaining`, negative if overspent) − your daily pace × days left. Fixed expenses are already deducted at cycle start, so they are never projected again.
 - **Without a cycle:** the same rule against your monthly goal (goal − spent this month − pace × days left in the month). No goal → the card is hidden; Lite mode hides it too.
-- **Daily pace ("Spending at €X/day")** is the plain average: variable spending so far ÷ days elapsed, so one expensive day among cheap ones is smoothed out. In the first 3 days it slides from the planned even pace to the real average and the card says it is a rough estimate.
+- **Daily pace ("Spending at €X/day")** is the plain average: variable spending so far ÷ days elapsed, so one expensive day among cheap ones is smoothed out. In the first 3 days it slides from the planned even pace to the real average.
+- **First week = "Collecting data":** until 7 full days of the period have passed, the card and its popup show a calm "Collecting data — an accurate forecast will appear after the first week" state instead of the projected figure and pace (days left stay visible), so a big shop on day 1 never reads as an alarming deficit. From day 8 the real figure appears.
 - **Honest sign:** a projected deficit is shown as a deficit (red, with a minus) — never clamped to zero or capped.
 
 Clicking the card opens a **detail modal** with the same pace, days left and a one-line summary. The AI service receives this projection from Go and uses it as-is, so the tamagotchi's nudges never contradict the card.

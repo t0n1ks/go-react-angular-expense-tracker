@@ -1,0 +1,32 @@
+/* First-week "collecting data" state of the month-end forecast (card + modal). */
+.forecast-calibrating {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.forecast-calibrating-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: #6366f1;
+}
+
+.forecast-calibrating-text { min-width: 0; }
+
+.forecast-calibrating-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  line-height: 1.3;
+}
+
+.forecast-calibrating-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary, #94a3b8);
+  line-height: 1.45;
+}
+
+.dark .forecast-calibrating-icon { color: #a5b4fc; }
