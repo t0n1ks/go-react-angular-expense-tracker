@@ -155,30 +155,9 @@
   color: var(--color-text-body);
 }
 
-.fmd-health-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
 
-.fmd-health-track {
-  flex: 1;
-  height: 8px;
-  border-radius: 99px;
-  background: var(--color-border-card, rgba(148, 163, 184, 0.18));
-  overflow: hidden;
-}
 
-.fmd-health-fill {
-  height: 100%;
-  border-radius: 99px;
-}
 
-.fmd-health-score {
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
 
 .fmd-context {
   background: rgba(148, 163, 184, 0.1);

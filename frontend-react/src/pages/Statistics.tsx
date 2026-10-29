@@ -25,7 +25,6 @@ interface Transaction {
 interface AnalysisResult {
   predicted_end_of_month_balance: number | null;
   predicted_savings_balance: number | null;
-  financial_health_score: number | null;
   spending_tier: string;
 }
 
@@ -67,10 +66,6 @@ const Statistics: React.FC = () => {
           predicted_savings_balance:
             typeof data.predicted_savings_balance === "number"
               ? data.predicted_savings_balance
-              : null,
-          financial_health_score:
-            typeof data.financial_health_score === "number"
-              ? data.financial_health_score
               : null,
           spending_tier: data.spending_tier || "pacing_good",
         });
@@ -317,7 +312,6 @@ const Statistics: React.FC = () => {
         {analysis && (
           <ForecastCard
             predictedBalance={displayedPredictedBalance}
-            healthScore={analysis.financial_health_score}
             spendingTier={analysis.spending_tier}
             dailyRate={displayDailyRate}
             onClick={() => setForecastOpen(true)}
@@ -366,11 +360,6 @@ const Statistics: React.FC = () => {
             {sfRough && (
               <p className="savings-forecast-rough">{t('statistics.savings_forecast_rough')}</p>
             )}
-            <p className="savings-forecast-tip">
-              {sfPositive
-                ? t('statistics.savings_forecast_tip_pos')
-                : t('statistics.savings_forecast_tip_neg')}
-            </p>
           </div>
         )}
       </div>
@@ -380,7 +369,6 @@ const Statistics: React.FC = () => {
       <ForecastDetailModal
         open={forecastOpen}
         predictedBalance={displayedPredictedBalance}
-        healthScore={analysis?.financial_health_score ?? null}
         spendingTier={analysis?.spending_tier ?? "pacing_good"}
         dailyRate={displayDailyRate}
         daysRemaining={displayDaysRemaining}

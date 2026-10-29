@@ -7,6 +7,7 @@ import {
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { cashFlowSeries, withinPeriod, type MoneyPoint } from '../utils/balanceTimeline';
+import { BALANCE_CURVE } from '../utils/balanceView';
 import {
   seriesFor, viewLabelKey, viewValue, loadBalanceView, saveBalanceView, balanceTabId,
   selectedIndex, formatDay, type BalanceView,
@@ -241,7 +242,7 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
                   <Tooltip content={() => null} cursor={false} isAnimationActive={false} />
                   <Area
                     key={activeView ?? 'cashflow'}
-                    type={hasViews ? 'stepAfter' : 'monotone'}
+                    type={BALANCE_CURVE}
                     dataKey="value"
                     name={viewLabel}
                     stroke={color}

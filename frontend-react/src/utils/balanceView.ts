@@ -10,6 +10,14 @@ export type BalanceView = 'total' | 'budget' | 'savings';
 
 export const BALANCE_VIEWS: readonly BalanceView[] = ['total', 'budget', 'savings'];
 
+/**
+ * How every balance line is drawn between its daily points: a monotone cubic
+ * (Fritsch–Carlson). It never overshoots — between two days the curve stays
+ * within their two values, flat runs stay flat and every peak/dip is a real
+ * day — so a payday jump reads as a steep one-day rise, never a fake dip.
+ */
+export const BALANCE_CURVE = 'monotone' as const;
+
 /** The day's value in a view. */
 export function viewValue(p: MoneyPoint, view: BalanceView): number {
   switch (view) {

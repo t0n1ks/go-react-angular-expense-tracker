@@ -116,31 +116,9 @@
   font-style: italic;
 }
 
-.forecast-health-bar-wrap {
-  margin-bottom: 0.85rem;
-}
 
-.forecast-health-bar-track {
-  height: 6px;
-  border-radius: 99px;
-  background: var(--color-border-card, rgba(148, 163, 184, 0.18));
-  overflow: hidden;
-  margin-bottom: 0.3rem;
-}
 
-.forecast-health-bar-fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: background 0.3s;
-}
 
-.forecast-health-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-text-secondary, #94a3b8);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 
 .forecast-tier-badge {
   display: inline-block;

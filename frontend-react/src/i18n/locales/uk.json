@@ -290,7 +290,6 @@
     "forecast_surplus": "профіцит",
     "forecast_deficit": "дефіцит",
     "forecast_unavailable": "Прогноз ШІ недоступний",
-    "forecast_health": "Фінансове здоров'я:",
     "forecast_rate_line": "Витрати {{rate}}/день",
     "forecast_positive": "Очікується профіцит наприкінці місяця",
     "forecast_negative": "Очікується дефіцит наприкінці місяця",
@@ -299,7 +298,6 @@
     "forecast_modal_day": "день",
     "forecast_modal_days_left": "Днів залишилось",
     "forecast_modal_days_remaining": "Залишилось {{count}} днів у місяці",
-    "forecast_modal_health": "Фінансове здоров'я",
     "forecast_modal_context": "При поточному темпі витрат {{rate}}/день до кінця місяця у вас буде {{balance}} {{direction}}.",
     "forecast_modal_surplus_word": "в залишку",
     "forecast_modal_deficit_word": "в мінусі",
@@ -315,9 +313,7 @@
     "savings_forecast_annual": "Річний прогноз",
     "savings_forecast_in_a_year": "≈ {{amount}} через рік",
     "savings_forecast_rough": "Приблизна оцінка — стане точнішою після першого повного циклу.",
-    "savings_forecast_accumulated": "Накопичений баланс",
-    "savings_forecast_tip_pos": "Ви на чудовій траєкторії заощаджень! Розгляньте інвестиційний портфель.",
-    "savings_forecast_tip_neg": "Витрати перевищують доходи цього циклу. Перевірте основні категорії витрат."
+    "savings_forecast_accumulated": "Накопичений баланс"
   },
   "settings": {
     "title": "Налаштування",

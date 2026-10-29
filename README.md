@@ -52,10 +52,9 @@ Results keep the month grouping, so you still see *which* months a category was 
 The Statistics page shows a **live end-of-month balance projection** computed by the Python AI brain using `scikit-learn` LinearRegression on cumulative daily expense data. The forecast card displays:
 - Projected surplus or deficit (green / red with trend icon)
 - Daily spending velocity (`total_expenses_this_month / days_elapsed`)
-- Financial health score bar (0–100) with colour-coded fill
 - Spending tier badge ("on track", "over budget", etc.)
 
-Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining and the raw health score. When payday is configured the card switches to a "balance at payday" projection. Degrades gracefully to hidden state when the AI service is offline.
+Clicking the card opens a **detail modal** with a natural-language summary — "At your current spending rate of $42/day, you will have $312 left over by end of month" — plus days remaining. When payday is configured the card switches to a "balance at payday" projection. Degrades gracefully to hidden state when the AI service is offline.
 
 ### Transaction Detail Modal (Mini-Receipt)
 Clicking any transaction row or mobile card opens a **receipt-style overlay** showing the full timestamp (date + `HH:mm:ss` from GORM's `created_at`), category, formatted amount, transaction type, and the user's original description. Uses Framer Motion spring animation — slide-up on mobile, fade-scale on desktop.
@@ -232,8 +231,8 @@ components/
   TamagotchiWidget.tsx     — UFO state machine, ResizeObserver positioning, in-widget tour
   SalaryCycleCard.tsx      — Start-a-cycle form (salary, bonuses, 50/30/20, fixed expenses) + active-cycle summary
   WeeklyBudgetCard.tsx     — Rolling 7-day allowance with surplus/deficit rollover
-  ForecastCard.tsx         — Clickable ML forecast summary card with health bar
-  ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left, health score
+  ForecastCard.tsx         — Clickable ML forecast summary card
+  ForecastDetailModal.tsx  — Framer Motion modal: spending rate, days left
   TransactionDetailModal.tsx — Mini-receipt modal: full timestamp, description, category, amount
   Layout.tsx           — Sidebar (desktop) + bottom nav (mobile), theme toggle
   DeleteSnackbar.tsx   — Framer Motion toast with undo + dismiss

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { seriesFor, viewValue, BALANCE_VIEWS, loadBalanceView, selectedIndex, formatDay } from './balanceView';
+import { seriesFor, viewValue, BALANCE_VIEWS, BALANCE_CURVE, loadBalanceView, selectedIndex, formatDay } from './balanceView';
 import { withinPeriod, type MoneyPoint } from './balanceTimeline';
 
 // Points exactly as the server sends them: total is the server's own
@@ -34,6 +34,10 @@ describe('balance views', () => {
       const sliced = withinPeriod(seriesFor(points, v), 2, new Date(2026, 9, 29, 12));
       expect(sliced.map((p) => p.date)).toEqual(['2026-10-27', '2026-10-28', '2026-10-29']);
     }
+  });
+
+  it('draws every view as a smooth, non-overshooting curve (no steps)', () => {
+    expect(BALANCE_CURVE).toBe('monotone');
   });
 
   it('defaults to "total" when nothing is remembered or storage is unavailable', () => {

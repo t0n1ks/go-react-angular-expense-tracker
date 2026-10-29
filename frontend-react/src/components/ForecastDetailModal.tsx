@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BrainCircuit, Flame, CalendarCheck2, HeartPulse } from "lucide-react";
+import { X, BrainCircuit, Flame, CalendarCheck2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../context/SettingsContext";
 import "./ForecastDetailModal.css";
@@ -8,7 +8,6 @@ import "./ForecastDetailModal.css";
 interface Props {
   open: boolean;
   predictedBalance: number | null;
-  healthScore: number | null;
   spendingTier: string;
   dailyRate: number;
   daysRemaining: number;
@@ -19,7 +18,6 @@ interface Props {
 const ForecastDetailModal: React.FC<Props> = ({
   open,
   predictedBalance,
-  healthScore,
   spendingTier,
   dailyRate,
   daysRemaining,
@@ -40,15 +38,6 @@ const ForecastDetailModal: React.FC<Props> = ({
 
   const tierKey = `ai.forecast_tier.${spendingTier}` as const;
   const tierLabel = t(tierKey, { defaultValue: spendingTier.replace(/_/g, " ") });
-
-  const healthColor =
-    healthScore !== null
-      ? healthScore > 60
-        ? "#10b981"
-        : healthScore > 35
-        ? "#f59e0b"
-        : "#f87171"
-      : "#94a3b8";
 
   return (
     <AnimatePresence>
@@ -117,29 +106,6 @@ const ForecastDetailModal: React.FC<Props> = ({
                       </span>
                     </div>
                   </div>
-
-                  {healthScore !== null && (
-                    <div className="fmd-row">
-                      <HeartPulse size={16} className="fmd-row-icon" />
-                      <div className="fmd-row-content">
-                        <span className="fmd-row-label">{t("statistics.forecast_modal_health")}</span>
-                        <div className="fmd-health-wrap">
-                          <div className="fmd-health-track">
-                            <motion.div
-                              className="fmd-health-fill"
-                              initial={{ width: 0 }}
-                              animate={{ width: `${healthScore}%` }}
-                              transition={{ duration: 0.8, ease: "easeOut" }}
-                              style={{ background: healthColor }}
-                            />
-                          </div>
-                          <span className="fmd-health-score" style={{ color: healthColor }}>
-                            {healthScore} / 100
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="fmd-divider" />

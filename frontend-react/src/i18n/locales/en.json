@@ -290,7 +290,6 @@
     "forecast_surplus": "surplus",
     "forecast_deficit": "deficit",
     "forecast_unavailable": "AI forecast unavailable",
-    "forecast_health": "Financial health:",
     "forecast_rate_line": "Spending at {{rate}}/day",
     "forecast_positive": "Projected surplus by end of month",
     "forecast_negative": "Projected deficit by end of month",
@@ -299,7 +298,6 @@
     "forecast_modal_day": "day",
     "forecast_modal_days_left": "Days remaining",
     "forecast_modal_days_remaining": "{{count}} days left in the month",
-    "forecast_modal_health": "Financial health",
     "forecast_modal_context": "At your current spending rate of {{rate}}/day, you will have {{balance}} {{direction}} by end of month.",
     "forecast_modal_surplus_word": "left over",
     "forecast_modal_deficit_word": "in the red",
@@ -315,9 +313,7 @@
     "savings_forecast_annual": "Annual projection",
     "savings_forecast_in_a_year": "≈ {{amount}} in a year",
     "savings_forecast_rough": "Rough estimate — improves after your first full cycle.",
-    "savings_forecast_accumulated": "Accumulated balance",
-    "savings_forecast_tip_pos": "You're on a great savings trajectory! Consider building an investment portfolio.",
-    "savings_forecast_tip_neg": "Spending outpaces income this cycle. Review your top expense categories."
+    "savings_forecast_accumulated": "Accumulated balance"
   },
   "settings": {
     "title": "Settings",

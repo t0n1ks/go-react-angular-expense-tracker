@@ -290,7 +290,6 @@
     "forecast_surplus": "Überschuss",
     "forecast_deficit": "Defizit",
     "forecast_unavailable": "KI-Prognose nicht verfügbar",
-    "forecast_health": "Finanzielle Gesundheit:",
     "forecast_rate_line": "Ausgaben bei {{rate}}/Tag",
     "forecast_positive": "Voraussichtlicher Überschuss zum Monatsende",
     "forecast_negative": "Voraussichtliches Defizit zum Monatsende",
@@ -299,7 +298,6 @@
     "forecast_modal_day": "Tag",
     "forecast_modal_days_left": "Verbleibende Tage",
     "forecast_modal_days_remaining": "Noch {{count}} Tage im Monat",
-    "forecast_modal_health": "Finanzielle Gesundheit",
     "forecast_modal_context": "Bei deiner aktuellen Ausgabenrate von {{rate}}/Tag wirst du am Monatsende {{balance}} {{direction}} haben.",
     "forecast_modal_surplus_word": "übrig",
     "forecast_modal_deficit_word": "im Minus",
@@ -315,9 +313,7 @@
     "savings_forecast_annual": "Jahresprognose",
     "savings_forecast_in_a_year": "≈ {{amount}} in einem Jahr",
     "savings_forecast_rough": "Grobe Schätzung — wird nach deinem ersten vollen Zyklus genauer.",
-    "savings_forecast_accumulated": "Angespartes Guthaben",
-    "savings_forecast_tip_pos": "Du bist auf einem guten Sparweg! Denke über ein Investmentportfolio nach.",
-    "savings_forecast_tip_neg": "Ausgaben übersteigen Einnahmen in diesem Zyklus. Überprüfe deine Hauptausgaben."
+    "savings_forecast_accumulated": "Angespartes Guthaben"
   },
   "settings": {
     "title": "Einstellungen",

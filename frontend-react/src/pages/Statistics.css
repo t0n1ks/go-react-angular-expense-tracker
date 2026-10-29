@@ -177,14 +177,6 @@
     color: var(--color-text-secondary, #94a3b8);
 }
 
-.savings-forecast-tip {
-    font-size: 0.72rem;
-    color: var(--color-text-muted);
-    border-top: 1px solid var(--color-border-card);
-    padding-top: 0.6rem;
-    margin: 0;
-    line-height: 1.4;
-}
 
 @media (max-width: 600px) {
     .charts-layout {

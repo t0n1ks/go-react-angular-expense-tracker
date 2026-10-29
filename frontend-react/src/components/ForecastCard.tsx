@@ -7,7 +7,6 @@ import "./ForecastCard.css";
 
 interface Props {
   predictedBalance: number | null;
-  healthScore: number | null;
   spendingTier: string;
   dailyRate: number;
   onClick: () => void;
@@ -15,7 +14,6 @@ interface Props {
 
 const ForecastCard: React.FC<Props> = ({
   predictedBalance,
-  healthScore,
   spendingTier,
   dailyRate,
   onClick,
@@ -65,25 +63,6 @@ const ForecastCard: React.FC<Props> = ({
           </>
         )}
       </div>
-
-      {healthScore !== null && (
-        <div className="forecast-health-bar-wrap">
-          <div className="forecast-health-bar-track">
-            <motion.div
-              className="forecast-health-bar-fill"
-              initial={{ width: 0 }}
-              animate={{ width: `${healthScore}%` }}
-              transition={{ duration: 0.7, ease: "easeOut" }}
-              style={{
-                background: healthScore > 60 ? "#10b981" : healthScore > 35 ? "#f59e0b" : "#f87171",
-              }}
-            />
-          </div>
-          <span className="forecast-health-label">
-            {t("statistics.forecast_health")} {healthScore}/100
-          </span>
-        </div>
-      )}
 
       <div className="forecast-tier-badge">{tierLabel}</div>
     </motion.div>

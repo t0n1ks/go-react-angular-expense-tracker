@@ -290,7 +290,6 @@
     "forecast_surplus": "профицит",
     "forecast_deficit": "дефицит",
     "forecast_unavailable": "Прогноз ИИ недоступен",
-    "forecast_health": "Финансовое здоровье:",
     "forecast_rate_line": "Расход {{rate}}/день",
     "forecast_positive": "Прогнозируется профицит к концу месяца",
     "forecast_negative": "Прогнозируется дефицит к концу месяца",
@@ -299,7 +298,6 @@
     "forecast_modal_day": "день",
     "forecast_modal_days_left": "Осталось дней",
     "forecast_modal_days_remaining": "Осталось {{count}} дней в месяце",
-    "forecast_modal_health": "Финансовое здоровье",
     "forecast_modal_context": "При текущем расходе {{rate}}/день к концу месяца у вас будет {{balance}} {{direction}}.",
     "forecast_modal_surplus_word": "в остатке",
     "forecast_modal_deficit_word": "в минусе",
@@ -315,9 +313,7 @@
     "savings_forecast_annual": "Годовой прогноз",
     "savings_forecast_in_a_year": "≈ {{amount}} через год",
     "savings_forecast_rough": "Примерная оценка — станет точнее после первого полного цикла.",
-    "savings_forecast_accumulated": "Накопленный баланс",
-    "savings_forecast_tip_pos": "Вы на отличной траектории накоплений! Подумайте об инвестиционном портфеле.",
-    "savings_forecast_tip_neg": "Расходы превышают доходы в этом цикле. Проверьте основные категории трат."
+    "savings_forecast_accumulated": "Накопленный баланс"
   },
   "settings": {
     "title": "Настройки",
