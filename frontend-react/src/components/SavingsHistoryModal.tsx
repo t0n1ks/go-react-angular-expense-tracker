@@ -4,6 +4,7 @@ import { X, PiggyBank, Plus, Minus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { type SalaryCycle, type CycleStats } from '../context/SettingsContext';
+import { savingsDepositError } from '../utils/savingsDepositError';
 
 interface SavingsTx {
   id: number;
@@ -79,8 +80,10 @@ const SavingsHistoryModal: React.FC<Props> = ({
       if (onSaved && res.data.cycle_stats) {
         onSaved(res.data.cycle_stats as CycleStats);
       }
-    } catch {
-      setEntryError(t('dashboard.savings_add_error'));
+    } catch (err) {
+      // A deposit comes out of the spendable budget: the server rejects one
+      // larger than what is left and says how much fits.
+      setEntryError(savingsDepositError(err, t, formatAmount) ?? t('dashboard.savings_add_error'));
     } finally {
       setEntrySaving(false);
     }
@@ -276,7 +279,7 @@ const SavingsHistoryModal: React.FC<Props> = ({
           </div>
 
           {entryError && (
-            <p style={{ fontSize: '0.78rem', color: '#f87171', marginTop: '0.4rem' }}>{entryError}</p>
+            <p role="alert" style={{ fontSize: '0.78rem', color: '#f87171', marginTop: '0.4rem' }}>{entryError}</p>
           )}
         </div>
       </motion.div>

@@ -16,6 +16,7 @@ import {
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
+import { cashFlowSeries, withinPeriod, type TimelinePoint } from "../utils/balanceTimeline";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -55,6 +56,8 @@ const Statistics: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [timelinePeriod, setTimelinePeriod] = useState<number>(90); // days; 0 = all time
+  // Server real-money series (cycle users); empty → no-cycle cash-flow chart.
+  const [moneySeries, setMoneySeries] = useState<TimelinePoint[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -100,6 +103,18 @@ const Statistics: React.FC = () => {
     if (!liteMode) fetchAnalysis();
   }, [fetchData, fetchAnalysis, liteMode]);
 
+  // Re-read the real-money series whenever the cycle figures change, so the
+  // chart's latest point always equals the money on hand the cards show.
+  useEffect(() => {
+    if (liteMode) return;
+    axiosInstance
+      .get("/balance/timeline")
+      .then((res: { data: { points?: TimelinePoint[] } }) =>
+        setMoneySeries(Array.isArray(res.data.points) ? res.data.points : []),
+      )
+      .catch(() => setMoneySeries([]));
+  }, [axiosInstance, liteMode, cycleStats]);
+
   // Donut is scoped to the EXACT window the server computed the cycle stats
   // over ([window_start, window_end), open while the cycle is current), and
   // each transaction is placed by its server effective_at — so the donut and
@@ -133,58 +148,21 @@ const Statistics: React.FC = () => {
   }, [transactions, hasActiveCycle, cycleWindow, i18n.language]);
 
   // ── Balance Dynamics ──────────────────────────────────────────────────────
-  // True cumulative cash flow over time: income adds, expense subtracts. Savings
-  // pool transfers (savings_deposit / savings_withdrawal) are INTERNAL movements
-  // between cash and the savings pool — not earning or spending — so they are
-  // excluded. Including them previously injected large budget-derived amounts
-  // (e.g. the auto "Planned savings allocation" = income × savings %) into the
-  // series, producing the anomalous vertical drops to budget-shaped figures.
-  //
-  // The full cumulative series is built across ALL history first so every point
-  // reflects the real running balance, and is only THEN sliced to the selected
-  // period — keeping the first visible point anchored to the true balance.
+  // Cycle users: the server's real money on hand per day (spendable remainder +
+  // savings pool, from the first cycle) — spending from savings lowers it,
+  // moving budget → savings does not. Users who never had a cycle keep the
+  // cumulative cash-flow series. See utils/balanceTimeline.
   const timelineData = useMemo(() => {
-    const events = transactions.filter(
-      (t) => t.type === "income" || t.type === "expense",
-    );
-    if (events.length === 0) return [];
-
-    // Bucket by a stable YYYY-MM-DD key derived from created_at (the authoritative
-    // event time) falling back to date. Slicing the first 10 chars avoids
-    // timezone-dependent Date parsing, so bundled "Salary" + fixed-expense rows
-    // created the same instant land on the correct, single day.
-    const keyOf = (t: { created_at?: string; date: string }) =>
-      (t.created_at ?? t.date).slice(0, 10);
-
-    const sorted = [...events].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
-
-    const dailyMap = new Map<string, number>();
-    let runningBalance = 0;
-    sorted.forEach((tx) => {
-      runningBalance += tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
-      dailyMap.set(keyOf(tx), runningBalance); // last write wins → end-of-day balance
-    });
-
-    let entries = Array.from(dailyMap.entries());
-
-    // Period filter (0 = all time). Slice AFTER the cumulative sum so the first
-    // visible point keeps its true running balance instead of resetting to zero.
-    if (timelinePeriod > 0) {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - timelinePeriod);
-      const cutoffKey = cutoff.toISOString().slice(0, 10);
-      entries = entries.filter(([key]) => key >= cutoffKey);
-    }
-
-    return entries.map(([key, balance]) => {
-      const [y, m, d] = key.split("-").map(Number);
+    const series = moneySeries.length > 0 ? moneySeries : cashFlowSeries(transactions);
+    return withinPeriod(series, timelinePeriod).map(({ date, balance }) => {
+      const [y, m, d] = date.split("-").map(Number);
       const label = new Date(y, m - 1, d).toLocaleDateString(i18n.language, {
         day: "2-digit",
         month: "short",
       });
       return { date: label, balance };
     });
-  }, [transactions, i18n.language, timelinePeriod]);
+  }, [moneySeries, transactions, i18n.language, timelinePeriod]);
 
   const nextPayday = useMemo((): Date | null => {
     if (paydayMode === 'fixed' && fixedPayday > 0) {

@@ -103,11 +103,17 @@ type CycleStats struct {
 	CycleFixedExpenses    float64 `json:"cycle_fixed_expenses"`
 	CycleVariableExpenses float64 `json:"cycle_variable_expenses"`
 
-	// Dynamic Variable Allowance = income − savings allocation − fixed_expenses
-	// (incl. the cents the whole-unit savings rounding sheds) + carry-over
-	// from the previous cycle − carry-over moved to savings. This is the budget
-	// for discretionary (variable) spending.
+	// Variable Allowance = income − fixed_expenses − everything moved into the
+	// savings pool this cycle (% allocation, carry-over move, manual deposits)
+	// + carry-over from the previous cycle. The cents the whole-unit savings
+	// rounding sheds stay here. The budget for discretionary spending.
 	VariableAllowance float64 `json:"variable_allowance"`
+	// SpendableRemaining = VariableAllowance − variable spending (negative =
+	// overspent).
+	SpendableRemaining float64 `json:"spendable_remaining"`
+	// MoneyOnHand = SpendableRemaining + SavedMoneyBalance: the real money the
+	// user has now (same definition as the balance timeline's latest point).
+	MoneyOnHand float64 `json:"money_on_hand"`
 
 	// Carry-over: unspent budget brought in from the previous cycle (part of
 	// VariableAllowance), how much of it the user moved to savings, and how
@@ -117,7 +123,7 @@ type CycleStats struct {
 	CarryOverMovable   float64 `json:"carry_over_movable"`
 
 	// DynamicSavings = income × savings_pct%, rounded DOWN to whole units — the
-	// planned allocation earmarked for the pool.
+	// planned allocation for the pool (kept matched by real deposits).
 	DynamicSavings float64 `json:"dynamic_savings"`
 	// SavedMoneyBalance = cumulative all-time net balance of the savings pool.
 	SavedMoneyBalance float64 `json:"saved_money_balance"`
@@ -156,39 +162,23 @@ func computeCycleStats(uid uint, cycle models.SalaryCycle) CycleStats {
 func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.SalaryCycle, k cycleClock) CycleStats {
 	txs := loadWindowTransactions(uid, k.window(cycle, all), k)
 
-	var income, expenses, fixedExp, variableExp, carryMoved float64
-	for _, tx := range txs {
-		if tx.Source == carryOverToSavingsSource {
-			carryMoved += tx.Amount
-		}
-		if isSavingsPoolTx(tx.Transaction, cycle.SavedMoneyCategoryID) {
-			continue
-		}
-		switch tx.Type {
-		case "income":
-			income += tx.Amount
-		case "expense":
-			expenses += tx.Amount
-			if cycle.FixedExpCategoryID > 0 && tx.CategoryID == cycle.FixedExpCategoryID {
-				fixedExp += tx.Amount
-			} else {
-				variableExp += tx.Amount
-			}
-		}
-	}
+	// The ledger tally (real_money.go) is the one source of the spendable
+	// budget: what entered the savings pool this cycle left the budget.
+	totals := tallyCycle(cycle, txs)
+	income, expenses := totals.Income, totals.Expenses
+	fixedExp, variableExp, carryMoved := totals.FixedExp, totals.VariableExp, totals.CarryMoved
 
-	// Dynamic savings allocation — scales with actual income so ghost data
-	// (snapshot values from a deleted salary tx) cannot persist.
-	// Whole units only; the rounded-off cents stay in the variable allowance below.
+	// Planned % allocation for this cycle's income, whole units — shown as
+	// context; the budget deducts what actually went into the pool.
 	dynamicSavings := plannedSavingsAllocation(income, cycle.SavingsPct)
 
-	// Variable Allowance = what's truly available for discretionary spending,
-	// plus the budget carried in from the previous cycle that is still here.
-	variableAllowance := math.Max(0, income-dynamicSavings-fixedExp) + cycle.CarryOver - carryMoved
+	// Variable Allowance = income − fixed − moved to savings + carry-over.
+	variableAllowance := totals.allowance(cycle)
+	spendableRemaining := totals.remaining(cycle)
 
 	// Carry-over still movable to savings: what's left of it, never more than
 	// the unspent balance, in whole units (same rule as the % allocation).
-	carryMovable, _ := splitToWholeUnits(math.Min(cycle.CarryOver-carryMoved, variableAllowance-variableExp))
+	carryMovable, _ := splitToWholeUnits(math.Min(cycle.CarryOver-carryMoved, spendableRemaining))
 
 	// Live remaining savings-pool balance (allocated − withdrawn + additions).
 	savedMoneyBalance := savingsPoolBalance(uid, cycle.SavedMoneyCategoryID)
@@ -245,8 +235,7 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 	// recomputes baseWeekly retroactively) lets "can spend this week" exceed the
 	// total left in the cycle — a mathematically impossible figure. Cap so that
 	// (allowance - currentWeekSpent) <= remaining cycle balance.
-	cycleRemaining := variableAllowance - variableExp
-	maxAllowance := cycleRemaining + currentWeekSpent
+	maxAllowance := spendableRemaining + currentWeekSpent
 	if currentWeekAllowance > maxAllowance {
 		currentWeekAllowance = maxAllowance
 	}
@@ -265,6 +254,8 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 		CarryOverMovable:       carryMovable,
 		DynamicSavings:         dynamicSavings,
 		SavedMoneyBalance:      savedMoneyBalance,
+		SpendableRemaining:     round2(spendableRemaining),
+		MoneyOnHand:            round2(spendableRemaining + savedMoneyBalance),
 		NetDiscretionaryBudget: variableAllowance,
 		PreviousSavings:        previousSavings,
 		DaysTotal:              daysTotal,
@@ -662,7 +653,7 @@ func StartSalaryCycle(c *gin.Context) {
 				UserID:      uid,
 				CategoryID:  savedCat.ID,
 				Amount:      savingsAmount,
-				Description: "Planned savings allocation",
+				Description: savingsAllocationDescription,
 				Date:        txDate,
 				Type:        "savings_deposit",
 				IncomeType:  "one_time",
@@ -1302,6 +1293,8 @@ func AddCycleIncome(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add income"})
 		return
 	}
+	// The % allocation on the new income goes into the pool for real.
+	topUpSavingsAllocation(uid, k)
 	InvalidateCycleCache(uid)
 	ScheduleBrainResync(uid)
 
@@ -1530,8 +1523,10 @@ func findActiveCycle(uid uint, k cycleClock) *models.SalaryCycle {
 // POST /api/salary-cycle/savings
 // Creates a manual entry in the savings pool:
 //
-//	amount > 0  →  deposit  (income transaction)
-//	amount < 0  →  withdrawal (expense transaction)
+//	amount > 0  →  deposit (savings_deposit): moves that exact amount out of
+//	               the current cycle's spendable budget; rejected when it
+//	               exceeds what is left (DEPOSIT_EXCEEDS_SPENDABLE)
+//	amount < 0  →  withdrawal (savings_withdrawal): money spent from savings
 //
 // Returns fresh CycleStats so the dashboard updates without a full page reload.
 func AddSavingsManual(c *gin.Context) {
@@ -1597,6 +1592,9 @@ func AddSavingsManual(c *gin.Context) {
 		IncomeType:  "one_time",
 		CreatedAt:   now,
 		UpdatedAt:   now,
+	}
+	if txType == "savings_deposit" && !allowSavingsDeposit(c, uid, newTx, k) {
+		return
 	}
 	if err := database.DB.Create(&newTx).Error; err != nil {
 		log.Printf("add savings manual: user=%v err=%v", uid, err)

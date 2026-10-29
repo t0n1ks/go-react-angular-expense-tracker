@@ -79,6 +79,9 @@ func CreateTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
 		return
 	}
+	if transaction.Type == "income" {
+		topUpSavingsAllocation(userID.(uint), requestClock(c, userID.(uint)))
+	}
 	InvalidateCycleCache(userID.(uint))
 	ScheduleBrainResync(userID.(uint))
 
@@ -184,6 +187,7 @@ func UpdateTransaction(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found or access denied"})
 		return
 	}
+	original := transaction
 
 	var input struct {
 		CategoryID  *uint    `json:"category_id"`
@@ -250,10 +254,30 @@ func UpdateTransaction(c *gin.Context) {
 	}
 	transaction.UpdatedAt = time.Now()
 
+	uid := userID.(uint)
+	k := requestClock(c, uid)
+	// A bigger (or re-dated) deposit into savings draws on the current cycle's
+	// budget and obeys the same guard as a new one. Edits to past cycles'
+	// deposits are history and pass.
+	if transaction.Type == "savings_deposit" &&
+		(transaction.Amount > original.Amount || !transaction.Date.Equal(original.Date)) {
+		if chk := checkSavingsDeposit(uid, transaction, k); chk.InCycle && !chk.OK {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":     "The deposit is larger than the budget left to spend",
+				"code":      errDepositExceedsSpendable,
+				"available": chk.Available,
+			})
+			return
+		}
+	}
+
 	if err := database.DB.Save(&transaction).Error; err != nil {
 		log.Printf("update transaction: user=%v tx=%v err=%v", userID, transactionID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
 		return
+	}
+	if transaction.Type == "income" || original.Type == "income" {
+		topUpSavingsAllocation(uid, k)
 	}
 	InvalidateCycleCache(userID.(uint))
 	ScheduleBrainResync(userID.(uint))

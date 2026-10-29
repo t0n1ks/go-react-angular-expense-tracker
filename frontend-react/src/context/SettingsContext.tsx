@@ -63,18 +63,23 @@ export interface CycleStats {
   cycle_expenses: number;
   cycle_fixed_expenses: number;
   cycle_variable_expenses: number;
-  // Dynamic variable allowance = income − savings allocation − fixed_expenses
-  // + carry-over from the previous cycle − carry-over moved to savings
+  // Variable allowance = income − fixed_expenses − everything moved into the
+  // savings pool this cycle + carry-over from the previous cycle
   variable_allowance: number;
+  // variable_allowance − variable spending (negative = overspent)
+  spendable_remaining?: number;
+  // Real money on hand: spendable_remaining + saved_money_balance (= the
+  // balance chart's latest point)
+  money_on_hand?: number;
   // Unspent budget carried in from the previous cycle (part of variable_allowance)
   carry_over?: number;
   // Carry-over the user moved into savings this cycle (whole units)
   carry_over_to_savings?: number;
   // Carry-over that can still be moved to savings now (whole units)
   carry_over_movable?: number;
-  // Portion of income earmarked for the savings pool this cycle
+  // Planned % allocation of this cycle's income (whole units)
   dynamic_savings: number;
-  // Cumulative all-time net balance of the savings pool
+  // Live savings-pool balance (deposits − withdrawals)
   saved_money_balance: number;
   previous_savings: number;
   net_discretionary_budget: number; // equals variable_allowance (backward-compat)

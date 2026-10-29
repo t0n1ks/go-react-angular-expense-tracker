@@ -123,6 +123,9 @@ func main() {
 		protected.POST("/salary-cycle/income", handlers.AddCycleIncome)
 		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
 		protected.POST("/salary-cycle/savings", handlers.AddSavingsManual)
+		protected.POST("/transactions/:id/savings", handlers.MoveTransactionToSavings)
+		// Real money on hand over time (cycle remainder + savings pool).
+		protected.GET("/balance/timeline", handlers.GetBalanceTimeline)
 
 		// Server-authoritative monthly budget for users without a salary cycle.
 		protected.GET("/budget/current", handlers.GetCurrentBudget)

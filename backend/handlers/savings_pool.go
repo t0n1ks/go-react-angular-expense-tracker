@@ -15,7 +15,7 @@ import (
 //
 // It governs the automatic % allocation and moving the carried-over budget into
 // savings. Amounts the user types (manual deposits/withdrawals) are exact and
-// never pass through here.
+// never pass through here — they still leave the budget by that exact amount.
 func splitToWholeUnits(amount float64) (whole, cents float64) {
 	if amount <= 0 {
 		return 0, 0
@@ -40,11 +40,45 @@ func savingsRoundingRemainder(income, savingsPct float64) float64 {
 	return cents
 }
 
-// carryOverToSavingsSource marks the savings deposit created when the user
-// moves the carried-over budget into savings (Transaction.Source). The cycle
-// engine deducts these from the spendable budget, and deleting the cycle from
-// history removes them.
-const carryOverToSavingsSource = "carry_over_to_savings"
+// Transaction.Source values for savings deposits the app creates from an
+// action, so each one stays traceable.
+const (
+	// carryOverToSavingsSource: the carried-over budget moved into savings.
+	// Deleting the cycle from history removes these.
+	carryOverToSavingsSource = "carry_over_to_savings"
+	// savingsAllocationSource: an automatic % allocation top-up after more
+	// income arrived in the cycle (the allocation made at cycle start is
+	// recognised by its description, savingsAllocationDescription).
+	savingsAllocationSource = "savings_allocation"
+	// expenseToSavingsSource: an expense the user re-filed as a deposit into
+	// savings from the transaction view.
+	expenseToSavingsSource = "expense_to_savings"
+)
+
+const (
+	savingsAllocationDescription = "Planned savings allocation"
+	// legacyBonusDescription: before carry-over existed, an unspent balance was
+	// moved into the pool at the start of the NEXT cycle under this name. That
+	// money came from the previous cycle, not from the new cycle's budget.
+	legacyBonusDescription = "Pleasant bonus from the previous cycle"
+)
+
+// isBudgetFundedDeposit reports whether a transaction moves money from the
+// cycle's spendable budget into the savings pool: every pool inflow (the %
+// allocation, the carry-over move, manual deposits, re-filed expenses) except
+// the legacy bonus. Money is conserved — what enters the pool leaves the
+// budget, by exactly the same amount.
+func isBudgetFundedDeposit(tx models.Transaction, savedMoneyCatID uint) bool {
+	return isSavingsPoolTx(tx, savedMoneyCatID) && isSavingsPoolInflow(tx.Type) &&
+		tx.Description != legacyBonusDescription
+}
+
+// isSavingsAllocation reports whether a deposit is part of the automatic %
+// allocation (the one made at cycle start, or a later top-up).
+func isSavingsAllocation(tx models.Transaction) bool {
+	return tx.Type == "savings_deposit" &&
+		(tx.Source == savingsAllocationSource || tx.Description == savingsAllocationDescription)
+}
 
 // ── Savings pool ("piggy bank") balance — single source of truth ─────────────
 //

@@ -13,6 +13,7 @@ import {
   formatMonthLabel,
 } from '../utils/groupTransactionsByMonth';
 import { categoryLabel } from '../utils/categoryLabel';
+import { savingsDepositError } from '../utils/savingsDepositError';
 import {
   buildSearchIndex,
   filterTransactions,
@@ -322,8 +323,8 @@ const Transactions: React.FC = () => {
       setEditingId(null);
       fetchData();
       refreshCycle(); // real-time: recompute cycle stats app-wide (cache-backed)
-    } catch {
-      setFormError(t('transactions.error_update'));
+    } catch (err) {
+      setFormError(savingsDepositError(err, t, formatAmount) ?? t('transactions.error_update'));
     }
   };
 
@@ -832,6 +833,7 @@ const Transactions: React.FC = () => {
       <TransactionDetailModal
         tx={selectedTx}
         onClose={() => setSelectedTx(null)}
+        onMovedToSavings={fetchData}
       />
     </div>
   );

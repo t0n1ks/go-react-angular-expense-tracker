@@ -170,3 +170,54 @@
     grid-template-columns: 18px 100px 1fr;
   }
 }
+
+/* ── Move an expense to savings ──────────────────────────────────────────── */
+.txd-move {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.txd-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-income-text, #10b981);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  white-space: normal;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.txd-move-btn:hover:not(:disabled) { background: rgba(16, 185, 129, 0.22); }
+.txd-move-btn:focus-visible { outline: 2px solid var(--color-income-text, #10b981); outline-offset: 2px; }
+.txd-move-btn:disabled { opacity: 0.6; cursor: progress; }
+
+.txd-move-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #94a3b8);
+  text-align: center;
+}
+
+.txd-move-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f87171;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .txd-move-btn { transition: none; }
+}

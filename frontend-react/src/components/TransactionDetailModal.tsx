@@ -1,9 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { categoryLabel } from "../utils/categoryLabel";
+import { isInWindow, txEventTime } from "../utils/categoryWindow";
+import { savingsDepositError } from "../utils/savingsDepositError";
 import "./TransactionDetailModal.css";
 
 interface Category {
@@ -17,6 +20,7 @@ interface Transaction {
   amount: number;
   date: string;
   created_at?: string;
+  effective_at?: string;
   description: string;
   type: "expense" | "income" | "savings_deposit" | "savings_withdrawal";
   income_type?: string;
@@ -26,11 +30,45 @@ interface Transaction {
 interface Props {
   tx: Transaction | null;
   onClose: () => void;
+  /** Called after the expense was moved into savings (parent refreshes). */
+  onMovedToSavings?: () => void;
 }
 
-const TransactionDetailModal: React.FC<Props> = ({ tx, onClose }) => {
+const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMovedToSavings }) => {
   const { t } = useTranslation();
-  const { formatAmount } = useSettings();
+  const { axiosInstance } = useAuth();
+  const { formatAmount, hasActiveCycle, cycleWindow, currentCycle, refreshCycle } = useSettings();
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState("");
+
+  useEffect(() => { setMoveError(""); }, [tx]);
+
+  // An expense of the current cycle can be re-filed as money moved to savings
+  // (the server re-checks; this only decides whether to offer it).
+  const canMoveToSavings =
+    !!tx && tx.type === "expense" && hasActiveCycle && !!cycleWindow &&
+    tx.category?.id !== currentCycle?.saved_money_category_id &&
+    isInWindow(txEventTime(tx), {
+      start: new Date(cycleWindow.start),
+      end: cycleWindow.end ? new Date(cycleWindow.end) : null,
+      source: "cycle",
+    });
+
+  const moveToSavings = async () => {
+    if (!tx) return;
+    setMoving(true);
+    setMoveError("");
+    try {
+      await axiosInstance.post(`/transactions/${tx.id}/savings`);
+      await refreshCycle();
+      onMovedToSavings?.();
+      onClose();
+    } catch (err) {
+      setMoveError(savingsDepositError(err, t, formatAmount) ?? t("transactions.move_to_savings_error"));
+    } finally {
+      setMoving(false);
+    }
+  };
 
   useEffect(() => {
     if (!tx) return;
@@ -127,6 +165,23 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose }) => {
                 </div>
               )}
             </div>
+
+            {canMoveToSavings && (
+              <div className="txd-move">
+                <button
+                  type="button"
+                  className="txd-move-btn"
+                  onClick={moveToSavings}
+                  disabled={moving}
+                  aria-label={t("transactions.move_to_savings_aria", { amount: formatAmount(tx.amount) })}
+                >
+                  <PiggyBank size={16} aria-hidden="true" />
+                  {t("transactions.move_to_savings_btn")}
+                </button>
+                <p className="txd-move-hint">{t("transactions.move_to_savings_hint")}</p>
+                {moveError && <p className="txd-move-error" role="alert">{moveError}</p>}
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
