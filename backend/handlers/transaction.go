@@ -51,6 +51,11 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 
+	if category.TranslationKey == variableBudgetCategoryKey {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This system category can't hold ordinary entries", "code": errSystemCategory})
+		return
+	}
+
 	parsedDate, err := time.Parse("2006-01-02", input.Date)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
@@ -202,7 +207,23 @@ func UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	if input.Type != nil {
+	// A "Переменный бюджет" row records money returned from savings: its
+	// amount, type and category are system-managed (change them by moving it
+	// to savings); only its description and date are the user's to edit.
+	if isBudgetTransfer(transaction) &&
+		((input.Type != nil && *input.Type != transaction.Type) ||
+			(input.CategoryID != nil && *input.CategoryID != transaction.CategoryID) ||
+			(input.Amount != nil && round2(*input.Amount) != round2(transaction.Amount))) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A budget row's amount, type and category are system-managed", "code": errTransferLocked})
+		return
+	}
+	if input.CategoryID != nil && *input.CategoryID != transaction.CategoryID &&
+		isVariableBudgetCategory(transaction.UserID, *input.CategoryID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This system category can't hold ordinary entries", "code": errSystemCategory})
+		return
+	}
+
+	if input.Type != nil && *input.Type != transaction.Type {
 		if *input.Type != "expense" && *input.Type != "income" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid type. Allowed values: expense, income. Use the /salary-cycle/savings endpoint for savings transfers."})
 			return

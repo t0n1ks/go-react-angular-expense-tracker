@@ -741,3 +741,15 @@
 .tx-card-time::before {
   content: " · ";
 }
+
+/* Budget ↔ savings transfers: neither earning nor spending — neutral */
+.type-badge.type-transfer,
+.edit-savings-badge.type-transfer {
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--color-text-secondary, #94a3b8);
+}
+
+.amount-transfer {
+    color: var(--color-text-heading);
+    font-weight: 600;
+}

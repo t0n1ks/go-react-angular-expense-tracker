@@ -1,8 +1,11 @@
+import { txFlow } from './transactionKind';
+
 interface ExportTransaction {
   date: string;
   category: { name: string };
   amount: number;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
+  source?: string;
   description: string;
 }
 
@@ -21,6 +24,8 @@ interface ExportLabels {
   description: string;
   expense: string;
   income: string;
+  /** Budget ↔ savings move (neither earning nor spending). */
+  transfer?: string;
 }
 
 export function exportTransactionsCSV(
@@ -45,12 +50,13 @@ export function exportTransactionsCSV(
       escapeField(dateStr),
       escapeField(tx.category?.name ?? ''),
       String(tx.amount),
-      // Direction-aware: a savings_deposit is an inflow (Income), a
-      // savings_withdrawal is an outflow (Expense) — never label the whole
-      // savings pool the same way.
+      // Direction-aware (utils/transactionKind): a savings_deposit is an
+      // inflow (Income), a savings_withdrawal an outflow (Expense), and a
+      // budget ↔ savings move a Transfer — never label the whole savings pool
+      // the same way.
       escapeField(
-        tx.type === 'income' || tx.type === 'savings_deposit'
-          ? labels.income
+        txFlow(tx) === 'in' ? labels.income
+          : txFlow(tx) === 'transfer' ? (labels.transfer ?? labels.income)
           : labels.expense,
       ),
       escapeField(tx.description ?? ''),

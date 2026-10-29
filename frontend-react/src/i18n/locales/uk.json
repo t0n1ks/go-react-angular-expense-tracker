@@ -181,6 +181,8 @@
     "description": "Опис",
     "desc_ph": "На що витратили?",
     "type_expense": "Витрата",
+    "type_transfer": "Переказ",
+    "transfer_savings_to_budget": "Із заощаджень → Змінний бюджет",
     "type_income": "Дохід",
     "select_cat": "Оберіть категорію",
     "add_btn": "Додати",
@@ -203,11 +205,13 @@
     "move_to_savings_btn": "Перевести в заощадження",
     "move_to_savings_aria": "Перевести цю витрату {{amount}} у заощадження",
     "move_to_savings_hint": "Її буде враховано як заощадження, а не як витрату.",
+    "move_back_to_savings_hint": "Сума знову піде в заощадження.",
     "move_to_savings_error": "Не вдалося перевести в заощадження",
     "return_to_budget_amount": "Скільки повернути",
     "return_to_budget_btn": "Повернути в бюджет",
     "return_to_budget_aria": "Повернути {{amount}} із заощаджень у бюджет",
     "return_to_budget_hint": "Сума повернеться в «можна витратити» цього циклу. Відкласти її знову можна будь-коли.",
+    "return_to_budget_closed_hint": "Це поповнення з минулого циклу: з'явиться переказ від сьогоднішньої дати, сам запис не зміниться.",
     "return_to_budget_error": "Не вдалося повернути в бюджет",
     "error_delete": "Помилка при видаленні",
     "error_no_cat": "Спочатку створіть категорію!",
@@ -258,7 +262,8 @@
     "beauty": "Краса",
     "income": "Дохід",
     "saved_money": "Заощадження",
-    "fixed_payments": "Фіксовані платежі"
+    "fixed_payments": "Фіксовані платежі",
+    "variable_budget": "Змінний бюджет"
   },
   "statistics": {
     "title": "Аналітика",

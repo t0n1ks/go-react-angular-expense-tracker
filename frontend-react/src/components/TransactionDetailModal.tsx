@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { X, Tag, CalendarDays, Clock, AlignLeft, TrendingUp, TrendingDown, PiggyBank, ArrowLeftRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { categoryLabel } from "../utils/categoryLabel";
-import { isInWindow, txEventTime } from "../utils/categoryWindow";
-import { savingsMoveError } from "../utils/savingsMoveError";
+import { inCurrentCycle } from "../utils/categoryWindow";
+import { txFlow, flowSign, flowClass, flowLabelKey, isBudgetRow, isSavingsToBudgetTransfer } from "../utils/transactionKind";
 import ReturnToBudget from "./ReturnToBudget";
+import MoveToSavings from "./MoveToSavings";
 import "./TransactionDetailModal.css";
 
 interface Category {
@@ -23,8 +23,9 @@ interface Transaction {
   created_at?: string;
   effective_at?: string;
   description: string;
-  type: "expense" | "income" | "savings_deposit" | "savings_withdrawal";
+  type: "expense" | "income" | "savings_deposit" | "savings_withdrawal" | "budget_transfer";
   income_type?: string;
+  source?: string;
   category: Category;
 }
 
@@ -37,23 +38,13 @@ interface Props {
 
 const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
   const { t } = useTranslation();
-  const { axiosInstance } = useAuth();
-  const { formatAmount, hasActiveCycle, cycleWindow, currentCycle, refreshCycle } = useSettings();
-  const [moving, setMoving] = useState(false);
-  const [moveError, setMoveError] = useState("");
+  const { formatAmount, hasActiveCycle, cycleWindow, currentCycle } = useSettings();
 
-  useEffect(() => { setMoveError(""); }, [tx]);
-
-  // An expense of the current cycle can be re-filed as money moved to savings
+  // A current-cycle expense or "Переменный бюджет" row can move into savings
   // (the server re-checks; this only decides whether to offer it).
   const canMoveToSavings =
-    !!tx && tx.type === "expense" && hasActiveCycle && !!cycleWindow &&
-    tx.category?.id !== currentCycle?.saved_money_category_id &&
-    isInWindow(txEventTime(tx), {
-      start: new Date(cycleWindow.start),
-      end: cycleWindow.end ? new Date(cycleWindow.end) : null,
-      source: "cycle",
-    });
+    !!tx && hasActiveCycle && inCurrentCycle(tx, cycleWindow) &&
+    (isBudgetRow(tx) || (tx.type === "expense" && tx.category?.id !== currentCycle?.saved_money_category_id));
 
   // Any savings deposit can be moved back into the budget — the reverse of
   // the above (see ReturnToBudget; it explains itself when there is no cycle).
@@ -61,21 +52,6 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
   const afterMove = () => {
     onMoved?.();
     onClose();
-  };
-
-  const moveToSavings = async () => {
-    if (!tx) return;
-    setMoving(true);
-    setMoveError("");
-    try {
-      await axiosInstance.post(`/transactions/${tx.id}/savings`);
-      await refreshCycle();
-      afterMove();
-    } catch (err) {
-      setMoveError(savingsMoveError(err, t, formatAmount) ?? t("transactions.move_to_savings_error"));
-    } finally {
-      setMoving(false);
-    }
   };
 
   useEffect(() => {
@@ -105,9 +81,10 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
   };
 
   const isIncome = tx?.type === "income";
-  const isSavings = tx?.type === "savings_deposit" || tx?.type === "savings_withdrawal";
-  // Same sign as the list: money into savings is "+", out of it "−".
-  const isInflow = isIncome || tx?.type === "savings_deposit";
+  // Same sign/colour/label as the list (utils/transactionKind).
+  const flow = tx ? txFlow(tx) : "out";
+  const isTransfer = flow === "transfer";
+  const isSavings = !isTransfer && (tx?.type === "savings_deposit" || tx?.type === "savings_withdrawal");
 
   return (
     <AnimatePresence>
@@ -133,14 +110,14 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
             </button>
 
             <div className="txd-header">
-              <div className={`txd-amount ${isInflow ? "txd-amount--income" : "txd-amount--expense"}`}>
-                {isInflow ? "+" : "−"}{formatAmount(tx.amount)}
+              <div className={`txd-amount txd-amount--${flowClass(flow)}`}>
+                {flowSign(flow).replace("-", "−")}{formatAmount(tx.amount)}
               </div>
-              <div className={`txd-type-pill ${isInflow ? "txd-type--income" : "txd-type--expense"}`}>
-                {isSavings ? <PiggyBank size={13} /> : isIncome ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+              <div className={`txd-type-pill txd-type--${flowClass(flow)}`}>
+                {isTransfer ? <ArrowLeftRight size={13} /> : isSavings ? <PiggyBank size={13} /> : isIncome ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                 {isSavings
                   ? `${t("dashboard.saved_money")} · ${t(tx.type === "savings_deposit" ? "dashboard.savings_deposit" : "dashboard.savings_withdraw")}`
-                  : isIncome ? t("transactions.type_income") : t("transactions.type_expense")}
+                  : t(flowLabelKey(flow))}
                 {isIncome && tx.income_type === "part" && (
                   <span className="txd-income-sub">· {t("transactions.income_type_part")}</span>
                 )}
@@ -153,7 +130,9 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
               <div className="txd-row">
                 <Tag size={15} className="txd-icon" />
                 <span className="txd-label">{t("transactions.detail_category")}</span>
-                <span className="txd-value">{categoryLabel(tx.category, t, "—")}</span>
+                <span className="txd-value">
+                  {isSavingsToBudgetTransfer(tx) ? t("transactions.transfer_savings_to_budget") : categoryLabel(tx.category, t, "—")}
+                </span>
               </div>
 
               <div className="txd-row">
@@ -181,18 +160,12 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
 
             {canMoveToSavings && (
               <div className="txd-move">
-                <button
-                  type="button"
-                  className="txd-move-btn"
-                  onClick={moveToSavings}
-                  disabled={moving}
-                  aria-label={t("transactions.move_to_savings_aria", { amount: formatAmount(tx.amount) })}
-                >
-                  <PiggyBank size={16} aria-hidden="true" />
-                  {t("transactions.move_to_savings_btn")}
-                </button>
-                <p className="txd-move-hint">{t("transactions.move_to_savings_hint")}</p>
-                {moveError && <p className="txd-move-error" role="alert">{moveError}</p>}
+                <MoveToSavings
+                  txId={tx.id}
+                  amount={tx.amount}
+                  kind={isBudgetRow(tx) ? "budgetRow" : "expense"}
+                  onDone={afterMove}
+                />
               </div>
             )}
 
@@ -201,6 +174,7 @@ const TransactionDetailModal: React.FC<Props> = ({ tx, onClose, onMoved }) => {
                 <ReturnToBudget
                   depositId={tx.id}
                   depositAmount={tx.amount}
+                  depositTime={tx}
                   inputId={`txd-return-${tx.id}`}
                   onDone={afterMove}
                 />

@@ -353,7 +353,8 @@ func returnToBudget(uid, depositID uint, amount *float64) *httptest.ResponseReco
 func amt(v float64) *float64 { return &v }
 
 // Moving a deposit back raises the budget and lowers the pool by exactly the
-// same amount (cents kept); the deposit itself is left as it was.
+// same amount (cents kept); the same row becomes a "Переменный бюджет" row —
+// no extra mirror row.
 func TestReturnSavingsToBudget(t *testing.T) {
 	u := newTZUser(t, "returnbudget")
 	startUTC(t, u.ID, udate(-2), udate(28))
@@ -361,7 +362,7 @@ func TestReturnSavingsToBudget(t *testing.T) {
 	dep := latestTx(u.ID, "savings_deposit")
 	before := moneyNow(t, u.ID)
 
-	if w := returnToBudget(u.ID, dep.ID, nil); w.Code != http.StatusCreated {
+	if w := returnToBudget(u.ID, dep.ID, nil); w.Code != http.StatusOK {
 		t.Fatalf("return: %d %s", w.Code, w.Body.String())
 	}
 	after := moneyNow(t, u.ID)
@@ -371,8 +372,11 @@ func TestReturnSavingsToBudget(t *testing.T) {
 
 	var stored models.Transaction
 	database.DB.First(&stored, dep.ID)
-	if stored.Type != "savings_deposit" || stored.Amount != 12.34 {
-		t.Errorf("the deposit must stay as it was: %+v", stored)
+	if stored.Type != budgetTransferType || stored.Amount != 12.34 || !isVariableBudgetCategory(u.ID, stored.CategoryID) {
+		t.Errorf("the same row must become a 12.34 Переменный бюджет row: %+v", stored)
+	}
+	if n := countTx(u.ID, "source = ?", savingsToBudgetSource); n != 0 {
+		t.Errorf("no mirror row may be created, found %d", n)
 	}
 	pts := timeline(t, u.ID)
 	last := pts[len(pts)-1]
@@ -394,10 +398,10 @@ func TestBudgetSavingsMovesConserveMoney(t *testing.T) {
 			t.Fatalf("step %d deposit %.2f: %d %s", i, a, w.Code, w.Body.String())
 		}
 		back := a / 3 // a different amount back
-		if w := returnToBudget(u.ID, latestTx(u.ID, "savings_deposit").ID, amt(back)); w.Code != http.StatusCreated {
+		if w := returnToBudget(u.ID, latestTx(u.ID, "savings_deposit").ID, amt(back)); w.Code != http.StatusOK {
 			t.Fatalf("step %d return: %d %s", i, w.Code, w.Body.String())
 		}
-		if w := returnToBudget(u.ID, alloc.ID, amt(0.07)); w.Code != http.StatusCreated {
+		if w := returnToBudget(u.ID, alloc.ID, amt(0.07)); w.Code != http.StatusOK {
 			t.Fatalf("step %d return from allocation: %d", i, w.Code)
 		}
 		s := moneyNow(t, u.ID)
@@ -458,10 +462,10 @@ func TestReturnFromCarryOverAndAllocationDeposits(t *testing.T) {
 	database.DB.Where("user_id = ? AND description = ?", u.ID, savingsAllocationDescription).Order("id DESC").First(&alloc)
 	before := moneyNow(t, u.ID)
 
-	if w := returnToBudget(u.ID, carryMove.ID, amt(11)); w.Code != http.StatusCreated {
+	if w := returnToBudget(u.ID, carryMove.ID, amt(11)); w.Code != http.StatusOK {
 		t.Fatalf("return from carry move: %d %s", w.Code, w.Body.String())
 	}
-	if w := returnToBudget(u.ID, alloc.ID, nil); w.Code != http.StatusCreated {
+	if w := returnToBudget(u.ID, alloc.ID, nil); w.Code != http.StatusOK {
 		t.Fatalf("return from allocation: %d %s", w.Code, w.Body.String())
 	}
 	after := moneyNow(t, u.ID)

@@ -181,6 +181,8 @@
     "description": "Описание",
     "desc_ph": "На что потратили?",
     "type_expense": "Расход",
+    "type_transfer": "Перевод",
+    "transfer_savings_to_budget": "Из сбережений → Переменный бюджет",
     "type_income": "Доход",
     "select_cat": "Выберите категорию",
     "add_btn": "Добавить",
@@ -203,11 +205,13 @@
     "move_to_savings_btn": "Перевести в сбережения",
     "move_to_savings_aria": "Перевести этот расход {{amount}} в сбережения",
     "move_to_savings_hint": "Он будет учтён как сбережение, а не как трата.",
+    "move_back_to_savings_hint": "Сумма снова уйдёт в сбережения.",
     "move_to_savings_error": "Не удалось перевести в сбережения",
     "return_to_budget_amount": "Сколько вернуть",
     "return_to_budget_btn": "Вернуть в бюджет",
     "return_to_budget_aria": "Вернуть {{amount}} из сбережений в бюджет",
     "return_to_budget_hint": "Сумма вернётся в «можно потратить» этого цикла. Отложить её снова можно в любой момент.",
+    "return_to_budget_closed_hint": "Это пополнение из прошлого цикла: появится перевод от сегодняшнего дня, сама запись не изменится.",
     "return_to_budget_error": "Не удалось вернуть в бюджет",
     "error_delete": "Ошибка при удалении",
     "error_no_cat": "Сначала создайте категорию!",
@@ -258,7 +262,8 @@
     "beauty": "Красота",
     "income": "Доход",
     "saved_money": "Сбережения",
-    "fixed_payments": "Фиксированные платежи"
+    "fixed_payments": "Фиксированные платежи",
+    "variable_budget": "Переменный бюджет"
   },
   "statistics": {
     "title": "Аналитика",

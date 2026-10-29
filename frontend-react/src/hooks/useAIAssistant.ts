@@ -63,7 +63,7 @@ function storeFp(fp: string): void {
 
 interface Transaction {
   amount: number;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
   income_type?: string;
   date: string;
   category?: { name: string };

@@ -4,32 +4,39 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { savingsMoveError } from '../utils/savingsMoveError';
+import { inCurrentCycle, type TimedTransaction } from '../utils/categoryWindow';
 import './ReturnToBudget.css';
 
 // "Вернуть в бюджет" — moves money from a savings deposit back into the
 // current cycle's spendable budget (POST /transactions/:id/budget). One
 // component for every place a deposit is opened: its edit form (desktop row
-// and mobile card) and its detail view. The server does the move: an exact,
-// net-zero entry, guarded against returning more than savings hold.
+// and mobile card) and its detail view. The server does the move — exact and
+// net-zero — guarded against returning more than the deposit or savings hold.
 //
 // Offered on EVERY savings deposit (the automatic allocation, a carry-over
-// move, manual deposits, re-filed expenses). Without a current cycle there is
+// move, manual deposits, re-filed expenses). A current-cycle deposit changes
+// in place (whole → it becomes a "Переменный бюджет" row; part → it is split);
+// a past cycle's deposit can't, so the return is a new transfer dated today —
+// the hint says so before the user presses. Without a current cycle there is
 // no budget to return into: the control stays visible but disabled, and says
 // why — it is never silently hidden.
 
 interface Props {
   depositId: number;
   depositAmount: number;
+  /** The deposit's timing (date / created_at / effective_at). */
+  depositTime: TimedTransaction;
   /** Unique per rendered instance (label ↔ input). */
   inputId: string;
   /** Called after a successful move (parent refreshes / closes). */
   onDone: () => void;
 }
 
-const ReturnToBudget: React.FC<Props> = ({ depositId, depositAmount, inputId, onDone }) => {
+const ReturnToBudget: React.FC<Props> = ({ depositId, depositAmount, depositTime, inputId, onDone }) => {
   const { t } = useTranslation();
   const { axiosInstance } = useAuth();
-  const { formatAmount, hasActiveCycle, refreshCycle } = useSettings();
+  const { formatAmount, hasActiveCycle, cycleWindow, refreshCycle } = useSettings();
+  const fromPastCycle = hasActiveCycle && !inCurrentCycle(depositTime, cycleWindow);
   // Defaults to the whole deposit, editable down to the cent.
   const [amount, setAmount] = useState(String(depositAmount));
   const [moving, setMoving] = useState(false);
@@ -88,7 +95,11 @@ const ReturnToBudget: React.FC<Props> = ({ depositId, depositAmount, inputId, on
         </button>
       </div>
       <p id={hintId} className="rtb-hint">
-        {hasActiveCycle ? t('transactions.return_to_budget_hint') : t('dashboard.savings_return_no_cycle')}
+        {!hasActiveCycle
+          ? t('dashboard.savings_return_no_cycle')
+          : fromPastCycle
+            ? t('transactions.return_to_budget_closed_hint')
+            : t('transactions.return_to_budget_hint')}
       </p>
       {error && <p className="rtb-error" role="alert">{error}</p>}
     </div>

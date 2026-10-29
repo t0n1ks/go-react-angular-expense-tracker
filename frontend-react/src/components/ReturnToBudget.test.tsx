@@ -12,12 +12,16 @@ import uk from '../i18n/locales/uk.json';
 // and without a current cycle it must stay VISIBLE — disabled, with the
 // reason — instead of disappearing (the 2.18.4 regression).
 
-const settings = { hasActiveCycle: true };
+const settings = {
+  hasActiveCycle: true,
+  cycleWindow: { start: '2026-10-28T22:59:00Z', end: null as string | null },
+};
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ axiosInstance: { post: vi.fn() } }) }));
 vi.mock('../context/SettingsContext', () => ({
   useSettings: () => ({
     formatAmount: (n: number) => `€${n.toFixed(2)}`,
     hasActiveCycle: settings.hasActiveCycle,
+    cycleWindow: settings.cycleWindow,
     refreshCycle: vi.fn(),
   }),
 }));
@@ -35,8 +39,13 @@ beforeAll(async () => {
   });
 });
 
-const render = () =>
-  renderToStaticMarkup(<ReturnToBudget depositId={577} depositAmount={11} inputId="r577" onDone={() => {}} />);
+const thisCycle = { date: '2026-10-29', created_at: '2026-10-29T03:05:00Z', effective_at: '2026-10-29T03:05:00Z' };
+const pastCycle = { date: '2026-10-04', created_at: '2026-10-04T10:00:00Z', effective_at: '2026-10-04T10:00:00Z' };
+
+const render = (depositTime = thisCycle) =>
+  renderToStaticMarkup(
+    <ReturnToBudget depositId={577} depositAmount={11} depositTime={depositTime} inputId="r577" onDone={() => {}} />,
+  );
 
 describe('ReturnToBudget', () => {
   it.each(LANGS)('renders the amount field and the button with real text (%s)', async (lng) => {
@@ -49,6 +58,13 @@ describe('ReturnToBudget', () => {
     expect(html).toContain(i18n.t('transactions.return_to_budget_btn'));
     expect(html).toContain(`aria-label="${i18n.t('transactions.return_to_budget_aria', { amount: '€11.00' })}"`);
     expect(html).not.toMatch(/transactions\.return_to_budget|dashboard\.savings_return/);
+  });
+
+  it('says a deposit from a past cycle returns as a today-dated transfer', async () => {
+    settings.hasActiveCycle = true;
+    await i18n.changeLanguage('ru');
+    expect(render(pastCycle)).toContain(i18n.t('transactions.return_to_budget_closed_hint'));
+    expect(render(thisCycle)).toContain(i18n.t('transactions.return_to_budget_hint'));
   });
 
   it('stays visible but disabled, explaining why, without a current cycle', async () => {

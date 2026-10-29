@@ -157,11 +157,15 @@ func allowSavingsDeposit(c *gin.Context, uid uint, tx models.Transaction, k cycl
 }
 
 // MoveTransactionToSavings — POST /api/transactions/:id/savings
-// Re-files one of the current cycle's expenses as a deposit into the savings
-// pool: same amount (exact, cents kept), date and entry time. The money stops
-// counting as spent and counts as moved to savings instead, so the spendable
-// remainder is unchanged and the pool grows by exactly that amount. Returns
-// fresh CycleStats.
+// Moves a current-cycle row into the savings pool, same amount (exact, cents
+// kept), date and entry time:
+//   - an expense is re-filed as a deposit: it stops counting as spent, so the
+//     spendable remainder is unchanged and the pool grows by that amount;
+//   - a "Переменный бюджет" row (money returned from savings) goes back to
+//     being a deposit — merged into the deposit of the same origin if the
+//     return was partial — under the usual deposit guard.
+//
+// Returns fresh CycleStats.
 func MoveTransactionToSavings(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -188,12 +192,31 @@ func MoveTransactionToSavings(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": validationMessage(errNoActiveCycle), "code": errNoActiveCycle})
 		return
 	}
-	if tx.Type != "expense" || isSavingsPoolTx(tx, cycle.SavedMoneyCategoryID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only an expense can be moved to savings", "code": "NOT_AN_EXPENSE"})
+	fromBudgetRow := isBudgetTransfer(tx)
+	if !fromBudgetRow && (tx.Type != "expense" || isSavingsPoolTx(tx, cycle.SavedMoneyCategoryID)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only an expense or a budget row can be moved to savings", "code": "NOT_AN_EXPENSE"})
 		return
 	}
 	if !ensureSavingsCategory(uid, cycle) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
+		return
+	}
+
+	if fromBudgetRow {
+		back := tx
+		back.Type = "savings_deposit"
+		back.CategoryID = cycle.SavedMoneyCategoryID
+		if !allowSavingsDeposit(c, uid, back, k) {
+			return
+		}
+		if err := moveBudgetRowToSavings(tx, cycle.SavedMoneyCategoryID); err != nil {
+			log.Printf("move budget row to savings: user=%v tx=%v err=%v", uid, tx.ID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move to savings"})
+			return
+		}
+		InvalidateCycleCache(uid)
+		ScheduleBrainResync(uid)
+		c.JSON(http.StatusOK, gin.H{"cycle_stats": computeCycleStatsAt(uid, *cycle, all, k)})
 		return
 	}
 
@@ -218,104 +241,6 @@ func MoveTransactionToSavings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"transaction": moved,
-		"cycle_stats": computeCycleStatsAt(uid, *cycle, all, k),
-	})
-}
-
-// ReturnSavingsToBudget — POST /api/transactions/:id/budget
-// Moves money from the savings pool back into the current cycle's spendable
-// budget, from a savings deposit's transaction view. Body (optional):
-// {"amount": n} — exact, cents kept; defaults to the deposit's amount. The
-// deposit itself is never altered: a new, traceable "Returned to budget"
-// entry is added, so the move is repeatable both ways (money can be moved to
-// savings again with any deposit path). Net-zero on real money. Rejected when
-// it exceeds the pool (SAVINGS_INSUFFICIENT, with the amount available).
-func ReturnSavingsToBudget(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	uid := userID.(uint)
-
-	var req struct {
-		Amount *float64 `json:"amount"`
-	}
-	if c.Request.ContentLength > 0 {
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	var dep models.Transaction
-	if err := database.DB.Where("id = ? AND user_id = ?", c.Param("id"), uid).First(&dep).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found or access denied"})
-		return
-	}
-	if dep.Type != "savings_deposit" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only a savings deposit can be moved back to the budget", "code": "NOT_A_DEPOSIT"})
-		return
-	}
-
-	k := requestClock(c, uid)
-	all, err := loadUserCycles(uid)
-	if err != nil {
-		log.Printf("return to budget: fetch user=%v err=%v", uid, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cycles"})
-		return
-	}
-	cycle := k.currentCycle(all)
-	if cycle == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": validationMessage(errNoActiveCycle), "code": errNoActiveCycle})
-		return
-	}
-	if !ensureSavingsCategory(uid, cycle) {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to configure savings category"})
-		return
-	}
-
-	amount := dep.Amount
-	if req.Amount != nil {
-		amount = *req.Amount
-	}
-	amount = round2(amount)
-	if amount <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "amount must be greater than zero"})
-		return
-	}
-	if pool := round2(savingsPoolBalance(uid, cycle.SavedMoneyCategoryID)); amount > pool {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":     "That is more than your savings hold",
-			"code":      errSavingsInsufficient,
-			"available": max(0, pool),
-		})
-		return
-	}
-
-	now := time.Now()
-	ret := models.Transaction{
-		UserID:      uid,
-		CategoryID:  cycle.SavedMoneyCategoryID,
-		Amount:      amount,
-		Description: "Returned to budget",
-		Date:        k.today(),
-		Type:        "savings_withdrawal",
-		IncomeType:  "one_time",
-		Source:      savingsToBudgetSource,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	if err := database.DB.Create(&ret).Error; err != nil {
-		log.Printf("return to budget: user=%v err=%v", uid, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to move to the budget"})
-		return
-	}
-	InvalidateCycleCache(uid)
-	ScheduleBrainResync(uid)
-
-	c.JSON(http.StatusCreated, gin.H{
-		"transaction": ret,
 		"cycle_stats": computeCycleStatsAt(uid, *cycle, all, k),
 	})
 }

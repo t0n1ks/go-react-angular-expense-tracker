@@ -9,7 +9,7 @@ import { savingsMoveError } from '../utils/savingsMoveError';
 interface SavingsTx {
   id: number;
   amount: number;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
   date: string;
   created_at?: string;
   description?: string;

@@ -31,6 +31,8 @@ var defaultCategoryNameToKey = map[string]string{
 	"Fixed Payments": "category.fixed_payments", "Fixkosten": "category.fixed_payments", "Базовые затраты": "category.fixed_payments", "Базові витрати": "category.fixed_payments",
 	// Saved Money (salary cycle)
 	"Saved Money": "category.saved_money", "Ersparnisse": "category.saved_money", "Сбережения": "category.saved_money", "Заощадження": "category.saved_money",
+	// Variable budget (system category for money returned from savings)
+	"Variable budget": "category.variable_budget", "Variables Budget": "category.variable_budget", "Переменный бюджет": "category.variable_budget", "Змінний бюджет": "category.variable_budget",
 }
 
 // defaultCategoryKey returns the translation key for a known default category

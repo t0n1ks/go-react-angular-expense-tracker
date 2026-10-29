@@ -8,7 +8,7 @@ import { type SalaryCycle } from '../context/SettingsContext';
 interface Transaction {
   id: number;
   amount: number;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
   date: string;
   created_at?: string;
   category?: { id: number; name: string };

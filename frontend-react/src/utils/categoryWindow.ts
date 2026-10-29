@@ -88,3 +88,19 @@ export interface TimedTransaction {
 export function txEventTime(tx: TimedTransaction): Date {
   return new Date(tx.effective_at ?? tx.created_at ?? tx.date);
 }
+
+/**
+ * Whether a transaction counts in the current cycle's server window
+ * ([window_start, window_end)). False without a current cycle.
+ */
+export function inCurrentCycle(
+  tx: TimedTransaction,
+  cycleWindow: { start: string; end: string | null } | null | undefined,
+): boolean {
+  if (!cycleWindow) return false;
+  return isInWindow(txEventTime(tx), {
+    start: new Date(cycleWindow.start),
+    end: cycleWindow.end ? new Date(cycleWindow.end) : null,
+    source: 'cycle',
+  });
+}

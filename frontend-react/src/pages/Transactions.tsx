@@ -7,6 +7,11 @@ import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } fr
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 import ReturnToBudget from '../components/ReturnToBudget';
+import MoveToSavings from '../components/MoveToSavings';
+import {
+  txFlow, flowSign, flowClass, flowLabelKey, isBudgetRow, isSavingsToBudgetTransfer, isPickableCategory,
+} from '../utils/transactionKind';
+import { inCurrentCycle } from '../utils/categoryWindow';
 import TransactionFilterBar from '../components/TransactionFilterBar';
 import {
   groupTransactionsByMonth,
@@ -42,8 +47,10 @@ interface Transaction {
   /** Server-computed instant the transaction counts at (2.16 cycle time). */
   effective_at?: string;
   description: string;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal';
+  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
   income_type?: string;
+  /** Set on rows the app created from an action (e.g. "savings_to_budget"). */
+  source?: string;
   category: Category;
 }
 
@@ -55,7 +62,7 @@ const TxTime: React.FC<{ tx: Transaction; className: string }> = ({ tx, classNam
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, refreshCycle } = useSettings();
+  const { formatAmount, refreshCycle, hasActiveCycle, cycleWindow } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -79,14 +86,21 @@ const Transactions: React.FC = () => {
     date: '',
     description: '',
     category_id: '',
-    type: 'expense' as 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal',
+    type: 'expense' as 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer',
     income_type: 'one_time',
   });
   // Savings-pool transactions are edited in a restricted mode: only amount,
   // date and description are mutable. Type and category stay fixed so the entry
-  // remains in the pool (the pool balance is derived from these rows).
+  // remains in the pool (the pool balance is derived from these rows). A
+  // "Переменный бюджет" row is stricter still: its amount is system-managed
+  // (moving it to savings is how it changes), so only date and description.
+  const isBudgetRowEdit = editState.type === 'budget_transfer';
   const isSavingsEdit =
-    editState.type === 'savings_deposit' || editState.type === 'savings_withdrawal';
+    editState.type === 'savings_deposit' || editState.type === 'savings_withdrawal' || isBudgetRowEdit;
+  const savingsEditLabel = isBudgetRowEdit
+    ? t('transactions.type_transfer')
+    : editState.type === 'savings_deposit' ? t('dashboard.savings_deposit') : t('dashboard.savings_withdraw');
+  const savingsEditClass = isBudgetRowEdit ? 'type-transfer' : editState.type === 'savings_deposit' ? 'type-income' : 'type-expense';
 
   // Accordion state — current month starts expanded, all historical months collapsed
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(
@@ -347,9 +361,19 @@ const Transactions: React.FC = () => {
 
   const handleCancelEdit = () => setEditingId(null);
 
-  // After "Вернуть в бюджет" from a deposit's edit form: the deposit itself is
-  // unchanged (a new "Returned to budget" entry was added), so close the form
-  // and refresh the list; the component already refreshed the cycle figures.
+  // A today-dated "savings → budget" transfer reads as one, not as its
+  // savings category; every other row shows its own category.
+  const rowCategory = (tr: Transaction) =>
+    isSavingsToBudgetTransfer(tr)
+      ? t('transactions.transfer_savings_to_budget')
+      : categoryLabel(tr.category, t, t('transactions.no_category'));
+
+  // Category pickers leave out system categories ("Переменный бюджет").
+  const pickableCategories = useMemo(() => categories.filter(isPickableCategory), [categories]);
+
+  // After a budget ↔ savings move from an edit form the row changed side (or
+  // was split / merged): close the form and refresh the list; the component
+  // already refreshed the cycle figures.
   const afterDepositReturned = () => {
     setEditingId(null);
     fetchData();
@@ -443,7 +467,7 @@ const Transactions: React.FC = () => {
             <select className="form-input" value={formState.category_id}
               onChange={e => setFormState({...formState, category_id: e.target.value})} required>
               <option value="" disabled>{t('transactions.select_cat')}</option>
-              {categories.map(c => (
+              {pickableCategories.map(c => (
                 <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>
               ))}
             </select>
@@ -577,7 +601,7 @@ const Transactions: React.FC = () => {
                                     <label className="edit-field-label">{t('transactions.category')}</label>
                                     <select className="form-input edit-input" value={editState.category_id}
                                       onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                                      {categories.map(c => (
+                                      {pickableCategories.map(c => (
                                         <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>
                                       ))}
                                     </select>
@@ -594,8 +618,8 @@ const Transactions: React.FC = () => {
                                 <div className="edit-field edit-field--type">
                                   <label className="edit-field-label">{t('transactions.type')}</label>
                                   {isSavingsEdit ? (
-                                    <span className={`edit-savings-badge ${editState.type === 'savings_deposit' ? 'type-income' : 'type-expense'}`}>
-                                      {editState.type === 'savings_deposit' ? t('dashboard.savings_deposit') : t('dashboard.savings_withdraw')}
+                                    <span className={`edit-savings-badge ${savingsEditClass}`}>
+                                      {savingsEditLabel}
                                     </span>
                                   ) : (
                                     <>
@@ -629,7 +653,7 @@ const Transactions: React.FC = () => {
                                   <label className="edit-field-label">{t('transactions.amount')}</label>
                                   <input type="number" className="form-input edit-input" value={editState.amount}
                                     onChange={e => setEditState({...editState, amount: e.target.value})}
-                                    step="0.01" min="0.01"/>
+                                    step="0.01" min="0.01" readOnly={isBudgetRowEdit}/>
                                 </div>
 
                                 <div className="edit-actions edit-actions--form">
@@ -646,9 +670,15 @@ const Transactions: React.FC = () => {
                                     <ReturnToBudget
                                       depositId={tr.id}
                                       depositAmount={tr.amount}
+                                      depositTime={tr}
                                       inputId={`edit-return-${tr.id}`}
                                       onDone={afterDepositReturned}
                                     />
+                                  </div>
+                                )}
+                                {isBudgetRow(tr) && hasActiveCycle && inCurrentCycle(tr, cycleWindow) && (
+                                  <div className="edit-field edit-field--return">
+                                    <MoveToSavings txId={tr.id} amount={tr.amount} kind="budgetRow" onDone={afterDepositReturned} />
                                   </div>
                                 )}
                               </div>
@@ -660,15 +690,15 @@ const Transactions: React.FC = () => {
                               {formatTxDate(tr.date)}
                               <TxTime tx={tr} className="tx-time" />
                             </td>
-                            <td><span className="category-tag">{categoryLabel(tr.category, t, t('transactions.no_category'))}</span></td>
+                            <td><span className="category-tag">{rowCategory(tr)}</span></td>
                             <td>{tr.description || '—'}</td>
                             <td>
-                              <span className={`type-badge ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'type-income' : 'type-expense'}`}>
-                                {tr.type === 'income' ? t('transactions.type_income') : tr.type === 'expense' ? t('transactions.type_expense') : tr.type === 'savings_deposit' ? t('transactions.type_income') : t('transactions.type_expense')}
+                              <span className={`type-badge type-${flowClass(txFlow(tr))}`}>
+                                {t(flowLabelKey(txFlow(tr)))}
                               </span>
                             </td>
-                            <td className={tr.type === 'income' || tr.type === 'savings_deposit' ? 'amount-income' : 'amount-expense'}>
-                              {tr.type === 'income' || tr.type === 'savings_deposit' ? '+' : '-'}{formatAmount(tr.amount)}
+                            <td className={`amount-${flowClass(txFlow(tr))}`}>
+                              {flowSign(txFlow(tr))}{formatAmount(tr.amount)}
                             </td>
                             <td>
                               <button onClick={(e) => { e.stopPropagation(); handleEditStart(tr); }} className="action-btn edit" title={t('common.edit') ?? 'Edit'}>
@@ -775,13 +805,14 @@ const Transactions: React.FC = () => {
                                   <div className="tx-card-edit-field">
                                     <label className="tx-card-edit-label">{t('transactions.amount')}</label>
                                     <input type="number" className="form-input tx-card-edit-input" value={editState.amount}
-                                      onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01" min="0.01"/>
+                                      onChange={e => setEditState({...editState, amount: e.target.value})} step="0.01" min="0.01"
+                                      readOnly={isBudgetRowEdit}/>
                                   </div>
                                   {isSavingsEdit ? (
                                     <div className="tx-card-edit-field">
                                       <label className="tx-card-edit-label">{t('transactions.type')}</label>
-                                      <span className={`edit-savings-badge ${editState.type === 'savings_deposit' ? 'type-income' : 'type-expense'}`}>
-                                        {editState.type === 'savings_deposit' ? t('dashboard.savings_deposit') : t('dashboard.savings_withdraw')}
+                                      <span className={`edit-savings-badge ${savingsEditClass}`}>
+                                        {savingsEditLabel}
                                       </span>
                                     </div>
                                   ) : (
@@ -812,7 +843,7 @@ const Transactions: React.FC = () => {
                                         <label className="tx-card-edit-label">{t('transactions.category')}</label>
                                         <select className="form-input tx-card-edit-input" value={editState.category_id}
                                           onChange={e => setEditState({...editState, category_id: e.target.value})}>
-                                          {categories.map(c => <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>)}
+                                          {pickableCategories.map(c => <option key={c.id} value={c.id}>{categoryLabel(c, t)}</option>)}
                                         </select>
                                       </div>
                                     </>
@@ -835,17 +866,21 @@ const Transactions: React.FC = () => {
                                     <ReturnToBudget
                                       depositId={tr.id}
                                       depositAmount={tr.amount}
+                                      depositTime={tr}
                                       inputId={`card-return-${tr.id}`}
                                       onDone={afterDepositReturned}
                                     />
+                                  )}
+                                  {isBudgetRow(tr) && hasActiveCycle && inCurrentCycle(tr, cycleWindow) && (
+                                    <MoveToSavings txId={tr.id} amount={tr.amount} kind="budgetRow" onDone={afterDepositReturned} />
                                   )}
                                 </div>
                               ) : (
                                 <>
                                   <div className="tx-card-top">
-                                    <span className="tx-card-category">{categoryLabel(tr.category, t, t('transactions.no_category'))}</span>
-                                    <span className={`tx-card-amount ${tr.type === 'income' || tr.type === 'savings_deposit' ? 'amount-income' : 'amount-expense'}`}>
-                                      {tr.type === 'income' || tr.type === 'savings_deposit' ? '+' : '-'}{formatAmount(tr.amount)}
+                                    <span className="tx-card-category">{rowCategory(tr)}</span>
+                                    <span className={`tx-card-amount amount-${flowClass(txFlow(tr))}`}>
+                                      {flowSign(txFlow(tr))}{formatAmount(tr.amount)}
                                     </span>
                                   </div>
                                   <div className="tx-card-meta">

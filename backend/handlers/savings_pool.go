@@ -83,10 +83,12 @@ func isReturnToBudget(tx models.Transaction) bool {
 	return tx.Type == "savings_withdrawal" && tx.Source == savingsToBudgetSource
 }
 
-// isSavingsAllocation reports whether a deposit is part of the automatic %
-// allocation (the one made at cycle start, or a later top-up).
+// isSavingsAllocation reports whether a row is part of the automatic %
+// allocation (the one made at cycle start, or a later top-up) — including an
+// allocation the user moved back to the budget, so a later top-up never
+// re-saves money they chose to keep spendable.
 func isSavingsAllocation(tx models.Transaction) bool {
-	return tx.Type == "savings_deposit" &&
+	return (tx.Type == "savings_deposit" || tx.Type == budgetTransferType) &&
 		(tx.Source == savingsAllocationSource || tx.Description == savingsAllocationDescription)
 }
 

@@ -1,0 +1,50 @@
+/* "Перевести в сбережения" — budget/expense → savings (savings green, as the
+   savings line and card). Used in the edit form and the detail view. */
+.mts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border-card);
+}
+
+.mts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-income-text, #10b981);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mts-btn:hover:not(:disabled) { background: rgba(16, 185, 129, 0.22); }
+.mts-btn:focus-visible { outline: 2px solid var(--color-income-text, #10b981); outline-offset: 2px; }
+.mts-btn:disabled { opacity: 0.6; cursor: progress; }
+
+.mts-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.mts-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mts-btn { transition: none; }
+}

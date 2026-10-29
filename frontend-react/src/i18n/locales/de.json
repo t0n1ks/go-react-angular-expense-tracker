@@ -181,6 +181,8 @@
     "description": "Beschreibung",
     "desc_ph": "Wofür wurde es ausgegeben?",
     "type_expense": "Ausgabe",
+    "type_transfer": "Umbuchung",
+    "transfer_savings_to_budget": "Ersparnisse → Variables Budget",
     "type_income": "Einnahme",
     "select_cat": "Kategorie auswählen",
     "add_btn": "Hinzufügen",
@@ -203,11 +205,13 @@
     "move_to_savings_btn": "Zum Sparen verschieben",
     "move_to_savings_aria": "Diese Ausgabe von {{amount}} zum Sparen verschieben",
     "move_to_savings_hint": "Sie zählt dann als gespart, nicht als ausgegeben.",
+    "move_back_to_savings_hint": "Der Betrag geht zurück in die Ersparnisse.",
     "move_to_savings_error": "Konnte nicht zum Sparen verschoben werden",
     "return_to_budget_amount": "Betrag zum Zurückbuchen",
     "return_to_budget_btn": "Zurück ins Budget",
     "return_to_budget_aria": "{{amount}} aus den Ersparnissen zurück ins Budget buchen",
     "return_to_budget_hint": "Es kommt zurück zu dem, was du in diesem Zyklus ausgeben kannst. Du kannst es jederzeit wieder sparen.",
+    "return_to_budget_closed_hint": "Diese Einzahlung stammt aus einem früheren Zyklus: Es wird eine Umbuchung mit heutigem Datum angelegt — der alte Eintrag bleibt unverändert.",
     "return_to_budget_error": "Konnte nicht zurück ins Budget gebucht werden",
     "error_delete": "Fehler beim Löschen der Transaktion",
     "error_no_cat": "Bitte erstellen Sie zuerst eine Kategorie!",
@@ -258,7 +262,8 @@
     "beauty": "Schönheit",
     "income": "Einkommen",
     "saved_money": "Ersparnisse",
-    "fixed_payments": "Feste Zahlungen"
+    "fixed_payments": "Feste Zahlungen",
+    "variable_budget": "Variables Budget"
   },
   "statistics": {
     "title": "Analysen",

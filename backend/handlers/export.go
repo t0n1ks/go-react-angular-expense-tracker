@@ -154,23 +154,33 @@ func pdfDrawMonthSubHeader(pdf *fpdf.Fpdf, label string) {
 //   - descLines is non-empty (at least one []byte element).
 //   - The caller has already handled the page break.
 //
-// txDirection maps a transaction type to its localised export display label and
-// whether it is an inflow (income-like → green). Deposits to the savings pool
-// are inflows; withdrawals are outflows. This must check the explicit type
-// rather than assume the whole savings-pool category is an expense — otherwise
-// a positive top-up (savings_deposit) is mislabeled as an expense.
-func txDirection(t string, s pdfStrings) (label string, isIncome bool) {
-	switch t {
-	case "income", "savings_deposit":
-		return s.Income, true
-	case "savings_withdrawal":
-		return s.Expense, false
-	default: // "expense" and anything unknown
-		return s.Expense, false
+// txFlow is how an exported row moves money.
+type txFlow int
+
+const (
+	flowOut      txFlow = iota // expense, withdrawal spent from savings → red
+	flowIn                     // income, savings deposit → green
+	flowTransfer               // budget ↔ savings move, not earning or spending → grey
+)
+
+// txDirection maps a transaction to its localised export display label and
+// flow. Deposits to the savings pool are inflows; withdrawals are outflows.
+// This must check the explicit type rather than assume the whole savings-pool
+// category is an expense — otherwise a positive top-up (savings_deposit) is
+// mislabeled as an expense. A "Переменный бюджет" row and a "savings → budget"
+// transfer are neither: they only move money between budget and savings.
+func txDirection(tx models.Transaction, s pdfStrings) (label string, flow txFlow) {
+	switch {
+	case isBudgetTransfer(tx) || isReturnToBudget(tx):
+		return s.Transfer, flowTransfer
+	case tx.Type == "income" || tx.Type == "savings_deposit":
+		return s.Income, flowIn
+	default: // "expense", "savings_withdrawal" and anything unknown
+		return s.Expense, flowOut
 	}
 }
 
-func pdfDrawDataRow(pdf *fpdf.Fpdf, date, cat, amt, txTypeLabel string, isIncome bool, fill bool, descLines [][]byte) {
+func pdfDrawDataRow(pdf *fpdf.Fpdf, date, cat, amt, txTypeLabel string, flow txFlow, fill bool, descLines [][]byte) {
 	nLines := len(descLines)
 	rowH := float64(nLines) * pdfLineH
 
@@ -194,9 +204,12 @@ func pdfDrawDataRow(pdf *fpdf.Fpdf, date, cat, amt, txTypeLabel string, isIncome
 	pdf.CellFormat(pdfWCat, rowH, cat, "1", 0, "LM", true, 0, "")
 
 	// ── Amount & Type — coloured by transaction direction ─────────────────────
-	if isIncome {
+	switch flow {
+	case flowIn:
 		pdf.SetTextColor(15, 128, 56)
-	} else {
+	case flowTransfer:
+		pdf.SetTextColor(90, 100, 115)
+	default:
 		pdf.SetTextColor(185, 28, 28)
 	}
 	pdf.SetXY(x+pdfWDate+pdfWCat, y)
@@ -357,7 +370,7 @@ func renderTransactionsPDF(txs []models.Transaction, currency, lang string) ([]b
 			// Built-in categories translate through their key; user-created
 			// ones are printed verbatim in every language.
 			cat := pdfCategoryLabel(lang, tx.Category.TranslationKey, tx.Category.Name, s.NoCategory)
-			typeLabel, isIncome := txDirection(tx.Type, s)
+			typeLabel, flow := txDirection(tx, s)
 
 			pdfDrawDataRow(
 				pdf,
@@ -365,7 +378,7 @@ func renderTransactionsPDF(txs []models.Transaction, currency, lang string) ([]b
 				cat,
 				pdfFormatAmount(lang, sym, tx.Amount),
 				typeLabel,
-				isIncome,
+				flow,
 				altRow,
 				descLines,
 			)

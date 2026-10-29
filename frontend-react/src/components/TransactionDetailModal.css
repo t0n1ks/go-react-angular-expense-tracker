@@ -222,3 +222,10 @@
 @media (prefers-reduced-motion: reduce) {
   .txd-move-btn { transition: none; }
 }
+
+/* Transfers (budget ↔ savings) are neither earning nor spending: neutral */
+.txd-amount--transfer { color: var(--color-text-heading); }
+.txd-type--transfer {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--color-text-secondary, #94a3b8);
+}

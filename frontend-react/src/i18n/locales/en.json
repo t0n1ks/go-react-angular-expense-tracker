@@ -181,6 +181,8 @@
     "description": "Description",
     "desc_ph": "What was it spent on?",
     "type_expense": "Expense",
+    "type_transfer": "Transfer",
+    "transfer_savings_to_budget": "Savings → Variable budget",
     "type_income": "Income",
     "select_cat": "Select category",
     "add_btn": "Add",
@@ -203,11 +205,13 @@
     "move_to_savings_btn": "Move to savings",
     "move_to_savings_aria": "Move this expense of {{amount}} to savings",
     "move_to_savings_hint": "It will count as saved, not spent.",
+    "move_back_to_savings_hint": "The amount goes back into savings.",
     "move_to_savings_error": "Couldn't move this to savings",
     "return_to_budget_amount": "Amount to move back",
     "return_to_budget_btn": "Move back to budget",
     "return_to_budget_aria": "Move {{amount}} from savings back to the budget",
     "return_to_budget_hint": "It returns to what you can spend this cycle. You can move it to savings again anytime.",
+    "return_to_budget_closed_hint": "This deposit is from a past cycle: a transfer dated today will be added — the old entry stays as it is.",
     "return_to_budget_error": "Couldn't move this back to the budget",
     "error_delete": "Error deleting transaction",
     "error_no_cat": "Please create a category first!",
@@ -258,7 +262,8 @@
     "beauty": "Beauty",
     "income": "Income",
     "saved_money": "Saved Money",
-    "fixed_payments": "Fixed Payments"
+    "fixed_payments": "Fixed Payments",
+    "variable_budget": "Variable budget"
   },
   "statistics": {
     "title": "Analytics",
