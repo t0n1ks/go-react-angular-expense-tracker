@@ -135,8 +135,9 @@ func GetNextAction(c *gin.Context) {
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 	log.Printf("[ai] next-action uid=%v frontend_lang=%q → python_lang=%q", userID, c.Query("language"), lang)
 
-	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s&local_date=%s",
-		getBrainBaseURL(), userID.(uint), lang, requestClock(c, userID.(uint)).localDate())
+	k := requestClock(c, userID.(uint))
+	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s&local_date=%s&local_hour=%d",
+		getBrainBaseURL(), userID.(uint), lang, k.localDate(), k.localHour())
 	if health := companionContext(userID.(uint)); health != "" {
 		url += "&context=" + health
 	}

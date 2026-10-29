@@ -472,3 +472,18 @@ func TestLocalDateIsTheUsersCalendarDay(t *testing.T) {
 		t.Fatalf("unknown zone must fall back to UTC, got %s", got)
 	}
 }
+
+// The greeting is picked by the user's local hour, not the server's.
+func TestLocalHourIsTheUsersClock(t *testing.T) {
+	berlin := time.FixedZone("UTC+1", 3600)
+	at := time.Date(2026, 11, 2, 7, 0, 0, 0, time.UTC) // 08:00 in Berlin
+	if got := newCycleClock(at, berlin).localHour(); got != 8 {
+		t.Fatalf("Berlin hour = %d, want 8", got)
+	}
+	if got := newCycleClock(at, time.FixedZone("UTC-5", -5*3600)).localHour(); got != 2 {
+		t.Fatalf("New York hour = %d, want 2", got)
+	}
+	if got := newCycleClock(at, nil).localHour(); got != 7 {
+		t.Fatalf("unknown zone must fall back to the UTC hour, got %d", got)
+	}
+}

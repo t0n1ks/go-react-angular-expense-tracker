@@ -65,6 +65,10 @@ func (k cycleClock) today() time.Time { return k.storedDate(k.Now) }
 // service keys the companion's daily caps on, so they reset at local midnight.
 func (k cycleClock) localDate() string { return k.today().Format("2006-01-02") }
 
+// localHour is the user's local hour (0–23) — it picks the companion's
+// greeting (morning / afternoon / evening / night) by the user's own clock.
+func (k cycleClock) localHour() int { return k.Now.Hour() }
+
 // paydayStart is local midnight opening the planned payday; nil when open-ended.
 func (k cycleClock) paydayStart(c models.SalaryCycle) *time.Time {
 	if c.NextPaydayAt == nil {
