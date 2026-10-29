@@ -256,11 +256,13 @@
 }
 
 /* ── Zero-G idle bob (pure CSS compositor — zero JS overhead) ───────────────── */
+/* A gentle drift only: the 3D animation already tilts and sways the saucer,
+   so the bob no longer rotates (two rotations at once looked seasick). */
 
 @keyframes tama-bob {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  30%       { transform: translateY(-3px) rotate(1deg); }
-  70%       { transform: translateY(3px) rotate(-1deg); }
+  0%, 100% { transform: translateY(0px); }
+  30%       { transform: translateY(-2px); }
+  70%       { transform: translateY(2px); }
 }
 
 .tama-ufo-bob {
@@ -625,10 +627,10 @@
 }
 .tama-ufo-static {
   position: absolute;
-  left: 7px;
-  top: 13px;
-  width: 30px;
-  height: 18px;
+  left: 2px;
+  top: 10px;
+  width: 40px;
+  height: 24px;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */

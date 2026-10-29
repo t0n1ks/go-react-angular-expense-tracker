@@ -26,7 +26,7 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 ## Key Features
 
 ### UFO companion — health driven by real behaviour
-The UFO (a Lottie animation, constant — it is never recoloured by mood) has **one health stat (25–100%)** shown as a bar with the percentage written inside it; the bar's colour follows the mood (green → amber → red) and the mood word (thriving / calm / a little worried / tense / tired) is part of its screen-reader text. Go computes it from the dashboard's own figures (`GET /api/companion/state`); nothing is random:
+The UFO (a 3D Lottie saucer, constant — it is never recoloured by mood) has **one health stat (25–100%)** shown as a bar with the percentage written inside it; the bar's colour follows the mood (green → amber → red) and the mood word (thriving / calm / a little worried / tense / tired) is part of its screen-reader text. Go computes it from the dashboard's own figures (`GET /api/companion/state`); nothing is random:
 - **Spending pace:** r = share of the budget spent ÷ share of the period elapsed (at least a week counts as elapsed). r ≤ 1.10 → no penalty; 1.10–1.45 → up to −40%; 1.45–2.15 → up to −45%; budget overspent → −60%. The **first 4 days** of a period never cost health, so a big initial shop doesn't hurt.
 - **Gentle and gradual:** health moves at most **−15% a day** and recovers **+14.3% a day** (a week from any low), never below 25%. Tapping the bar explains why in plain words ("33% of the budget spent in the first week"), and a drop is explained once automatically.
 - **Weekly quest:** after 7 days without catching a star or a cow the UFO asks once; only then −3% a day, capped at −15%. A catch closes it. Days you weren't asked never cost anything.

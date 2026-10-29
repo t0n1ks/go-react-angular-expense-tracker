@@ -43,12 +43,12 @@ describe('Lottie UFO', () => {
     expect(ufoPlayerOptions(true)).toEqual({ loop: false, autoplay: false, stillFrame: 0 });
   });
 
-  it('crops the canvas to a square around the saucer and its beam', () => {
+  it('crops the canvas to a square around the whole saucer over the loop', () => {
     const [x, y, w, h] = UFO_VIEWBOX.split(' ').map(Number);
     expect(w).toBe(h);
-    expect(x).toBeLessThanOrEqual(130);
-    expect(y).toBeLessThanOrEqual(248);
-    expect(x + w).toBeGreaterThanOrEqual(670);
-    expect(y + h).toBeGreaterThanOrEqual(777);
+    expect(x).toBeLessThanOrEqual(-9);
+    expect(y).toBeLessThanOrEqual(173);
+    expect(x + w).toBeGreaterThanOrEqual(1020);
+    expect(y + h).toBeGreaterThanOrEqual(812);
   });
 });
