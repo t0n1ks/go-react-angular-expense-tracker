@@ -274,6 +274,7 @@
     "balance_view_savings": "Erspartes",
     "balance_views_label": "Saldo-Ansicht",
     "balance_period_label": "Zeitraum",
+    "balance_scrub_label": "Tag wählen",
     "balance_now": "{{view}} heute",
     "balance_view_aria": "{{view}} heute: {{amount}}",
     "period_30": "30T",

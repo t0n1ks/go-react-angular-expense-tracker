@@ -274,6 +274,7 @@
     "balance_view_savings": "Скарбничка",
     "balance_views_label": "Вид балансу",
     "balance_period_label": "Період",
+    "balance_scrub_label": "Обрати день",
     "balance_now": "{{view}} сьогодні",
     "balance_view_aria": "{{view}} сьогодні: {{amount}}",
     "period_30": "30д",

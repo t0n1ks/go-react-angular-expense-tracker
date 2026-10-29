@@ -27,6 +27,26 @@ export function seriesFor(points: MoneyPoint[], view: BalanceView): { date: stri
   return points.map((p) => ({ date: p.date, value: viewValue(p, view) }));
 }
 
+// ── Selected day (scrubber / chart drag) ─────────────────────────────────────
+
+/**
+ * Index of the selected day in the visible series. The selection is kept by
+ * DATE, so switching views keeps the same day (compare Общий / Бюджет /
+ * Копилка on one date); when the day is no longer visible (another range) or
+ * nothing was picked yet, it falls back to the latest day. -1 when empty.
+ */
+export function selectedIndex(dates: readonly string[], selectedDate: string | null): number {
+  if (dates.length === 0) return -1;
+  const i = selectedDate === null ? -1 : dates.indexOf(selectedDate);
+  return i >= 0 ? i : dates.length - 1;
+}
+
+/** A stored YYYY-MM-DD day as a full local date, e.g. "29 окт. 2026 г.". */
+export function formatDay(date: string, locale: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 /** DOM id of a view's tab (the chart panel is labelled by it). */
 export const balanceTabId = (view: BalanceView): string => `balance-tab-${view}`;
 

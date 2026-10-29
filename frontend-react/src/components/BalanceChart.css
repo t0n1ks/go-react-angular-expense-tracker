@@ -1,0 +1,206 @@
+/* ── Balance chart ────────────────────────────────────────────────────────────
+   --balance-accent: the active view's colour for text/controls (contrast-safe);
+   --balance-line:   the same hue as drawn on the chart. Set on .balance-card. */
+
+/* No lift on hover here: the card is dragged on (chart + slider). */
+.balance-card:hover { transform: none; }
+
+.stat-chart-card .balance-title { margin-bottom: 1rem; }
+
+/* ── Two aligned control bars: same width, padding, radius ─────────────────── */
+.balance-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.balance-bar {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem;
+  background: var(--color-no-data-bg);
+  border: 1px solid var(--color-border-card);
+  border-radius: 0.85rem;
+}
+.balance-bar--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.balance-bar--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.balance-seg {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--color-no-data-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.balance-seg:hover { color: var(--color-text-heading); }
+.balance-seg:focus-visible { outline: 2px solid var(--balance-accent); outline-offset: 2px; }
+.balance-seg--active {
+  background: var(--color-bg-card);
+  color: var(--balance-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.balance-seg-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Readouts above the plot: selected day (left) · today (right) ────────── */
+.balance-readouts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* The "mini display": a framed, monospaced readout in the view's colour. */
+.balance-hud {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.45rem 0.75rem 0.45rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--balance-line) 45%, transparent);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--balance-line) 9%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+.balance-hud::before {
+  content: '';
+  position: absolute;
+  left: 0.3rem;
+  top: 0.45rem;
+  bottom: 0.45rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--balance-line);
+}
+.balance-hud-date {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, #94a3b8);
+  white-space: nowrap;
+}
+.balance-hud-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--balance-accent);
+  white-space: nowrap;
+}
+
+.balance-now {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  margin-left: auto;
+  text-align: right;
+}
+.balance-now-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #94a3b8);
+}
+.balance-now-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Plot ─────────────────────────────────────────────────────────────────── */
+.balance-chart-plot {
+  width: 100%;
+  height: 260px;
+  min-width: 0;
+  cursor: crosshair;
+}
+
+/* ── Scrubber: a native range input under the plot, aligned to its x span ── */
+.balance-scrubber {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.15rem;
+}
+.balance-scrubber-input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 44px; /* the whole row is the touch target */
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.balance-scrubber-input:disabled { opacity: 0.45; cursor: default; }
+
+.balance-scrubber-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border-card);
+}
+.balance-scrubber-input::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border-card);
+}
+.balance-scrubber-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--balance-line);
+  border: 3px solid var(--color-bg-card);
+  box-shadow: 0 0 0 1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.balance-scrubber-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--balance-line);
+  border: 3px solid var(--color-bg-card);
+  box-shadow: 0 0 0 1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.balance-scrubber-input:focus { outline: none; }
+.balance-scrubber-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--balance-accent) 45%, transparent);
+}
+.balance-scrubber-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--balance-accent) 45%, transparent);
+}
+
+/* ── Narrow phones ────────────────────────────────────────────────────────── */
+@media (max-width: 419px) {
+  .balance-seg-icon { display: none; }
+  .balance-seg { padding: 0.4rem 0.25rem; font-size: 0.78rem; }
+  .balance-now-value { font-size: 1.3rem; }
+  .balance-chart-plot { height: 230px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-seg { transition: none; }
+}

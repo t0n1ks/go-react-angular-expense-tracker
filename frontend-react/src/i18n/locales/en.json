@@ -274,6 +274,7 @@
     "balance_view_savings": "Savings",
     "balance_views_label": "Balance view",
     "balance_period_label": "Period",
+    "balance_scrub_label": "Pick a day",
     "balance_now": "{{view}} today",
     "balance_view_aria": "{{view}} today: {{amount}}",
     "period_30": "30D",

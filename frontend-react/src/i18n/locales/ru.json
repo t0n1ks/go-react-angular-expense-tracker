@@ -274,6 +274,7 @@
     "balance_view_savings": "Копилка",
     "balance_views_label": "Вид баланса",
     "balance_period_label": "Период",
+    "balance_scrub_label": "Выбрать день",
     "balance_now": "{{view}} сегодня",
     "balance_view_aria": "{{view}} сегодня: {{amount}}",
     "period_30": "30д",

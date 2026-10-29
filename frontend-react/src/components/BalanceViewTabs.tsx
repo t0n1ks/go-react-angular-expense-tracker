@@ -2,11 +2,12 @@ import React, { useRef } from 'react';
 import { Landmark, Wallet, PiggyBank } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { BALANCE_VIEWS, balanceTabId, viewLabelKey, type BalanceView } from '../utils/balanceView';
-import './BalanceViewTabs.css';
+import './BalanceChart.css';
 
 // Segmented control for the balance chart: Общий / Бюджет / Копилка.
 // A WAI-ARIA tablist: one tab stop (roving tabindex), ←/→ move and select,
-// Home/End jump to the ends; each tab controls the chart panel.
+// Home/End jump to the ends; each tab controls the chart panel. Styled as a
+// .balance-bar like the range bar above it, so the two read as one pair.
 
 const ICONS: Record<BalanceView, typeof Wallet> = { total: Landmark, budget: Wallet, savings: PiggyBank };
 
@@ -42,7 +43,7 @@ const BalanceViewTabs: React.FC<Props> = ({ value, onChange, panelId }) => {
   };
 
   return (
-    <div className="balance-tabs" role="tablist" aria-label={t('statistics.balance_views_label')} onKeyDown={onKeyDown}>
+    <div className="balance-bar balance-bar--3" role="tablist" aria-label={t('statistics.balance_views_label')} onKeyDown={onKeyDown}>
       {BALANCE_VIEWS.map((view) => {
         const Icon = ICONS[view];
         const active = view === value;
@@ -56,11 +57,11 @@ const BalanceViewTabs: React.FC<Props> = ({ value, onChange, panelId }) => {
             aria-selected={active}
             aria-controls={panelId}
             tabIndex={active ? 0 : -1}
-            className={`balance-tab balance-tab--${view}${active ? ' balance-tab--active' : ''}`}
+            className={`balance-seg${active ? ' balance-seg--active' : ''}`}
             onClick={() => onChange(view)}
           >
-            <Icon size={15} aria-hidden="true" className="balance-tab-icon" />
-            <span className="balance-tab-label">{t(viewLabelKey(view))}</span>
+            <Icon size={15} aria-hidden="true" className="balance-seg-icon" />
+            <span className="balance-seg-label">{t(viewLabelKey(view))}</span>
           </button>
         );
       })}
