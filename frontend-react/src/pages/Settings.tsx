@@ -32,7 +32,6 @@ const Settings: React.FC = () => {
     paydayMode,
     fixedPayday,
     manualNextPayday,
-    heartsCount,
     reputationScore,
     liteMode,
     hasActiveCycle,
@@ -48,7 +47,6 @@ const Settings: React.FC = () => {
     paydayMode,
     fixedPayday,
     manualNextPayday,
-    heartsCount,
     reputationScore,
     liteMode,
   });

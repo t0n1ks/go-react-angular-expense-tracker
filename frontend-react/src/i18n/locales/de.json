@@ -715,5 +715,48 @@
     "next": "Weiter →",
     "skip": "Überspringen",
     "done": "Verstanden!"
+  },
+  "companion": {
+    "health_label": "UFO-Gesundheit",
+    "health_valuetext": "{{value}}%, {{mood}}",
+    "health_short": "{{value}}% · {{mood}}",
+    "health_now": "Gesundheit {{value}}%: {{reason}}",
+    "health_dropped": "Gesundheit {{value}}% ({{delta}}%): {{reason}}",
+    "catch_star": "Den leuchtenden Stern fangen",
+    "catch_cow": "Die Weltraumkuh fangen",
+    "close": "Schließen",
+    "mood": {
+      "thriving": "bestens",
+      "content": "entspannt",
+      "worried": "etwas besorgt",
+      "stressed": "angespannt",
+      "exhausted": "müde"
+    },
+    "reason": {
+      "all_good": "die Ausgaben liegen genau im Plan.",
+      "all_good_free": "alles gut — fang ab und zu einen Stern oder eine Kuh.",
+      "grace": "die ersten Tage des Zeitraums — ein großer Einkauf zählt noch nicht.",
+      "recovering": "wieder im Plan — die Gesundheit kommt Tag für Tag zurück.",
+      "pace_ahead_week1": "{{spent_pct}}% des Budgets in der ersten Woche ausgegeben.",
+      "pace_ahead": "{{spent_pct}}% des Budgets bis Tag {{day}} von {{days_total}} ausgegeben.",
+      "overspent": "das Budget ist gerade überschritten — ein paar ruhige Tage bringen die Gesundheit zurück.",
+      "quest": "schon länger nichts gefangen — ein Stern oder eine Kuh würde mich aufmuntern."
+    },
+    "msg": {
+      "overspent": "Das Budget ist gerade um {{over}} überschritten (verbleibende Tage: {{days_left}}). Ein paar ruhigere Tage schließen die Lücke — ich bin bei dir.",
+      "big_expense": "{{amount}} für „{{category}}“ — etwa {{ratio}}× so viel wie sonst. Für den Rest des Zeitraums bleiben {{remaining}} (Tage: {{days_left}}) — etwa {{daily}} pro Tag.",
+      "big_expense_short": "{{amount}} für „{{category}}“ — etwa {{ratio}}× so viel wie sonst. Ein kurzer Blick auf den Rest lohnt sich.",
+      "savings_deposit": "{{amount}} ins Sparschwein gelegt — jetzt sind {{saved_total}} drin. Starker Zug!",
+      "income": "{{amount}} sind eingegangen. Magst du einen Teil zurücklegen, solange es frisch ist?",
+      "pace_warn": "{{spent_pct}}% des Budgets nach {{elapsed_pct}}% des Zeitraums verbraucht. Es bleiben {{remaining}} (Tage: {{days_left}}) — etwa {{daily}} pro Tag hält dich im Plan.",
+      "pace_over": "Die Ausgaben sind dem Plan voraus: {{spent_pct}}% des Budgets nach {{elapsed_pct}}% des Zeitraums. Es bleiben {{remaining}} (Tage: {{days_left}}) — etwa {{daily}} pro Tag gleicht es aus.",
+      "pace_recovered": "Wieder im Plan! Es bleiben {{remaining}} (Tage: {{days_left}}) — schön ausgeglichen.",
+      "payday_tomorrow": "Morgen ist Zahltag. Vom Budget dieses Zyklus sind noch {{remaining}} übrig.",
+      "last_days": "Endspurt (verbleibende Tage: {{days_left}}): {{remaining}}, etwa {{daily}} pro Tag.",
+      "week_checkin": "Woche {{week}} beginnt: {{spent}} ausgegeben, {{remaining}} übrig — etwa {{daily}} pro Tag.",
+      "week_checkin_forecast": "Woche {{week}} beginnt: {{remaining}} übrig, etwa {{daily}} pro Tag. Beim aktuellen Tempo endet der Zyklus bei etwa {{forecast_end}} — wie auf der Prognosekarte.",
+      "weekday_heads_up": "An diesem Wochentag gibst du meist am meisten aus: {{weekday}}. Etwa {{daily}} pro Tag hält den Plan.",
+      "quest_ask": "Lange nichts gefangen — fängst du mir einen Stern oder eine Kuh? ✨"
+    }
   }
 }

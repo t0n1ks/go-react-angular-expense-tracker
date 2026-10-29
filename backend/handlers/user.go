@@ -158,7 +158,6 @@ func LoginUser(c *gin.Context) {
 		return
 	}
 
-	go checkAndUpdateHearts(user.ID)
 	go WarmUpBrain()
 
 	c.JSON(http.StatusOK, gin.H{
@@ -201,7 +200,6 @@ func GetProfile(c *gin.Context) {
 		"payday_mode":          user.PaydayMode,
 		"fixed_payday":         user.FixedPayday,
 		"manual_next_payday":   user.ManualNextPayday,
-		"hearts_count":         user.HeartsCount,
 		"reputation_score":     user.ReputationScore,
 		"lite_mode":            user.LiteMode,
 	})

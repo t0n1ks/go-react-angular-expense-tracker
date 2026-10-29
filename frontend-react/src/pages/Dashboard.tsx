@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings, type SalaryCycle, type CycleStats } from '../context/SettingsContext';
-import { savingsPoolBalance } from '../utils/savingsFigure';
 import { txEventTime } from '../utils/categoryWindow';
 import { useTranslation } from 'react-i18next';
 import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus } from 'lucide-react';
@@ -13,6 +12,8 @@ import ExpensesHistoryModal from '../components/ExpensesHistoryModal';
 import SavingsHistoryModal from '../components/SavingsHistoryModal';
 import AddIncomeModal from '../components/AddIncomeModal';
 import { useAIAssistant } from '../hooks/useAIAssistant';
+import { useCompanion } from '../hooks/useCompanion';
+import { healthChangeText, messageText, reasonText } from '../utils/companion';
 import './Dashboard.css';
 
 interface Transaction {
@@ -30,7 +31,6 @@ const Dashboard: React.FC = () => {
   const { axiosInstance, user } = useAuth();
   const {
     formatAmount,
-    currencySymbol,
     aiAdviceEnabled,
     monthlySpendingGoal,
     expectedSalary,
@@ -50,7 +50,6 @@ const Dashboard: React.FC = () => {
   const [showAddIncomeModal, setShowAddIncomeModal] = useState(false);
   // Optimistically update cycleStats after addIncome, before the next refresh
   const [localCycleStats, setLocalCycleStats] = useState<CycleStats | null>(null);
-  const [aiData, setAIData] = useState<{ tamagotchi_mood: string; predicted_savings_balance?: number } | null>(null);
   const [aiServiceMode, setAIServiceMode] = useState<'online' | 'autonomous' | 'initializing'>('initializing');
 
   // Use locally-patched stats if available, else server stats
@@ -70,12 +69,11 @@ const Dashboard: React.FC = () => {
 
   const analyzeLang = i18n.resolvedLanguage ?? 'en';
 
-  // Re-run AI analysis on demand so the prediction updates in real time after a
-  // transaction/income/savings mutation — no page reload required.
+  // Re-run AI analysis after a mutation so the AI service's per-user learner
+  // and visit history stay current. The UFO's mood no longer comes from here:
+  // the companion engine (Go) drives health and mood.
   const runAnalyze = useCallback(() => {
-    axiosInstance.post(`/ai/analyze?language=${analyzeLang}`)
-      .then((res: { data: { tamagotchi_mood: string; predicted_savings_balance?: number } }) => setAIData(res.data))
-      .catch(() => {});
+    axiosInstance.post(`/ai/analyze?language=${analyzeLang}`).catch(() => {});
   }, [axiosInstance, analyzeLang]);
 
   useEffect(() => { runAnalyze(); }, [runAnalyze]);
@@ -155,22 +153,46 @@ const Dashboard: React.FC = () => {
   const incomePercent = salaryRef > 0 ? Math.min((cycleIncome / salaryRef) * 100, 100) : 0;
   const incomeOver    = salaryRef > 0 && cycleIncome >= salaryRef;
 
-  const { heartsCount } = useSettings();
-
-  const { message, dismiss, animationHint } = useAIAssistant({
-    transactions,
+  const { message: ambientMessage, dismiss: dismissAmbient, animationHint } = useAIAssistant({
     aiAdviceEnabled,
-    currencySymbol,
     axiosInstance,
     language: analyzeLang,
     aiServiceMode,
-    userId: user?.id,
-    cycleId: currentCycle?.id,
-    cycleStartAt: currentCycle?.cycle_start_at,
-    hasCycle,
-    cycleStats,
-    budgetWindow,
   });
+
+  // ── Companion: health, mood and contextual messages (server-decided) ─────
+  // Refreshed when the figures change so "just happened" reactions are prompt.
+  const companionRefreshKey = `${cycleStats?.cycle_variable_expenses}|${cycleStats?.cycle_income}|${cycleStats?.saved_money_balance}|${budgetWindow?.spent_this_window}|${transactions.length}`;
+  const companion = useCompanion({ axiosInstance, language: analyzeLang, refreshKey: companionRefreshKey });
+  const companionText = companion.message && aiAdviceEnabled
+    ? messageText(companion.message, t, formatAmount, analyzeLang)
+    : null;
+  const companionReason = companion.state ? reasonText(companion.state.reason, t, formatAmount, analyzeLang) : '';
+
+  // Health dropped since this viewer last saw it → say why, once.
+  const [healthNote, setHealthNote] = useState<string | null>(null);
+  const companionHealth = companion.state?.health;
+  useEffect(() => {
+    if (companionHealth === undefined || !user?.id) return;
+    const key = `tama_health_seen_${user.id}`;
+    let previous: number | null = null;
+    try {
+      const raw = localStorage.getItem(key);
+      previous = raw === null ? null : Number(raw);
+    } catch { /* storage unavailable — no note */ }
+    if (previous !== null && Number.isFinite(previous) && companionHealth < previous - 0.5) {
+      setHealthNote(healthChangeText(companionHealth, previous, companionReason, t));
+    }
+    try { localStorage.setItem(key, String(companionHealth)); } catch { /* ignore */ }
+  // Only a new health value matters; the reason text follows it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companionHealth, user?.id]);
+
+  const shownMessage = companionText ?? ambientMessage;
+  const dismissShown = useCallback(() => {
+    if (companionText) companion.react('dismissed');
+    else dismissAmbient();
+  }, [companionText, companion, dismissAmbient]);
 
   const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
     setLocalCycleStats(null);
@@ -432,13 +454,17 @@ const Dashboard: React.FC = () => {
       )}
 
       <TamagotchiWidget
-        message={message}
-        onDismiss={dismiss}
-        mood={aiData?.tamagotchi_mood}
+        message={shownMessage}
+        onDismiss={dismissShown}
+        onMessageTap={companionText ? () => companion.react('tapped') : undefined}
+        mood={companion.state?.mood}
         animationHint={animationHint}
-        heartsCount={heartsCount}
         aiServiceMode={aiServiceMode}
-        savingsBalance={savingsPoolBalance(cycleStats)}
+        health={companion.state?.health}
+        reasonText={companionReason}
+        healthNote={healthNote}
+        questOpen={companion.state?.quest.open ?? false}
+        onCatch={companion.catchEntity}
       />
     </div>
   );

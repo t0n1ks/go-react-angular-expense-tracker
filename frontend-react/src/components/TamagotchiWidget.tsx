@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import TamagotchiJournalModal from './TamagotchiJournalModal';
+import CompanionHealthMeter from './CompanionHealthMeter';
+import type { CatchKind, CompanionMood } from '../utils/companion';
 import { fetchBrainContent } from '../utils/brainContent';
 import { addDiscovery } from '../utils/tamaStorage';
 import {
@@ -207,11 +209,18 @@ type WidgetMode = 'idle' | 'greeting' | 'ai_bubble' | 'tour' | 'choice' | 'fly_t
 interface Props {
   message: string | null;
   onDismiss: () => void;
-  mood?: string;
+  onMessageTap?: () => void;
+  mood?: CompanionMood;
   animationHint?: string | null;
-  heartsCount?: number;
   aiServiceMode?: 'online' | 'autonomous' | 'initializing';
-  savingsBalance?: number;
+  // Companion health (server-decided): value, the plain-language reason, and a
+  // one-off note to show when it has just dropped.
+  health?: number;
+  reasonText?: string;
+  healthNote?: string | null;
+  // The weekly quest is open: make sure a catchable star shows up soon.
+  questOpen?: boolean;
+  onCatch?: (kind: CatchKind) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -219,11 +228,16 @@ interface Props {
 const TamagotchiWidget: React.FC<Props> = ({
   message,
   onDismiss,
+  onMessageTap,
   mood,
-  heartsCount = 3,
   aiServiceMode,
-  savingsBalance,
+  health,
+  reasonText,
+  healthNote,
+  questOpen,
+  onCatch,
 }) => {
+  const reduceMotion = useReducedMotion();
   const { t, i18n } = useTranslation();
   const { user, axiosInstance } = useAuth();
   const { currentCycle, cycleStats } = useSettings();
@@ -298,53 +312,6 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(t0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  // ── Proactive savings milestone tip ──────────────────────────────────────
-  useEffect(() => {
-    if (!savingsBalance || savingsBalance <= 0 || !user?.id) return;
-    const todayKey = getTodayKey();
-    const shownKey = `tama_savings_tip_${user.id}_${todayKey}`;
-    if (localStorage.getItem(shownKey)) return;
-
-    const SAVINGS_TIP_THRESHOLD = 300;
-    if (savingsBalance < SAVINGS_TIP_THRESHOLD) return;
-
-    const tips: Record<string, string[]> = {
-      en: [
-        `🚀 You've stacked ${savingsBalance.toFixed(0)}! Ever thought about investing? 📈`,
-        `💰 ${savingsBalance.toFixed(0)} saved! A solid emergency fund start!`,
-        `✨ ${savingsBalance.toFixed(0)} banked — maybe treat yourself to a trip? 🌍`,
-      ],
-      ru: [
-        `🚀 Накоплено ${savingsBalance.toFixed(0)}! Может, пора инвестировать? 📈`,
-        `💰 ${savingsBalance.toFixed(0)} в копилке! Хороший резервный фонд!`,
-        `✨ ${savingsBalance.toFixed(0)} отложено — может, в путешествие? 🌍`,
-      ],
-      de: [
-        `🚀 ${savingsBalance.toFixed(0)} angespart! Zeit zu investieren? 📈`,
-        `💰 ${savingsBalance.toFixed(0)} zurückgelegt! Super Notgroschen!`,
-        `✨ ${savingsBalance.toFixed(0)} gespart — wie wäre eine Reise? 🌍`,
-      ],
-      uk: [
-        `🚀 Накопичено ${savingsBalance.toFixed(0)}! Час інвестувати? 📈`,
-        `💰 ${savingsBalance.toFixed(0)} у скарбничці! Чудовий резервний фонд!`,
-        `✨ ${savingsBalance.toFixed(0)} відкладено — може, в подорож? 🌍`,
-      ],
-    };
-    const lang = (navigator.language || 'en').split('-')[0].toLowerCase();
-    const pool = tips[lang] || tips.en;
-    const tip = pool[Math.floor(Math.random() * pool.length)];
-
-    const t0 = setTimeout(() => {
-      if (modeRef.current !== 'idle') return;
-      setBubbleText(tip);
-      setFromHook(false);
-      setMode('ai_bubble');
-      try { localStorage.setItem(shownKey, '1'); } catch { /* ignore */ }
-    }, 8_000);
-    return () => clearTimeout(t0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savingsBalance, user?.id]);
 
   // ── Auto-dismiss non-hook bubbles ─────────────────────────────────────────
   useEffect(() => {
@@ -428,6 +395,37 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(rainbowTimerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  // ── Quest open: a catchable star within seconds, not minutes ─────────────
+  useEffect(() => {
+    if (!questOpen || rainbowStarIdx !== null) return;
+    const id = setTimeout(() => {
+      setRainbowStarIdx(Math.floor(Math.random() * STARS.length));
+    }, 4_000);
+    return () => clearTimeout(id);
+  }, [questOpen, rainbowStarIdx]);
+
+  // ── Health explanations ──────────────────────────────────────────────────
+  const showNote = useCallback((text: string) => {
+    if (modeRef.current !== 'idle' || !text) return;
+    clearTimeout(autoDismissRef.current);
+    setBubbleText(text);
+    setFromHook(false);
+    setMode('ai_bubble');
+  }, []);
+
+  // Health just dropped: say why, once.
+  useEffect(() => {
+    if (!healthNote) return;
+    const id = setTimeout(() => showNote(healthNote), 1_500);
+    return () => clearTimeout(id);
+  }, [healthNote, showNote]);
+
+  const explainHealth = useCallback(() => {
+    if (health !== undefined && reasonText) {
+      showNote(t('companion.health_now', { value: Math.round(health), reason: reasonText }));
+    }
+  }, [health, reasonText, showNote, t]);
 
   // ── Proactive cycle-week countdown hint (rare, cooldowned) ────────────────
   // Defined fresh each render so it closes over the latest cycle data/translator.
@@ -580,6 +578,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     // Instant click feedback: clear the star + arm the cooldown synchronously.
     setRainbowStarIdx(null);
     navigator.vibrate?.(50);
+    onCatch?.('star');
     starCooldownRef.current = setTimeout(() => { starCooldownRef.current = null; }, 30_000);
 
     // AI-first within a short charge window; fall back to the local pool. Computing
@@ -608,7 +607,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         msgsSinceHintRef.current = 0;
       }
     }, 45_000);
-  }, [rainbowStarIdx, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
+  }, [rainbowStarIdx, t, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, onCatch]);
 
   // ── Space cow click → JOKE (AI-first, local fallback) ─────────────────────
   const handleCowClick = useCallback(() => {
@@ -619,6 +618,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     setFlyPhase(null);
     setCowExiting(true);
     navigator.vibrate?.(200);
+    onCatch?.('cow');
 
     // Local pick first — the guaranteed fallback shown when the cow finishes its
     // ~3s exit animation. The brain fetch runs during that window and overwrites
@@ -629,7 +629,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     fetchBrainContent(axiosInstance, 'joke', i18n.language, { aiServiceMode })
       .then(res => { if (res) pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations }); })
       .catch(() => { /* keep local fallback */ });
-  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode]);
+  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, onCatch]);
 
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
@@ -733,7 +733,11 @@ const TamagotchiWidget: React.FC<Props> = ({
               style={{ left: `${s.x}%`, top: `${s.y}%` }}
               onClick={() => { void handleStarClick(i); }}
               role={rainbowStarIdx === i ? 'button' : undefined}
-              aria-label={rainbowStarIdx === i ? 'Cosmic secret' : undefined}
+              tabIndex={rainbowStarIdx === i ? 0 : undefined}
+              aria-label={rainbowStarIdx === i ? t('companion.catch_star') : undefined}
+              onKeyDown={rainbowStarIdx === i ? (ev => {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); void handleStarClick(i); }
+              }) : undefined}
             >
               <div
                 className={`tama-star${rainbowStarIdx === i ? ' tama-star--rainbow' : ''}`}
@@ -755,19 +759,23 @@ const TamagotchiWidget: React.FC<Props> = ({
               key={cowKey}
               className={`tama-space-cow${cowExiting ? ' tama-space-cow--exiting' : ''}`}
               style={{ top: `${cowTop}%` }}
-              initial={{ left: '-15%', scale: 1, opacity: 1 }}
-              animate={cowExiting
-                ? { left: '82%', top: '8%', scale: [1, 1.2, 0.05], opacity: [1, 1, 0] }
-                : { left: '115%' }
+              initial={reduceMotion ? { left: '68%', opacity: 0 } : { left: '-15%', scale: 1, opacity: 1 }}
+              animate={reduceMotion
+                ? (cowExiting ? { opacity: 0 } : { opacity: [0, 1, 1, 0] })
+                : cowExiting
+                  ? { left: '82%', top: '8%', scale: [1, 1.2, 0.05], opacity: [1, 1, 0] }
+                  : { left: '115%' }
               }
-              transition={cowExiting
-                ? {
-                    duration: 3.0,
-                    times: [0, 0.033, 1],
-                    left: { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
-                    top:  { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
-                  }
-                : { duration: 18, ease: 'linear' }
+              transition={reduceMotion
+                ? (cowExiting ? { duration: 0.3 } : { duration: 18, times: [0, 0.03, 0.95, 1] })
+                : cowExiting
+                  ? {
+                      duration: 3.0,
+                      times: [0, 0.033, 1],
+                      left: { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
+                      top:  { delay: 0.1, duration: 2.9, ease: [0.4, 0, 1, 1] },
+                    }
+                  : { duration: 18, ease: 'linear' }
               }
               onAnimationComplete={() => {
                 if (cowExiting && pendingJokeRef.current) {
@@ -784,7 +792,11 @@ const TamagotchiWidget: React.FC<Props> = ({
               }}
               onClick={handleCowClick}
               role="button"
-              aria-label="Space cow"
+              tabIndex={cowExiting ? -1 : 0}
+              aria-label={t('companion.catch_cow')}
+              onKeyDown={ev => {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleCowClick(); }
+              }}
             >
               <img
                 src={cowSpriteUrl}
@@ -850,19 +862,10 @@ const TamagotchiWidget: React.FC<Props> = ({
           </div>
         </motion.div>
 
-        {/* ── Hearts health bar ── */}
-        <div className="tama-hearts">
-          {Array.from({ length: Math.min(heartsCount, 5) }, (_, i) => (
-            <svg key={i} width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path
-                d="M5 8.5C5 8.5 1 5.8 1 3.2C1 1.8 2.2 0.8 3.5 1.6C4.1 1.9 5 2.9 5 2.9C5 2.9 5.9 1.9 6.5 1.6C7.8 0.8 9 1.8 9 3.2C9 5.8 5 8.5 5 8.5Z"
-                fill="#f87171"
-                stroke="#ef4444"
-                strokeWidth="0.4"
-              />
-            </svg>
-          ))}
-        </div>
+        {/* ── Health: bar + % + mood in words; tap explains why ── */}
+        {health !== undefined && mood && (
+          <CompanionHealthMeter health={health} mood={mood} reason={reasonText ?? ''} onExplain={explainHealth} />
+        )}
 
         {/* ── SVG thought bubble + choice zones ── */}
         <AnimatePresence>
@@ -926,8 +929,14 @@ const TamagotchiWidget: React.FC<Props> = ({
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
-            <p className="tama-bubble-text">{bubbleText}</p>
-            <button className="tama-bubble-close" onClick={dismissBubble} aria-label="Close">✕</button>
+            {fromHook && onMessageTap ? (
+              <button type="button" className="tama-bubble-text tama-bubble-tap" onClick={onMessageTap}>
+                {bubbleText}
+              </button>
+            ) : (
+              <p className="tama-bubble-text">{bubbleText}</p>
+            )}
+            <button className="tama-bubble-close" onClick={dismissBubble} aria-label={t('companion.close')}>✕</button>
           </motion.div>
         )}
       </AnimatePresence>

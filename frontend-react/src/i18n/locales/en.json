@@ -765,5 +765,48 @@
     "next": "Next →",
     "skip": "Skip",
     "done": "Got it!"
+  },
+  "companion": {
+    "health_label": "UFO health",
+    "health_valuetext": "{{value}}%, {{mood}}",
+    "health_short": "{{value}}% · {{mood}}",
+    "health_now": "Health {{value}}%: {{reason}}",
+    "health_dropped": "Health {{value}}% ({{delta}}%): {{reason}}",
+    "catch_star": "Catch the shining star",
+    "catch_cow": "Catch the space cow",
+    "close": "Close",
+    "mood": {
+      "thriving": "thriving",
+      "content": "calm",
+      "worried": "a little worried",
+      "stressed": "tense",
+      "exhausted": "tired"
+    },
+    "reason": {
+      "all_good": "spending is right on pace.",
+      "all_good_free": "all good — catch a star or a cow now and then.",
+      "grace": "the first days of the period — a big initial shop doesn't count yet.",
+      "recovering": "back on track — health is returning day by day.",
+      "pace_ahead_week1": "{{spent_pct}}% of the budget spent in the first week.",
+      "pace_ahead": "{{spent_pct}}% of the budget spent by day {{day}} of {{days_total}}.",
+      "overspent": "the budget is overspent for now — a few quieter days will bring health back.",
+      "quest": "nothing caught for a while — a star or a cow would cheer me up."
+    },
+    "msg": {
+      "overspent": "The budget is {{over}} over for now (days left: {{days_left}}). A few quieter days will close the gap — I'm with you.",
+      "big_expense": "{{amount}} on {{category}} — about {{ratio}}× your usual. Still {{remaining}} for the rest of the period (days left: {{days_left}}) — around {{daily}} a day.",
+      "big_expense_short": "{{amount}} on {{category}} — about {{ratio}}× your usual. Worth a quick look at what's left.",
+      "savings_deposit": "{{amount}} moved to savings — the jar now holds {{saved_total}}. Nicely done!",
+      "income": "{{amount}} came in. Want to set a part aside for savings while it's fresh?",
+      "pace_warn": "{{spent_pct}}% of the budget is used after {{elapsed_pct}}% of the period. {{remaining}} left (days left: {{days_left}}) — about {{daily}} a day keeps you on track.",
+      "pace_over": "Spending is running ahead: {{spent_pct}}% of the budget after {{elapsed_pct}}% of the period. {{remaining}} left (days left: {{days_left}}) — around {{daily}} a day evens it out.",
+      "pace_recovered": "Back on pace! {{remaining}} left (days left: {{days_left}}) — nicely balanced.",
+      "payday_tomorrow": "Payday is tomorrow. {{remaining}} of this cycle's budget is still unspent.",
+      "last_days": "Final stretch (days left: {{days_left}}): {{remaining}} left, about {{daily}} a day.",
+      "week_checkin": "Week {{week}} begins: {{spent}} spent so far, {{remaining}} left — about {{daily}} a day.",
+      "week_checkin_forecast": "Week {{week}} begins: {{remaining}} left, about {{daily}} a day. At the current pace the cycle ends around {{forecast_end}}, as the forecast card shows.",
+      "weekday_heads_up": "This weekday is usually one of your bigger spending days: {{weekday}}. About {{daily}} a day keeps the period on track.",
+      "quest_ask": "I haven't caught anything in a while — will you catch a star or a cow for me? ✨"
+    }
   }
 }

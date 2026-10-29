@@ -50,7 +50,6 @@ export interface UserSettings {
   paydayMode: 'smart' | 'fixed';
   fixedPayday: number;
   manualNextPayday: string;
-  heartsCount: number;
   reputationScore: number;
   liteMode: boolean;
 }
@@ -171,7 +170,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   paydayMode: 'smart',
   fixedPayday: 0,
   manualNextPayday: '',
-  heartsCount: 3,
   reputationScore: 0,
   liteMode: false,
 };
@@ -286,7 +284,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           paydayMode: (d.payday_mode === 'fixed' ? 'fixed' : 'smart'),
           fixedPayday: d.fixed_payday ?? 0,
           manualNextPayday: d.manual_next_payday ?? '',
-          heartsCount: d.hearts_count ?? 3,
           reputationScore: d.reputation_score ?? 0,
           liteMode: d.lite_mode ?? false,
         };

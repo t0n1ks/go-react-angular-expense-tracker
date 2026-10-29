@@ -25,11 +25,21 @@ The **UFO Tamagotchi Widget** runs an organic state machine that cycles through 
 
 ## Key Features
 
+### UFO companion — health driven by real behaviour
+The UFO has **one health stat (25–100%)** shown as a bar with the percentage and its mood written out (thriving / calm / a little worried / tense / tired). Go computes it from the dashboard's own figures (`GET /api/companion/state`); nothing is random:
+- **Spending pace:** r = share of the budget spent ÷ share of the period elapsed (at least a week counts as elapsed). r ≤ 1.10 → no penalty; 1.10–1.45 → up to −40%; 1.45–2.15 → up to −45%; budget overspent → −60%. The **first 4 days** of a period never cost health, so a big initial shop doesn't hurt.
+- **Gentle and gradual:** health moves at most **−15% a day** and recovers **+14.3% a day** (a week from any low), never below 25%. Tapping the bar explains why in plain words ("33% of the budget spent in the first week"), and a drop is explained once automatically.
+- **Weekly quest:** after 7 days without catching a star or a cow the UFO asks once; only then −3% a day, capped at −15%. A catch closes it. Days you weren't asked never cost anything.
+- **Contextual messages, not dice:** a rules engine with priorities — overspent (once per crossing) › just happened (an unusually large expense compared with *your own* 90-day category baseline, a savings deposit, new income) › pace band change (with hysteresis) › rhythm (weekly check-in, payday tomorrow, last days, your heavy weekday) › the quest. At most 4 a day, rhythm/quest 3 h apart, per-type cooldowns, and types you keep dismissing are shown less. Messages are a fact plus an option, never shaming; in the forecast's first-week "collecting data" state the UFO never cites a projection, and afterwards it quotes exactly the forecast card's number.
+- **Lite and goal-less users** get the same UFO with engagement-only health.
+- **Storage:** one `companion_states` row per user (~0.5 KB), created automatically by the server's migration — no event log.
+- **Accessibility:** health is an ARIA meter with text; the shining star and the cow are keyboard-catchable and stay still under reduced motion.
+
 ### UFO Tamagotchi Widget
 - **State machine** with four modes: `idle`, `greeting`, `ai_bubble`, `tour` — stale-closure-safe via `modeRef` / `messageRef` pattern
 - **Organic idle animations:** 50% quiet hover with pixel moon, 17% cow abduction beam event, 17% coin shower, 16% random fact bubble — each triggered by a randomised 15–20 s timer
 - **Dynamic UFO positioning on mobile:** `ResizeObserver` measures actual bubble height, then computes `ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H` — the UFO always clears the bubble regardless of text length
-- **Mood logic:** when no transactions are recorded today, the UFO switches to a "hungry for data" message pool 35% of the time
+- **Mood:** set by the companion's health (see above) — the UFO's colour follows it
 - **In-widget guided tour:** highlights sidebar nav items via `classList.add('tour-highlight-active')` without leaving the widget; first-login greeting persisted in `localStorage`
 - **128+ localised content entries** — humor, financial facts, actionable tips, and hungry messages
 
@@ -66,8 +76,7 @@ Clicking any transaction row or mobile card opens a **receipt-style overlay** sh
 - Undo-delete with a 5.5 s grace period via bottom snackbar; the actual API call is deferred until timeout
 - Inline row editing on desktop; card-based editing on mobile
 - Monthly spending goal with colour-coded progress bar (green → amber → red)
-- Weekly pacing advisor powered by `useAIAssistant` hook: detects salary arrival, tracks spend rate vs weekly limit, fires contextual messages per session fingerprint (no duplicate nags)
-- **Hearts system** — the backend awards one heart when a user stays within their daily spending limit for 60 consecutive days; max 5 hearts per account
+- Pace, salary and spending reactions come from the server's companion engine (one source of truth); `useAIAssistant` only relays the AI service's greetings and encouragements
 - **Reputation score** — foundation for future gamification; incremented by positive financial behaviour
 
 ### Salary Cycle & Smart Budgeting
@@ -197,6 +206,9 @@ middleware/security.go — Security response headers + request body size cap
 | Protected | GET | `/api/ai/next-action` | 20 / min per user | next Tamagotchi action — JOKE / FACT / ADVICE / GREETING |
 | Protected | GET | `/api/ai/content` | 20 / min per user | category-locked content for user-triggered UFO entities (Cow=joke, Star=fact) |
 | Protected | GET | `/api/ai/status` | — | AI-brain reachability probe for graceful UI degradation |
+| Protected | GET | `/api/companion/state` | 20 / min per user | companion health (25–100), mood, plain-language reason, quest status and the next contextual message (type + numbers; `text` when the AI service worded it) |
+| Protected | POST | `/api/companion/catch` | — | `{kind: star\|cow}` — a star or cow was caught (closes the weekly quest) |
+| Protected | POST | `/api/companion/reaction` | — | `{type, reaction: tapped\|dismissed}` — tunes how often that message type is shown |
 | Protected | POST | `/api/ai/feedback` | — | accept / reject signal for AI apology-mode tracking |
 
 ### AI Brain (`fin-guard-ai-service`)

@@ -108,6 +108,14 @@ func main() {
 			handlers.GetCategorizedContent,
 		)
 		protected.POST("/ai/feedback", handlers.SendFeedback)
+
+		// Companion (tamagotchi): health, mood and contextual messages.
+		protected.GET("/companion/state",
+			middleware.PerUser(rate.Every(3*time.Second), 5),
+			handlers.GetCompanionState,
+		)
+		protected.POST("/companion/catch", handlers.CatchCompanionEntity)
+		protected.POST("/companion/reaction", handlers.ReactToCompanionMessage)
 		protected.GET("/ai/status", handlers.GetAIServiceStatus)
 
 		protected.GET("/transactions/export/pdf", handlers.ExportTransactionsPDF)

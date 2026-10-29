@@ -32,7 +32,7 @@ func Connect() {
 
 	log.Println("Database connected successfully")
 
-	err = DB.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{}, &models.SalaryCycleAudit{})
+	err = DB.AutoMigrate(&models.User{}, &models.Category{}, &models.Transaction{}, &models.SalaryCycle{}, &models.FixedExpense{}, &models.SalaryCycleAudit{}, &models.CompanionState{})
 	if err != nil {
 		log.Fatalf("Failed to run database migration: %v", err)
 	}
@@ -69,11 +69,6 @@ func runStartupMaintenance() {
 		log.Printf("Warning: username normalization failed: %v", res.Error)
 	} else if res.RowsAffected > 0 {
 		log.Printf("Username normalization: %d existing username(s) converted to lowercase", res.RowsAffected)
-	}
-
-	// One-time backfill: GORM column default only applies to new INSERTs, not ALTER ADD COLUMN.
-	if res := DB.Exec("UPDATE users SET hearts_count = 3 WHERE hearts_count = 0"); res.Error != nil {
-		log.Printf("Warning: hearts_count backfill failed: %v", res.Error)
 	}
 
 	// ORDER MATTERS. Heal must run BEFORE the backfills.

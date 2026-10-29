@@ -14,7 +14,9 @@ type User struct {
 	PaydayMode          string  `gorm:"default:'smart'" json:"payday_mode"`
 	FixedPayday         int     `gorm:"default:0" json:"fixed_payday"`
 	ManualNextPayday    string  `gorm:"default:''" json:"manual_next_payday"`
-	HeartsCount         int     `gorm:"default:3" json:"hearts_count"`
+	// HeartsCount is retired (the companion's health replaced the hearts in
+	// Phase 2.21); the column and its values are kept, nothing reads them.
+	HeartsCount     int `gorm:"default:3" json:"-"`
 	ReputationScore     int     `gorm:"default:0" json:"reputation_score"`
 	// LiteMode: opt-in "track-only" mode. Hides salary-cycle/analytics UI and
 	// suppresses Python analytics/forecast calls. Advisor (joke/fact) stays on.

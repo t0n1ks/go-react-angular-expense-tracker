@@ -122,75 +122,6 @@ func normalizeLangForBrain(lang string) string {
 	return lang
 }
 
-// checkAndUpdateHearts awards one heart if the user stayed within budget every day for 60 days.
-// Designed to run in a goroutine after login — never blocks the response.
-func checkAndUpdateHearts(userID uint) {
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		return
-	}
-	if user.HeartsCount >= 5 || user.MonthlySpendingGoal == 0 {
-		return
-	}
-
-	since := time.Now().AddDate(0, 0, -60)
-	var txs []models.Transaction
-	if err := database.DB.Where("user_id = ? AND type = 'expense' AND date >= ?", userID, since).
-		Find(&txs).Error; err != nil {
-		return
-	}
-	if len(txs) == 0 {
-		return
-	}
-
-	dailyTotals := make(map[string]float64)
-	for _, tx := range txs {
-		day := tx.Date.Format("2006-01-02")
-		dailyTotals[day] += tx.Amount
-	}
-
-	dailyLimit := user.MonthlySpendingGoal / 30
-	for _, total := range dailyTotals {
-		if total > dailyLimit {
-			return
-		}
-	}
-
-	database.DB.Model(&models.User{}).Where("id = ?", userID).
-		Update("hearts_count", user.HeartsCount+1)
-}
-
-// computeBudgetHealth derives a lightweight {good|warn|over} budget-health hint
-// from the user's active cycle for context-aware AI content selection. Read-only —
-// reuses computeCycleStats and performs no new budget math. Returns "" when there
-// is no active cycle (Python then uses its neutral default).
-func computeBudgetHealth(uid uint) string {
-	all, err := loadUserCycles(uid)
-	if err != nil {
-		return ""
-	}
-	k := userClock(uid)
-	cycle := k.currentCycle(all)
-	if cycle == nil {
-		return ""
-	}
-	stats := computeCycleStatsAt(uid, *cycle, all, k)
-	if stats.CurrentWeekAllowance <= 0 {
-		if stats.CurrentWeekSpent > 0 {
-			return "over"
-		}
-		return ""
-	}
-	switch ratio := stats.CurrentWeekSpent / stats.CurrentWeekAllowance; {
-	case ratio >= 1.0:
-		return "over"
-	case ratio >= 0.8:
-		return "warn"
-	default:
-		return "good"
-	}
-}
-
 // GetNextAction proxies GET /v1/tamagotchi/next-action from the Python AI brain service.
 func GetNextAction(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -206,7 +137,7 @@ func GetNextAction(c *gin.Context) {
 
 	url := fmt.Sprintf("%s/v1/tamagotchi/next-action?user_id=%d&language=%s",
 		getBrainBaseURL(), userID.(uint), lang)
-	if health := computeBudgetHealth(userID.(uint)); health != "" {
+	if health := companionContext(userID.(uint)); health != "" {
 		url += "&context=" + health
 	}
 
@@ -266,7 +197,7 @@ func GetCategorizedContent(c *gin.Context) {
 	lang := normalizeLangForBrain(strings.SplitN(c.Query("language"), "-", 2)[0])
 	url := fmt.Sprintf("%s/v1/tamagotchi/content?user_id=%d&category=%s&language=%s",
 		getBrainBaseURL(), uid, category, lang)
-	if health := computeBudgetHealth(uid); health != "" {
+	if health := companionContext(uid); health != "" {
 		url += "&context=" + health
 	}
 
