@@ -250,6 +250,84 @@ func (k cycleClock) cycleLengthDays(c models.SalaryCycle) int {
 	return 30
 }
 
+// ── Boundary auto-snap ───────────────────────────────────────────────────────
+//
+// A cycle whose end is already recorded (EndedAt — e.g. its successor was
+// later removed) may not meet a new cycle exactly: the new start can fall a
+// little after that end (a gap: entries in between would belong to no cycle)
+// or a little before it (an overlap, refused until now). Auto-snap moves ONLY
+// that recorded end to the new start instant, so the two meet seamlessly:
+//
+//   - starts immutable: neither cycle's start changes, nor the old payday;
+//   - nothing revived: the old cycle stays ended (and stopped, if it was);
+//   - nothing deleted or moved: only the window boundary changes;
+//   - gap → the end moves forward; entries in the gap join the old cycle;
+//   - overlap → the end moves back, but only if no live entry of the old
+//     cycle lies in between (it would silently change cycles) and the old
+//     cycle keeps its 7-day minimum; otherwise the start is refused, saying
+//     why.
+//
+// A cycle without a recorded end needs no snap: the handover records its end
+// at the new start anyway.
+
+const (
+	errSnapTooShort     = "SNAP_TOO_SHORT"     // the old cycle would end < 7 days after its start
+	errSnapMovesEntries = "SNAP_MOVES_ENTRIES" // the old cycle has entries after the new start
+)
+
+// boundarySnap is a planned move of the previous cycle's recorded end.
+type boundarySnap struct {
+	PrevID uint
+	From   time.Time // the recorded end now
+	To     time.Time // = the new cycle's start
+}
+
+// planBoundarySnap decides how `prev` (the cycle being handed over from) must
+// meet a new cycle starting at `start`. entriesBetween are the live entries
+// whose event instant lies in [start, prev's recorded end) — only consulted
+// for an overlap. Returns (nil, "", nil) when nothing needs to move; a refusal
+// code (and, for SNAP_MOVES_ENTRIES, the latest such entry) when the snap is
+// not allowed. Pure.
+func (k cycleClock) planBoundarySnap(prev *models.SalaryCycle, start time.Time, entriesBetween []windowTx) (*boundarySnap, string, *time.Time) {
+	if prev == nil || prev.EndedAt == nil || prev.EndedAt.Equal(start) {
+		return nil, "", nil
+	}
+	snap := &boundarySnap{PrevID: prev.ID, From: *prev.EndedAt, To: start}
+	if start.After(*prev.EndedAt) {
+		return snap, "", nil // gap: extend the old cycle to the new start
+	}
+	// Overlap: pull the old cycle's end back to the new start.
+	if start.Before(prev.CycleStartAt.In(k.Loc).AddDate(0, 0, MinCycleDays)) {
+		return nil, errSnapTooShort, nil
+	}
+	if len(entriesBetween) > 0 {
+		latest := entriesBetween[0].At
+		for _, e := range entriesBetween[1:] {
+			if e.At.After(latest) {
+				latest = e.At
+			}
+		}
+		return nil, errSnapMovesEntries, &latest
+	}
+	return snap, "", nil
+}
+
+// withSnap returns the cycles as they will be once the snap is applied.
+func withSnap(all []models.SalaryCycle, snap *boundarySnap) []models.SalaryCycle {
+	if snap == nil {
+		return all
+	}
+	out := make([]models.SalaryCycle, len(all))
+	copy(out, all)
+	for i := range out {
+		if out[i].ID == snap.PrevID {
+			to := snap.To
+			out[i].EndedAt = &to
+		}
+	}
+	return out
+}
+
 // ── Payday status ────────────────────────────────────────────────────────────
 
 const (

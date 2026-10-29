@@ -50,6 +50,10 @@ interface Props {
 // The user's local day — the server resolves "received today" in local time.
 const todayDateStr = () => toLocalDateStr(new Date());
 
+// A boundary instant in the user's local time, e.g. "28.10, 23:59".
+const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
 const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const { t, i18n } = useTranslation();
   const { axiosInstance } = useAuth();
@@ -120,6 +124,9 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
   const fixedTouched = useRef(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  // Shown under the header (it stays visible after the form collapses) when
+  // the server auto-aligned the previous cycle's end with the new start.
+  const [snapNote, setSnapNote] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [tipContent, setTipContent] = useState<string | null>(null);
 
@@ -213,8 +220,13 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
           })),
       };
 
+      setSnapNote('');
       const res = await axiosInstance.post('/salary-cycle', payload);
       const cycle: SalaryCycle = res.data.cycle;
+      const snap = res.data.boundary_snap as { previous_end_now?: string } | undefined;
+      if (snap?.previous_end_now) {
+        setSnapNote(t('salary_cycle.snap_note', { time: fmtDateTime(snap.previous_end_now) }));
+      }
 
       await refreshCycle();
       onCycleStarted(cycle);
@@ -235,10 +247,14 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
     } catch (err: unknown) {
       // Map the server's structured code to a specific, localized hint instead
       // of a generic "try again" (§4).
-      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      const data = (err as { response?: { data?: { code?: string; latest_entry_at?: string } } })?.response?.data;
+      const code = data?.code;
       const hint =
         code === 'CYCLE_TOO_SHORT' ? t('dashboard.cycle_err_too_short')
         : code === 'CYCLE_OVERLAP' ? t('dashboard.cycle_err_overlap')
+        : code === 'SNAP_TOO_SHORT' ? t('dashboard.cycle_err_snap_too_short')
+        : code === 'SNAP_MOVES_ENTRIES' && data?.latest_entry_at
+          ? t('dashboard.cycle_err_snap_entries', { time: fmtDateTime(data.latest_entry_at) })
         : t('salary_cycle.error');
       setErrorMsg(hint);
     } finally {
@@ -294,6 +310,21 @@ const SalaryCycleCard: React.FC<Props> = ({ onCycleStarted }) => {
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
+
+      {snapNote && (
+        <div className="sc-snap-note" role="status">
+          <Info size={14} aria-hidden="true" />
+          <span>{snapNote}</span>
+          <button
+            type="button"
+            className="sc-snap-note-close"
+            onClick={() => setSnapNote('')}
+            aria-label={t('salary_cycle.snap_note_dismiss')}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {expanded && (

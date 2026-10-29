@@ -750,6 +750,37 @@
 .sc-success-msg { background: rgba(16,185,129,0.12); color: #10b981; }
 .sc-error-msg { background: rgba(239,68,68,0.12); color: #f87171; }
 
+/* Auto-snap note under the header: the previous cycle's end was adjusted */
+.sc-snap-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0 1.5rem 1rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--color-text-heading);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.sc-snap-note > svg { flex: 0 0 auto; margin-top: 0.15rem; color: #38bdf8; }
+.sc-snap-note > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sc-snap-note-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.sc-snap-note-close:hover { background: rgba(148, 163, 184, 0.18); }
+.sc-snap-note-close:focus-visible { outline: 2px solid #38bdf8; outline-offset: 1px; }
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .sc-row { flex-direction: column; }

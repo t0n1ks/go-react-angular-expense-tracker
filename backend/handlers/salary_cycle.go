@@ -480,11 +480,35 @@ func StartSalaryCycle(c *gin.Context) {
 		return
 	}
 
+	// ── Boundary auto-snap (see cycle_window.go) ─────────────────────────────
+	// If the cycle being handed over already has a recorded end that misses
+	// the new start (gap or overlap), that end snaps to the new start — or the
+	// start is refused when snapping would move entries or break 7 days.
+	recordedPrev := cycleToHandOver(cycleStart, allUserCycles)
+	var entriesBetween []windowTx
+	if recordedPrev != nil && recordedPrev.EndedAt != nil && cycleStart.Before(*recordedPrev.EndedAt) {
+		end := *recordedPrev.EndedAt
+		entriesBetween = loadWindowTransactions(uid, cycleWindow{Start: cycleStart, End: &end}, k)
+	}
+	snap, refusal, latestEntry := k.planBoundarySnap(recordedPrev, cycleStart, entriesBetween)
+	if refusal != "" {
+		log.Printf("start salary cycle: user=%v new start %v — boundary snap refused (%s)",
+			uid, cycleStart.Format(time.RFC3339), refusal)
+		body := gin.H{"error": validationMessage(refusal), "code": refusal}
+		if latestEntry != nil {
+			body["latest_entry_at"] = latestEntry.UTC()
+		}
+		c.JSON(http.StatusBadRequest, body)
+		return
+	}
+	allUserCycles = withSnap(allUserCycles, snap)
+
 	// ── No-overlap rule (§3) ─────────────────────────────────────────────────
 	// A new cycle may not start inside any existing cycle's planned days
 	// (stopped or not — the user still lived on that period). The payday itself
 	// is shared: starting on or after the previous cycle's payday (local time)
-	// is a handover, not an overlap. See conflictingCycle.
+	// is a handover, not an overlap. See conflictingCycle. Checked against the
+	// cycles as they will be after the snap.
 	if ex := k.conflictingCycle(cycleStart, cycle.NextPaydayAt, allUserCycles); ex != nil {
 		log.Printf("start salary cycle: user=%v new start %v overlaps cycle id=%v (start=%v) — rejected",
 			uid, cycleStart.Format(time.RFC3339), ex.ID, ex.CycleStartAt.Format(time.RFC3339))
@@ -518,6 +542,18 @@ func StartSalaryCycle(c *gin.Context) {
 		if prevCycle != nil && prevCycle.EndedAt == nil {
 			if err := tx.Model(&models.SalaryCycle{}).Where("id = ?", prevCycle.ID).
 				Update("ended_at", cycleStart).Error; err != nil {
+				return err
+			}
+		}
+		// Auto-snap: move the previous cycle's recorded end to this start, and
+		// keep a trace of it in the audit log.
+		if snap != nil {
+			if err := tx.Model(&models.SalaryCycle{}).Where("id = ? AND user_id = ?", snap.PrevID, uid).
+				Update("ended_at", snap.To).Error; err != nil {
+				return err
+			}
+			if err := writeCycleAudit(tx, uid, snap.PrevID, "ended_at (auto-snap)",
+				snap.From.UTC().Format(time.RFC3339), snap.To.UTC().Format(time.RFC3339), time.Now()); err != nil {
 				return err
 			}
 		}
@@ -712,11 +748,20 @@ func StartSalaryCycle(c *gin.Context) {
 		log.Printf("start salary cycle: preload err=%v", err)
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	resp := gin.H{
 		"cycle":                 cycle,
 		"budget_framework":      fw,
 		"income_transaction_id": incomeTxID,
-	})
+	}
+	if snap != nil {
+		// Shown to the user: the previous cycle's end was adjusted.
+		resp["boundary_snap"] = gin.H{
+			"previous_cycle_id": snap.PrevID,
+			"previous_end_was":  snap.From.UTC(),
+			"previous_end_now":  snap.To.UTC(),
+		}
+	}
+	c.JSON(http.StatusCreated, resp)
 }
 
 // ── GetCurrentSalaryCycle ─────────────────────────────────────────────────────
@@ -896,6 +941,10 @@ func validationMessage(code string) string {
 		return "No active salary cycle to edit"
 	case errCycleOverlap:
 		return "A cycle can't overlap another cycle"
+	case errSnapTooShort:
+		return "The previous cycle would become shorter than 7 days"
+	case errSnapMovesEntries:
+		return "The previous cycle has entries after this start time"
 	default:
 		return "Invalid end date"
 	}
