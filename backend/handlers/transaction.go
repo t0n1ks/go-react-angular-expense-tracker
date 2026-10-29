@@ -271,6 +271,20 @@ func UpdateTransaction(c *gin.Context) {
 		}
 	}
 
+	// A bigger "returned to budget" entry draws on the pool: it may not take
+	// out more than the pool holds.
+	if isReturnToBudget(transaction) && transaction.Amount > original.Amount {
+		available := round2(savingsPoolBalance(uid, transaction.CategoryID) + original.Amount)
+		if round2(transaction.Amount) > available {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":     "That is more than your savings hold",
+				"code":      errSavingsInsufficient,
+				"available": max(0, available),
+			})
+			return
+		}
+	}
+
 	if err := database.DB.Save(&transaction).Error; err != nil {
 		log.Printf("update transaction: user=%v tx=%v err=%v", userID, transactionID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})

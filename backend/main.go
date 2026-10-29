@@ -124,6 +124,7 @@ func main() {
 		protected.GET("/salary-cycle/savings-history", handlers.GetSavingsHistory)
 		protected.POST("/salary-cycle/savings", handlers.AddSavingsManual)
 		protected.POST("/transactions/:id/savings", handlers.MoveTransactionToSavings)
+		protected.POST("/transactions/:id/budget", handlers.ReturnSavingsToBudget)
 		// Real money on hand over time (cycle remainder + savings pool).
 		protected.GET("/balance/timeline", handlers.GetBalanceTimeline)
 

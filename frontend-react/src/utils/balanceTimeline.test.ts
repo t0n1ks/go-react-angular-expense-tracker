@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { cashFlowSeries, withinPeriod } from './balanceTimeline';
-import { savingsDepositError } from './savingsDepositError';
+import { savingsMoveError } from './savingsMoveError';
 import type { TFunction } from 'i18next';
 
 describe('cashFlowSeries (no-cycle users, unchanged behaviour)', () => {
@@ -36,23 +36,23 @@ describe('withinPeriod', () => {
   });
 });
 
-describe('savingsDepositError', () => {
+describe('savingsMoveError', () => {
   const t = ((key: string, opts?: { amount?: string }) =>
     opts?.amount ? `${key}:${opts.amount}` : key) as unknown as TFunction;
   const fmt = (n: number) => `€${n.toFixed(2)}`;
   const err = (data: object) => ({ response: { data } });
 
   it('names the most that fits when the deposit exceeds the budget', () => {
-    expect(savingsDepositError(err({ code: 'DEPOSIT_EXCEEDS_SPENDABLE', available: 11.84 }), t, fmt))
+    expect(savingsMoveError(err({ code: 'DEPOSIT_EXCEEDS_SPENDABLE', available: 11.84 }), t, fmt))
       .toBe('dashboard.savings_deposit_exceeds:€11.84');
   });
 
   it('explains that deposits need a current cycle', () => {
-    expect(savingsDepositError(err({ code: 'DEPOSIT_OUTSIDE_CYCLE' }), t, fmt)).toBe('dashboard.savings_deposit_no_cycle');
+    expect(savingsMoveError(err({ code: 'DEPOSIT_OUTSIDE_CYCLE' }), t, fmt)).toBe('dashboard.savings_deposit_no_cycle');
   });
 
   it('leaves other errors to the caller', () => {
-    expect(savingsDepositError(new Error('network'), t, fmt)).toBeNull();
+    expect(savingsMoveError(new Error('network'), t, fmt)).toBeNull();
   });
 });
 
@@ -63,5 +63,22 @@ describe('withinPeriod on the two-line series', () => {
       { date: '2026-10-29', spendable: 11.84, savings: 0 },
     ];
     expect(withinPeriod(pts, 30, new Date(2026, 9, 29, 12))).toEqual([pts[1]]);
+  });
+});
+
+describe('savingsMoveError — savings back to the budget', () => {
+  const t = ((key: string, opts?: { amount?: string }) =>
+    opts?.amount ? `${key}:${opts.amount}` : key) as unknown as TFunction;
+  const fmt = (n: number) => `€${n.toFixed(2)}`;
+  const err = (data: object) => ({ response: { data } });
+
+  it('names what savings hold when the return is too large', () => {
+    expect(savingsMoveError(err({ code: 'SAVINGS_INSUFFICIENT', available: 100 }), t, fmt, 'toBudget'))
+      .toBe('dashboard.savings_return_exceeds:€100.00');
+  });
+
+  it('explains the missing cycle for the right direction', () => {
+    expect(savingsMoveError(err({ code: 'NO_ACTIVE_CYCLE' }), t, fmt, 'toBudget')).toBe('dashboard.savings_return_no_cycle');
+    expect(savingsMoveError(err({ code: 'NO_ACTIVE_CYCLE' }), t, fmt)).toBe('dashboard.savings_deposit_no_cycle');
   });
 });

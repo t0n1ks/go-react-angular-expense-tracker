@@ -13,7 +13,7 @@ import {
   formatMonthLabel,
 } from '../utils/groupTransactionsByMonth';
 import { categoryLabel } from '../utils/categoryLabel';
-import { savingsDepositError } from '../utils/savingsDepositError';
+import { savingsMoveError } from '../utils/savingsMoveError';
 import {
   buildSearchIndex,
   filterTransactions,
@@ -324,7 +324,7 @@ const Transactions: React.FC = () => {
       fetchData();
       refreshCycle(); // real-time: recompute cycle stats app-wide (cache-backed)
     } catch (err) {
-      setFormError(savingsDepositError(err, t, formatAmount) ?? t('transactions.error_update'));
+      setFormError(savingsMoveError(err, t, formatAmount) ?? t('transactions.error_update'));
     }
   };
 
@@ -833,7 +833,7 @@ const Transactions: React.FC = () => {
       <TransactionDetailModal
         tx={selectedTx}
         onClose={() => setSelectedTx(null)}
-        onMovedToSavings={fetchData}
+        onMoved={fetchData}
       />
     </div>
   );

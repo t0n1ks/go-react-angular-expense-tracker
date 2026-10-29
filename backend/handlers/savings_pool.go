@@ -53,6 +53,9 @@ const (
 	// expenseToSavingsSource: an expense the user re-filed as a deposit into
 	// savings from the transaction view.
 	expenseToSavingsSource = "expense_to_savings"
+	// savingsToBudgetSource: money the user moved back from savings into the
+	// current cycle's spendable budget (a pool withdrawal that is NOT spending).
+	savingsToBudgetSource = "savings_to_budget"
 )
 
 const (
@@ -71,6 +74,13 @@ const (
 func isBudgetFundedDeposit(tx models.Transaction, savedMoneyCatID uint) bool {
 	return isSavingsPoolTx(tx, savedMoneyCatID) && isSavingsPoolInflow(tx.Type) &&
 		tx.Description != legacyBonusDescription
+}
+
+// isReturnToBudget reports whether a pool withdrawal moved money back into
+// the spendable budget (rather than being spent from savings). Conserved: what
+// leaves the pool enters the budget, by exactly the same amount.
+func isReturnToBudget(tx models.Transaction) bool {
+	return tx.Type == "savings_withdrawal" && tx.Source == savingsToBudgetSource
 }
 
 // isSavingsAllocation reports whether a deposit is part of the automatic %

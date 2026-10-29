@@ -330,3 +330,114 @@ func TestTimelineEmptyWithoutCycles(t *testing.T) {
 		t.Errorf("deposit without a cycle: want 404, got %d", w.Code)
 	}
 }
+
+// ── Savings → budget (reversible moves) ──────────────────────────────────────
+
+func returnToBudget(uid, depositID uint, amount *float64) *httptest.ResponseRecorder {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	var body []byte
+	if amount != nil {
+		body, _ = json.Marshal(map[string]any{"amount": *amount})
+	}
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request.Header.Set(userTimezoneHeader, "UTC")
+	c.Params = gin.Params{{Key: "id", Value: jsonID(depositID)}}
+	c.Set("userID", uid)
+	ReturnSavingsToBudget(c)
+	return w
+}
+
+func amt(v float64) *float64 { return &v }
+
+// Moving a deposit back raises the budget and lowers the pool by exactly the
+// same amount (cents kept); the deposit itself is left as it was.
+func TestReturnSavingsToBudget(t *testing.T) {
+	u := newTZUser(t, "returnbudget")
+	startUTC(t, u.ID, udate(-2), udate(28))
+	deposit(u.ID, 12.34)
+	dep := latestTx(u.ID, "savings_deposit")
+	before := moneyNow(t, u.ID)
+
+	if w := returnToBudget(u.ID, dep.ID, nil); w.Code != http.StatusCreated {
+		t.Fatalf("return: %d %s", w.Code, w.Body.String())
+	}
+	after := moneyNow(t, u.ID)
+	approx(t, "spendable +12.34", after.SpendableRemaining, before.SpendableRemaining+12.34)
+	approx(t, "pool −12.34", after.SavedMoneyBalance, before.SavedMoneyBalance-12.34)
+	approx(t, "money on hand unchanged", after.MoneyOnHand, before.MoneyOnHand)
+
+	var stored models.Transaction
+	database.DB.First(&stored, dep.ID)
+	if stored.Type != "savings_deposit" || stored.Amount != 12.34 {
+		t.Errorf("the deposit must stay as it was: %+v", stored)
+	}
+	pts := timeline(t, u.ID)
+	last := pts[len(pts)-1]
+	approx(t, "budget line", last.Spendable, after.SpendableRemaining)
+	approx(t, "savings line", last.Savings, after.SavedMoneyBalance)
+}
+
+// Back and forth, many times, odd cents, every path: total real money never
+// moves by a single cent and every view agrees after each step.
+func TestBudgetSavingsMovesConserveMoney(t *testing.T) {
+	u := newTZUser(t, "backandforth")
+	startUTC(t, u.ID, udate(-2), udate(28)) // 404 spendable, 100 saved
+	start := moneyNow(t, u.ID)
+	alloc := latestTx(u.ID, "savings_deposit")
+
+	amounts := []float64{0.05, 7.77, 33.33, 0.99, 12.5, 99.99, 1.01, 50}
+	for i, a := range amounts {
+		if w := deposit(u.ID, a); w.Code != http.StatusCreated {
+			t.Fatalf("step %d deposit %.2f: %d %s", i, a, w.Code, w.Body.String())
+		}
+		back := a / 3 // a different amount back
+		if w := returnToBudget(u.ID, latestTx(u.ID, "savings_deposit").ID, amt(back)); w.Code != http.StatusCreated {
+			t.Fatalf("step %d return: %d %s", i, w.Code, w.Body.String())
+		}
+		if w := returnToBudget(u.ID, alloc.ID, amt(0.07)); w.Code != http.StatusCreated {
+			t.Fatalf("step %d return from allocation: %d", i, w.Code)
+		}
+		s := moneyNow(t, u.ID)
+		if diff := s.MoneyOnHand - start.MoneyOnHand; diff > 0.001 || diff < -0.001 {
+			t.Fatalf("step %d: money drifted by %.4f", i, diff)
+		}
+		pts := timeline(t, u.ID)
+		last := pts[len(pts)-1]
+		approx(t, "chart budget line = card", last.Spendable, s.SpendableRemaining)
+		approx(t, "chart savings line = card", last.Savings, s.SavedMoneyBalance)
+	}
+}
+
+// Returning more than the pool holds is rejected with what is available; no
+// entry is stored. Without a current cycle there is no budget to return into.
+func TestReturnToBudgetGuards(t *testing.T) {
+	u := newTZUser(t, "returnguard")
+	startUTC(t, u.ID, udate(-2), udate(28)) // pool 100
+	alloc := latestTx(u.ID, "savings_deposit")
+
+	w := returnToBudget(u.ID, alloc.ID, amt(100.01))
+	var r struct {
+		Code      string  `json:"code"`
+		Available float64 `json:"available"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &r)
+	if w.Code != http.StatusBadRequest || r.Code != errSavingsInsufficient {
+		t.Fatalf("want 400 %s, got %d %s", errSavingsInsufficient, w.Code, w.Body.String())
+	}
+	approx(t, "available", r.Available, 100)
+	if n := countTx(u.ID, "source = ?", savingsToBudgetSource); n != 0 {
+		t.Errorf("a rejected return must not be stored, found %d", n)
+	}
+	if w := returnToBudget(u.ID, latestTx(u.ID, "income").ID, nil); w.Code != http.StatusBadRequest {
+		t.Errorf("only deposits can be returned: got %d", w.Code)
+	}
+
+	database.DB.Model(&models.SalaryCycle{}).Where("user_id = ?", u.ID).Update("stopped_at", time.Now())
+	InvalidateCycleCache(u.ID)
+	if w := returnToBudget(u.ID, alloc.ID, amt(5)); w.Code != http.StatusNotFound {
+		t.Errorf("no current cycle: want 404, got %d", w.Code)
+	}
+}
