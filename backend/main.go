@@ -127,6 +127,8 @@ func main() {
 		protected.POST("/transactions/:id/budget", handlers.ReturnSavingsToBudget)
 		// Real money on hand over time (cycle remainder + savings pool).
 		protected.GET("/balance/timeline", handlers.GetBalanceTimeline)
+		// Savings forecast grounded in the real-money history.
+		protected.GET("/balance/forecast", handlers.GetSavingsForecast)
 
 		// Server-authoritative monthly budget for users without a salary cycle.
 		protected.GET("/budget/current", handlers.GetCurrentBudget)

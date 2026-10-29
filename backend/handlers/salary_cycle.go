@@ -194,13 +194,7 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 	previousSavings := (allIncome - allExpense) - (income - expenses)
 
 	// Cycle timing (payday evaluated at local midnight in the user's zone)
-	daysTotal := 30
-	if ps := k.paydayStart(cycle); ps != nil {
-		d := int(ps.Sub(cycle.CycleStartAt).Hours() / 24)
-		if d >= 7 {
-			daysTotal = d
-		}
-	}
+	daysTotal := k.cycleLengthDays(cycle)
 	daysElapsed := int(k.Now.Sub(cycle.CycleStartAt).Hours() / 24)
 	if daysElapsed < 0 {
 		daysElapsed = 0

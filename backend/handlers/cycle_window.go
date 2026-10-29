@@ -239,6 +239,17 @@ func (k cycleClock) conflictingCycle(start time.Time, payday *time.Time, all []m
 	return nil
 }
 
+// cycleLengthDays is the planned length of a cycle in days: start → payday
+// (local midnight), or 30 when open-ended or implausibly short (< 7).
+func (k cycleClock) cycleLengthDays(c models.SalaryCycle) int {
+	if ps := k.paydayStart(c); ps != nil {
+		if d := int(ps.Sub(c.CycleStartAt).Hours() / 24); d >= 7 {
+			return d
+		}
+	}
+	return 30
+}
+
 // ── Payday status ────────────────────────────────────────────────────────────
 
 const (

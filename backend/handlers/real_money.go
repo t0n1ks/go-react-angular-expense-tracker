@@ -433,6 +433,36 @@ func moneyOnHandAt(all []models.SalaryCycle, txs []windowTx, poolCat uint, at *t
 	}, true
 }
 
+// ledger is everything the real-money replay needs, loaded once.
+type ledger struct {
+	Cycles  []models.SalaryCycle // oldest first
+	Txs     []windowTx           // all live transactions with event instants
+	PoolCat uint
+}
+
+// loadLedger loads the user's cycles and transactions; ok is false when the
+// user never had a cycle.
+func loadLedger(uid uint, k cycleClock) (ledger, bool) {
+	all, err := loadUserCycles(uid)
+	if err != nil || len(all) == 0 {
+		return ledger{}, false
+	}
+	var rows []models.Transaction
+	database.DB.Where("user_id = ?", uid).Find(&rows)
+	txs := make([]windowTx, len(rows))
+	for i, r := range rows {
+		txs[i] = windowTx{Transaction: r, At: k.txEventAt(r)}
+	}
+	return ledger{Cycles: all, Txs: txs, PoolCat: poolCategoryOf(all)}, true
+}
+
+// moneyAt is moneyOnHandAt on this ledger, as one total (0 before the first
+// cycle: nothing was tracked yet).
+func (l ledger) moneyAt(at *time.Time) float64 {
+	v, _ := moneyOnHandAt(l.Cycles, l.Txs, l.PoolCat, at)
+	return v.Spendable + v.Savings
+}
+
 // poolCategoryOf is the user's savings-pool category (the latest cycle's).
 func poolCategoryOf(all []models.SalaryCycle) uint {
 	for i := len(all) - 1; i >= 0; i-- {
@@ -455,17 +485,11 @@ type timelinePoint struct {
 // one point per local day (its end-of-day money on hand); today's point is
 // the live figure. Empty for users without cycles.
 func balanceTimeline(uid uint, k cycleClock) []timelinePoint {
-	all, err := loadUserCycles(uid)
-	if err != nil || len(all) == 0 {
+	l, ok := loadLedger(uid, k)
+	if !ok {
 		return []timelinePoint{}
 	}
-	var rows []models.Transaction
-	database.DB.Where("user_id = ?", uid).Find(&rows)
-	txs := make([]windowTx, len(rows))
-	for i, r := range rows {
-		txs[i] = windowTx{Transaction: r, At: k.txEventAt(r)}
-	}
-	poolCat := poolCategoryOf(all)
+	all, txs, poolCat := l.Cycles, l.Txs, l.PoolCat
 
 	today := k.dayStart(k.Now)
 	points := []timelinePoint{}

@@ -16,7 +16,7 @@ import {
 import CategoryChart from "../components/CategoryChart";
 import { resolveCategoryWindow, isInWindow, txEventTime } from "../utils/categoryWindow";
 import { categoryLabel } from "../utils/categoryLabel";
-import { cashFlowSeries, withinPeriod, type MoneyPoint } from "../utils/balanceTimeline";
+import { cashFlowSeries, withinPeriod, type MoneyPoint, type SavingsForecast } from "../utils/balanceTimeline";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
 import "./Statistics.css";
@@ -63,6 +63,8 @@ const Statistics: React.FC = () => {
   const [timelinePeriod, setTimelinePeriod] = useState<number>(90); // days; 0 = all time
   // Server real-money series (cycle users); empty → no-cycle cash-flow chart.
   const [moneySeries, setMoneySeries] = useState<MoneyPoint[]>([]);
+  // Server savings forecast from the same real-money history (cycle users).
+  const [savingsForecast, setSavingsForecast] = useState<SavingsForecast | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -108,8 +110,9 @@ const Statistics: React.FC = () => {
     if (!liteMode) fetchAnalysis();
   }, [fetchData, fetchAnalysis, liteMode]);
 
-  // Re-read the real-money series whenever the cycle figures change, so the
-  // chart's latest point always equals the money on hand the cards show.
+  // Re-read the real-money series and forecast whenever the cycle figures
+  // change, so the chart's latest point and the forecast's "now" always equal
+  // the money on hand the cards show.
   useEffect(() => {
     if (liteMode) return;
     axiosInstance
@@ -118,6 +121,10 @@ const Statistics: React.FC = () => {
         setMoneySeries(Array.isArray(res.data.points) ? res.data.points : []),
       )
       .catch(() => setMoneySeries([]));
+    axiosInstance
+      .get("/balance/forecast")
+      .then((res: { data: { forecast?: SavingsForecast | null } }) => setSavingsForecast(res.data.forecast ?? null))
+      .catch(() => setSavingsForecast(null));
   }, [axiosInstance, liteMode, cycleStats]);
 
   // Donut is scoped to the EXACT window the server computed the cycle stats
@@ -312,13 +319,22 @@ const Statistics: React.FC = () => {
   }, [analysis, transactions]);
 
   // ── Unified savings forecast (single source) ─────────────────────────────
-  // When a cycle is active, surface the authoritative planned allocation and
-  // real accumulated pool balance (the figures the dashboard card used to show);
-  // otherwise fall back to the burn-rate projection for cycle-less users.
-  const sfThisCycle = hasActiveCycle && cycleStats ? cycleStats.dynamic_savings ?? 0 : projectedMonthlySavings;
-  const sfAnnual = sfThisCycle * 12;
+  // Users with cycles: the server forecast from the real-money history (never
+  // the planned allocation × 12) — "this cycle" is the projected real result,
+  // "annual" the recency-weighted trend × 365, anchored on money on hand now.
+  // Until it arrives the figures show "—" rather than a guess. Users who
+  // never had a cycle keep the burn-rate projection.
+  const sf = savingsForecast;
+  const sfThisCycle: number | null = sf
+    ? (hasActiveCycle ? sf.cycle_result : null)
+    : (hasActiveCycle ? null : projectedMonthlySavings);
+  const sfAnnual: number | null = sf ? sf.annual_change : (hasActiveCycle ? null : projectedMonthlySavings * 12);
+  const sfInAYear: number | null = sf ? sf.in_a_year : null;
+  const sfRough = !!sf?.rough;
   const sfAccumulated = hasActiveCycle && cycleStats ? cycleStats.saved_money_balance ?? 0 : accumulatedSavings;
-  const sfPositive = sfThisCycle >= 0;
+  const sfPositive = (sfAnnual ?? sfThisCycle ?? 0) >= 0;
+  const signColor = (v: number | null) =>
+    v === null ? undefined : v >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)';
   const showSavingsForecast = hasActiveCycle || effectiveCycleIncome > 0 || monthlySpendingGoal > 0;
 
   // Compact, signed currency labels for the balance chart's y-axis (e.g. €1.2k)
@@ -547,22 +563,24 @@ const Statistics: React.FC = () => {
             <div className="savings-forecast-body">
               <div className="savings-forecast-stat">
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_this_cycle')}</span>
-                <span
-                  className="savings-forecast-stat-value"
-                  style={{ color: sfThisCycle >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
-                >
-                  {sfThisCycle >= 0 ? '+' : ''}{formatAmount(sfThisCycle)}
+                <span className="savings-forecast-stat-value" style={{ color: signColor(sfThisCycle) }}>
+                  {sfThisCycle === null ? '—' : `${sfThisCycle >= 0 ? '+' : ''}${formatAmount(sfThisCycle)}`}
                 </span>
               </div>
               <div className="savings-forecast-stat">
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_annual')}</span>
-                <span
-                  className="savings-forecast-stat-value"
-                  style={{ color: sfAnnual >= 0 ? 'var(--color-income-text)' : 'var(--color-expense-text)' }}
-                >
-                  {sfAnnual >= 0 ? '~+' : '~'}{formatAmount(sfAnnual)}
+                <span className="savings-forecast-stat-value" style={{ color: signColor(sfAnnual) }}>
+                  {sfAnnual === null ? '—' : `${sfAnnual >= 0 ? '~+' : '~'}${formatAmount(sfAnnual)}`}
                 </span>
               </div>
+              {sfInAYear !== null && (
+                <p
+                  className="savings-forecast-anchor"
+                  style={{ color: sfInAYear < 0 ? 'var(--color-expense-text)' : undefined }}
+                >
+                  {t('statistics.savings_forecast_in_a_year', { amount: formatAmount(sfInAYear) })}
+                </p>
+              )}
               <div className="savings-forecast-stat">
                 <span className="savings-forecast-stat-label">{t('statistics.savings_forecast_accumulated')}</span>
                 <span
@@ -573,6 +591,9 @@ const Statistics: React.FC = () => {
                 </span>
               </div>
             </div>
+            {sfRough && (
+              <p className="savings-forecast-rough">{t('statistics.savings_forecast_rough')}</p>
+            )}
             <p className="savings-forecast-tip">
               {sfPositive
                 ? t('statistics.savings_forecast_tip_pos')

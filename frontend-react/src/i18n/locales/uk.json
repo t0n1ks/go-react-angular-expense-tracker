@@ -301,6 +301,8 @@
     "savings_forecast_title": "Прогноз заощаджень",
     "savings_forecast_this_cycle": "Профіцит циклу",
     "savings_forecast_annual": "Річний прогноз",
+    "savings_forecast_in_a_year": "≈ {{amount}} через рік",
+    "savings_forecast_rough": "Приблизна оцінка — стане точнішою після першого повного циклу.",
     "savings_forecast_accumulated": "Накопичений баланс",
     "savings_forecast_tip_pos": "Ви на чудовій траєкторії заощаджень! Розгляньте інвестиційний портфель.",
     "savings_forecast_tip_neg": "Витрати перевищують доходи цього циклу. Перевірте основні категорії витрат."

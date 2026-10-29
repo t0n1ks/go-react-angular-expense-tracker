@@ -301,6 +301,8 @@
     "savings_forecast_title": "Прогноз накоплений",
     "savings_forecast_this_cycle": "Профицит цикла",
     "savings_forecast_annual": "Годовой прогноз",
+    "savings_forecast_in_a_year": "≈ {{amount}} через год",
+    "savings_forecast_rough": "Примерная оценка — станет точнее после первого полного цикла.",
     "savings_forecast_accumulated": "Накопленный баланс",
     "savings_forecast_tip_pos": "Вы на отличной траектории накоплений! Подумайте об инвестиционном портфеле.",
     "savings_forecast_tip_neg": "Расходы превышают доходы в этом цикле. Проверьте основные категории трат."

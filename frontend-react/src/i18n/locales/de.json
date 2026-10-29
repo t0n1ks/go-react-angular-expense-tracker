@@ -301,6 +301,8 @@
     "savings_forecast_title": "Sparprognose",
     "savings_forecast_this_cycle": "Zyklus-Überschuss",
     "savings_forecast_annual": "Jahresprognose",
+    "savings_forecast_in_a_year": "≈ {{amount}} in einem Jahr",
+    "savings_forecast_rough": "Grobe Schätzung — wird nach deinem ersten vollen Zyklus genauer.",
     "savings_forecast_accumulated": "Angespartes Guthaben",
     "savings_forecast_tip_pos": "Du bist auf einem guten Sparweg! Denke über ein Investmentportfolio nach.",
     "savings_forecast_tip_neg": "Ausgaben übersteigen Einnahmen in diesem Zyklus. Überprüfe deine Hauptausgaben."

@@ -16,6 +16,20 @@ export interface MoneyPoint {
   savings: number; // = cycle_stats.saved_money_balance on the latest day
 }
 
+/**
+ * GET /api/balance/forecast — grounded in the same real-money history: the
+ * recency-weighted daily result of completed cycles plus the current cycle's
+ * projection. null for users who never had a cycle.
+ */
+export interface SavingsForecast {
+  cycle_result: number; // projected real result of the current cycle
+  annual_change: number; // projected change in real money over a year
+  money_now: number; // real money on hand now
+  in_a_year: number; // money_now + annual_change
+  completed_cycles: number;
+  rough: boolean; // no completed cycle yet — first-month estimate
+}
+
 /** One day of the no-cycle cash-flow series. */
 export interface TimelinePoint {
   date: string; // YYYY-MM-DD

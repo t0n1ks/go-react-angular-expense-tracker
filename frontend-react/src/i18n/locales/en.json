@@ -301,6 +301,8 @@
     "savings_forecast_title": "Savings Forecast",
     "savings_forecast_this_cycle": "This cycle surplus",
     "savings_forecast_annual": "Annual projection",
+    "savings_forecast_in_a_year": "≈ {{amount}} in a year",
+    "savings_forecast_rough": "Rough estimate — improves after your first full cycle.",
     "savings_forecast_accumulated": "Accumulated balance",
     "savings_forecast_tip_pos": "You're on a great savings trajectory! Consider building an investment portfolio.",
     "savings_forecast_tip_neg": "Spending outpaces income this cycle. Review your top expense categories."
