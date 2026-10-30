@@ -1,0 +1,239 @@
+/* ── Profile dialog ───────────────────────────────────────────────────────────
+   Centred glass window over a frosted backdrop, on every screen size (the
+   same pattern as the summary-tile dialog). Built from the 2.25 tokens. Sits
+   above the mobile header (300) and nav (200); never exceeds the viewport
+   (safe areas included) and scrolls inside when tall. */
+
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 330;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(1rem + env(safe-area-inset-top))
+    calc(1rem + env(safe-area-inset-right))
+    calc(1rem + env(safe-area-inset-bottom))
+    calc(1rem + env(safe-area-inset-left));
+  background: rgba(15, 23, 42, 0.3);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  animation: profile-fade 0.18s ease-out;
+}
+.dark .profile-overlay { background: rgba(2, 6, 23, 0.5); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .profile-overlay { background: rgba(15, 23, 42, 0.6); }
+  .dark .profile-overlay { background: rgba(2, 6, 23, 0.75); }
+}
+
+.profile-dialog {
+  position: relative;
+  box-sizing: border-box;
+  width: min(92vw, 440px);
+  max-height: min(88dvh, 100%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.5rem 1.4rem 1.4rem;
+  border-radius: 22px;
+  background: var(--surface-strong);
+  border: 1px solid var(--edge);
+  box-shadow: var(--card-shadow), var(--card-hi);
+  color: var(--color-text-body);
+  animation: profile-pop 0.2s ease-out;
+}
+
+.profile-title {
+  margin: 0 0 1rem;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+}
+
+.profile-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.profile-close:hover { background: var(--surface-2); }
+
+/* Large preview with the small camera badge */
+.profile-preview {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--surface-2), 0 0 0 4px var(--edge), var(--card-shadow);
+}
+.profile-preview-img,
+.profile-preview .profile-letter {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
+.profile-preview-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  color: #fff;
+  box-shadow: var(--accent-shadow);
+  border: 2px solid var(--surface-solid);
+}
+
+/* The first-letter circle (the "no avatar" look) */
+.profile-letter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.profile-letter--large { font-size: 2.4rem; }
+
+.profile-label {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.profile-label--grid { margin-top: 1.1rem; }
+
+.profile-name-field {
+  position: relative;
+}
+.profile-name-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 2.4rem 0.7rem 0.85rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text-heading);
+  background: var(--surface-2);
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.profile-name-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent);
+}
+.profile-name-field--error .profile-name-input { border-color: var(--coral); }
+.profile-name-pencil {
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* Avatar grid: 5 per row (4 on the narrowest phones), round options; the
+   selected one gets the blue ring. */
+.profile-avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.profile-avatar-option {
+  aspect-ratio: 1 / 1;
+  min-width: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px transparent;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.profile-avatar-option img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+}
+.profile-avatar-option:hover { transform: scale(1.05); }
+.profile-avatar-option--selected {
+  box-shadow: 0 0 0 3px var(--surface-solid), 0 0 0 5px var(--blue);
+}
+.profile-avatar-option:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+}
+
+.profile-message {
+  min-height: 1.3rem;
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.profile-message--error { color: var(--coral); font-weight: 600; }
+.profile-message--ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.profile-save {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent-grad);
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--accent-shadow);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.profile-save:active { transform: scale(0.985); }
+.profile-save:disabled { opacity: 0.7; cursor: default; }
+.profile-save:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+@media (max-width: 359px) {
+  .profile-avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@keyframes profile-fade { from { opacity: 0; } }
+@keyframes profile-pop { from { opacity: 0; transform: scale(0.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-overlay,
+  .profile-dialog { animation: none; }
+  .profile-avatar-option,
+  .profile-save { transition: none; }
+  .profile-avatar-option:hover,
+  .profile-save:active { transform: none; }
+}

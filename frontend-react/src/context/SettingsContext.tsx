@@ -201,7 +201,7 @@ export const useSettings = () => {
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { axiosInstance, isAuthenticated } = useAuth();
+  const { axiosInstance, isAuthenticated, updateIdentity } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(loadFromStorage);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCycle, setCurrentCycle] = useState<SalaryCycle | null>(loadCycleFromStorage);
@@ -289,6 +289,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
+        // The display name + avatar from the server — keeps every device in sync.
+        updateIdentity({ displayName: d.display_name ?? '', avatar: d.avatar ?? '' });
 
         const active = applyCycleResponse(cycleRes.data);
         // No cycle governs the period → load the server monthly budget window.
@@ -304,7 +306,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     fetchProfile();
     return () => { cancelled = true; };
-  }, [isAuthenticated, axiosInstance, applyCycleResponse]);
+  }, [isAuthenticated, axiosInstance, applyCycleResponse, updateIdentity]);
 
   const saveSettings = async (next: UserSettings) => {
     setSettings(next);

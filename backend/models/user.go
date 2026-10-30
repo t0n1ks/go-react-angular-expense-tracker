@@ -24,4 +24,10 @@ type User struct {
 	// Timezone is the IANA zone last reported by the user's device
 	// (X-User-Timezone). Cycle boundaries are evaluated in it; "" = UTC.
 	Timezone string `gorm:"type:varchar(64);default:''" json:"timezone"`
+	// DisplayName is the name shown in the app ("" = show the username). The
+	// username stays the login and never changes here.
+	DisplayName string `gorm:"type:varchar(50);default:''" json:"display_name"`
+	// Avatar is one of the fixed avatar ids (see handlers.validAvatars);
+	// "" = the first-letter circle.
+	Avatar string `gorm:"type:varchar(32);default:''" json:"avatar"`
 }

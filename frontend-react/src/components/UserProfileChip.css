@@ -49,6 +49,13 @@
   line-height: 1;
 }
 
+/* The chosen avatar image (same circle as the letter) */
+.upc-avatar--img {
+  background: transparent;
+  object-fit: cover;
+  display: block;
+}
+
 /* Username in chip */
 .upc-username {
   color: var(--color-nav-user-text);
@@ -72,50 +79,4 @@
   .upc-wrapper--header .upc-username {
     display: none;
   }
-}
-
-/* Dropdown */
-.upc-dropdown {
-  position: absolute;
-  z-index: 500;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(var(--color-bg-card-rgb), 0.88);
-  border: 1px solid var(--color-sidebar-border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  min-width: 160px;
-}
-
-/* Sidebar: opens upward */
-.upc-dropdown--sidebar {
-  bottom: calc(100% + 4px);
-  top: auto;
-  left: 8px;
-  right: 8px;
-}
-
-/* Header: opens downward, pinned to right edge */
-.upc-dropdown--header {
-  top: calc(100% + 4px);
-  bottom: auto;
-  right: 0;
-  left: auto;
-}
-
-/* Dropdown username header */
-.upc-dropdown-header {
-  padding: 12px 14px;
-}
-
-.upc-dropdown-username {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-nav-user-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
 }

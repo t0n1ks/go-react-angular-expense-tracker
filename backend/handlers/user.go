@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -161,9 +162,11 @@ func LoginUser(c *gin.Context) {
 	go WarmUpBrain()
 
 	c.JSON(http.StatusOK, gin.H{
-		"token":    tokenString,
-		"user_id":  user.ID,
-		"username": user.Username,
+		"token":        tokenString,
+		"user_id":      user.ID,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"avatar":       user.Avatar,
 	})
 }
 
@@ -202,6 +205,8 @@ func GetProfile(c *gin.Context) {
 		"manual_next_payday":   user.ManualNextPayday,
 		"reputation_score":     user.ReputationScore,
 		"lite_mode":            user.LiteMode,
+		"display_name":         user.DisplayName,
+		"avatar":               user.Avatar,
 	})
 }
 
@@ -260,6 +265,71 @@ func UpdateProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated"})
+}
+
+// ── Profile identity: display name + avatar ──────────────────────────────────
+
+// validAvatars are the avatar ids the app ships (frontend utils/avatars.ts).
+var validAvatars = map[string]bool{
+	"shark": true, "koala": true, "giraffe": true, "sea-lion": true, "rabbit": true,
+	"eagle": true, "cow": true, "hippopotamus": true, "alien": true,
+}
+
+const maxDisplayNameRunes = 50
+
+// UpdateProfileIdentity (PATCH /api/profile) changes only what it is sent —
+// the display name and/or the avatar — never the other settings (PUT
+// /api/profile replaces those as a whole) and never the username / login.
+func UpdateProfileIdentity(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req struct {
+		DisplayName *string `json:"display_name"`
+		Avatar      *string `json:"avatar"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if req.DisplayName != nil {
+		name := strings.TrimSpace(*req.DisplayName)
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Name must not be empty", "code": "name_empty"})
+			return
+		}
+		if utf8.RuneCountInString(name) > maxDisplayNameRunes {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Name is too long", "code": "name_too_long"})
+			return
+		}
+		updates["display_name"] = name
+	}
+	if req.Avatar != nil {
+		avatar := strings.TrimSpace(*req.Avatar)
+		if avatar != "" && !validAvatars[avatar] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unknown avatar", "code": "avatar_unknown"})
+			return
+		}
+		updates["avatar"] = avatar
+	}
+	if len(updates) > 0 {
+		if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+			return
+		}
+	}
+
+	var user models.User
+	if err := database.DB.Select("display_name", "avatar").First(&user, userID.(uint)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"display_name": user.DisplayName, "avatar": user.Avatar})
 }
 
 func DeleteAccount(c *gin.Context) {

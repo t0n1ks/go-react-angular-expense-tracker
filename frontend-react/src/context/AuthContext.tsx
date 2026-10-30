@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:8080/api';
@@ -15,14 +15,30 @@ function isTokenExpired(token: string): boolean {
 interface User {
   id: number;
   username: string;
+  /** Shown instead of the username when set ("" = show the username). */
+  displayName: string;
+  /** One of utils/avatars.ts ids; "" = the first-letter circle. */
+  avatar: string;
 }
+
+export interface Identity {
+  displayName: string;
+  avatar: string;
+}
+
+// The identity is cached so the header paints at once; the server value
+// (GET /profile, on every load) wins, which keeps devices in sync.
+const DISPLAY_NAME_KEY = 'user_display_name';
+const AVATAR_KEY = 'user_avatar';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, username: string, userId: number) => void;
+  login: (token: string, username: string, userId: number, identity?: Partial<Identity>) => void;
+  /** Apply a saved / fetched display name and avatar to the signed-in user. */
+  updateIdentity: (identity: Partial<Identity>) => void;
   logout: () => void;
   // Используем any, так как axiosInstance часто ведет себя капризно в типах
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,26 +123,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('userId');
       } else {
         setToken(storedToken);
-        setUser({ id: parseInt(storedUserId, 10), username: storedUser });
+        setUser({
+          id: parseInt(storedUserId, 10),
+          username: storedUser,
+          displayName: localStorage.getItem(DISPLAY_NAME_KEY) ?? '',
+          avatar: localStorage.getItem(AVATAR_KEY) ?? '',
+        });
         setIsAuthenticated(true);
       }
     }
     setIsLoading(false);
   }, []);
 
-  const login = (newToken: string, username: string, userId: number) => {
+  const login = (newToken: string, username: string, userId: number, identity?: Partial<Identity>) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', username);
     localStorage.setItem('userId', userId.toString());
+    const displayName = identity?.displayName ?? '';
+    const avatar = identity?.avatar ?? '';
+    localStorage.setItem(DISPLAY_NAME_KEY, displayName);
+    localStorage.setItem(AVATAR_KEY, avatar);
     setToken(newToken);
-    setUser({ id: userId, username });
+    setUser({ id: userId, username, displayName, avatar });
     setIsAuthenticated(true);
   };
+
+  const updateIdentity = useCallback((identity: Partial<Identity>) => {
+    if (identity.displayName !== undefined) localStorage.setItem(DISPLAY_NAME_KEY, identity.displayName);
+    if (identity.avatar !== undefined) localStorage.setItem(AVATAR_KEY, identity.avatar);
+    setUser(u => (u ? {
+      ...u,
+      displayName: identity.displayName ?? u.displayName,
+      avatar: identity.avatar ?? u.avatar,
+    } : u));
+  }, []);
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userId');
+    localStorage.removeItem(DISPLAY_NAME_KEY);
+    localStorage.removeItem(AVATAR_KEY);
     localStorage.removeItem('ufo_intro_seen');
     localStorage.removeItem('user_settings');
     localStorage.removeItem('ai_shown_items');
@@ -140,7 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   logoutRef.current = logout;
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, token, isLoading, login, logout, axiosInstance }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, token, isLoading, login, logout, updateIdentity, axiosInstance }}>
       {children}
     </AuthContext.Provider>
   );

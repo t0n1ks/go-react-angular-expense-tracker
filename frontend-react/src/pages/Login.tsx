@@ -59,7 +59,10 @@ const Login: React.FC = () => {
       const response = await axiosInstance.post('/login', { username: cleanUsername, password: cleanPassword });
       const token = response.data.token;
       const tempUserId = 1;
-      login(token, cleanUsername, tempUserId);
+      login(token, cleanUsername, tempUserId, {
+        displayName: response.data.display_name ?? '',
+        avatar: response.data.avatar ?? '',
+      });
       navigate('/', { replace: true });
     } catch (err) {
       let errorMessage = t('auth.login_error');

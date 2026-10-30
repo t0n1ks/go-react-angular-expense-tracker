@@ -1,49 +1,50 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { avatarSrc, shownName } from '../utils/avatars';
+import ProfileDialog from './ProfileDialog';
 import './UserProfileChip.css';
 
 interface Props {
   variant: 'sidebar' | 'header';
 }
 
+// The signed-in user's chip (sidebar on desktop, header on phone / tablet):
+// the chosen avatar (or the first-letter circle) + the shown name. It opens
+// the profile dialog; focus comes back here when that closes.
 const UserProfileChip: React.FC<Props> = ({ variant }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  const name = shownName(user);
+  const initial = (name[0] ?? '?').toUpperCase();
+  const src = avatarSrc(user?.avatar);
 
-  const initial = (user?.username?.[0] ?? '?').toUpperCase();
+  const close = useCallback(() => {
+    setOpen(false);
+    chipRef.current?.focus();
+  }, []);
 
   return (
-    <div className={`upc-wrapper upc-wrapper--${variant}`} ref={wrapperRef}>
+    <div className={`upc-wrapper upc-wrapper--${variant}`}>
       <button
+        ref={chipRef}
         className="upc-chip"
-        onClick={() => setOpen(v => !v)}
-        aria-haspopup="true"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={`${t('profile.open')}: ${name}`}
         type="button"
       >
-        <span className="upc-avatar" translate="no">{initial}</span>
-        <span className="upc-username" translate="no">{user?.username}</span>
+        {src
+          ? <img className="upc-avatar upc-avatar--img" src={src} alt="" />
+          : <span className="upc-avatar" translate="no">{initial}</span>}
+        <span className="upc-username" translate="no">{name}</span>
       </button>
 
-      {open && (
-        <div className={`upc-dropdown upc-dropdown--${variant}`}>
-          <div className="upc-dropdown-header">
-            <span className="upc-dropdown-username" translate="no">{user?.username}</span>
-          </div>
-        </div>
-      )}
+      {open && <ProfileDialog onClose={close} />}
     </div>
   );
 };
