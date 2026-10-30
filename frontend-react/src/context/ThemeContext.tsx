@@ -33,6 +33,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       root.classList.remove('dark');
     }
     localStorage.setItem('theme', theme);
+    // The mobile status bar takes the header's colour in this theme (both
+    // first-paint metas, so whichever the OS theme selects is right too).
+    const headerColor = getComputedStyle(root).getPropertyValue('--color-bg-card').trim();
+    if (headerColor) {
+      document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', headerColor));
+    }
   }, [theme]);
 
   const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));

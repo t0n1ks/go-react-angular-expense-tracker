@@ -9,7 +9,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Financer" />
-    <meta name="theme-color" content="#0ea5e9" />
+    <!-- System bars follow the app's header (--color-bg-card); ThemeContext
+         keeps these in step with the in-app theme toggle. The media pair is
+         only the first-paint guess from the OS theme. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1e2a3a" media="(prefers-color-scheme: dark)" />
     <title>Financer — Smart Expense Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

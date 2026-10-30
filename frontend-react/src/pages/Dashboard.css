@@ -260,6 +260,23 @@ body.dashboard-lite {
     margin: 0.25rem 0 0 0;
 }
 
+/* Budget health figure: the amount left, prominent, in the status colour;
+   "/ total" as a smaller, muted, unbreakable unit beside it (or, only if
+   there is truly no room, on its own line — never a stranded slash). */
+.stat-content .budget-health-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.3em;
+}
+.budget-health-current,
+.budget-health-total { white-space: nowrap; }
+.budget-health-total {
+    font-size: 0.62em;
+    font-weight: 700;
+    color: var(--color-text-muted);
+}
+
 /* Budget health bar */
 .budget-health-bar-track {
     height: 6px;

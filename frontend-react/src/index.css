@@ -11,6 +11,19 @@ body {
   touch-action: pan-x pan-y;
 }
 
+/* What shows behind the safe areas / when the page is pulled past its ends:
+   the bottom nav's surface (the top band is the header itself, which pads
+   into env(safe-area-inset-top), and the status bar's theme-color). */
+html {
+  background-color: var(--color-bg-sidebar);
+}
+/* Short pages that fit their content (Lite / phone-tablet Home) fill the
+   rest of the screen with the page colour, as before. */
+html:has(body.dashboard-lite),
+html:has(body.dashboard-compact) {
+  background-color: var(--color-bg-main);
+}
+
 /* No blue tap flash / focus box on mouse or touch, anywhere in the app — but
    keyboard users keep a visible focus ring: outlines are only dropped when
    the browser decides focus is NOT keyboard-driven (:focus-visible stays,

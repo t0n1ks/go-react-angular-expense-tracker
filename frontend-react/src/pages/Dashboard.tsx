@@ -190,8 +190,12 @@ const Dashboard: React.FC = () => {
           <div className="stat-icon budget-icon"><Target size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.budget_health')}</p>
-            <p className="value" style={{ color: budgetBarColor }}>
-              {formatAmount(budgetRemaining)} / {formatAmount(budgetMax)}
+            {/* Left now, then "/ total" as one smaller unit: on a narrow
+                screen the whole "/ total" moves down together — the slash
+                never dangles at a line end. */}
+            <p className="value budget-health-value" style={{ color: budgetBarColor }}>
+              <span className="budget-health-current">{formatAmount(budgetRemaining)}</span>
+              <span className="budget-health-total">/&nbsp;{formatAmount(budgetMax)}</span>
             </p>
             <div className="budget-health-bar-track">
               <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
