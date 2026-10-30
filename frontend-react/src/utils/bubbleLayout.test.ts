@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CENTER_MIN_W, centerLayout, DOME_ABOVE, HEALTH_ROOM, IDLE_Y, LONG_MAX_W, maxSink, placeBubble, RECEDE_SCALE, TAIL_H, TAIL_RIGHT, TAIL_W, tailGap } from './bubbleLayout';
+import { CENTER_MAX_W, CENTER_MIN_W, centerLayout, DOME_ABOVE, domeGap, HEALTH_ROOM, IDLE_Y, maxSink, placeBubble, RECEDE_SCALE, saucerReach, TAIL_OUT } from './bubbleLayout';
 import { readingMs } from '../hooks/useAutoScroll';
 
 const PHONE = { screenW: 332, screenH: 200, ufoHalf: 22 };
@@ -24,27 +24,30 @@ describe('speech bubble placement', () => {
     expect(placeBubble({ ...TABLET, bubbleH: room + maxSink(TABLET.screenH) + 1 }).kind).toBe('center');
   });
 
-  it('centres a tall bubble; the saucer sits under its tail, the dome a small gap below the tip', () => {
+  it('centres a compact bubble; its corner triangle points at the dome with a 2–4% gap', () => {
     const p = placeBubble({ ...TABLET, bubbleH: 200 });
     if (p.kind !== 'center') throw new Error('expected centre');
-    const f = centerLayout({ ...TABLET, bubbleW: p.bubbleMaxW, bubbleH: 120 });
+    expect(p.bubbleMaxW).toBe(CENTER_MAX_W);
+    const f = centerLayout({ ...TABLET, bubbleW: p.bubbleMaxW, bubbleH: 90 });
     const right = (TABLET.screenW + p.bubbleMaxW) / 2;
-    expect(f.ufoX).toBe(right - TAIL_RIGHT - TAIL_W / 2);           // right under the tail
-    const tip = f.bubbleTop + 120 + TAIL_H;
-    const domeTop = f.ufoY - TABLET.ufoHalf * 2 * RECEDE_SCALE * DOME_ABOVE;
-    expect(domeTop - tip).toBe(tailGap(TABLET.screenH));            // a small gap, not touching
-    expect(domeTop - tip).toBeGreaterThanOrEqual(2);
+    const bottom = f.bubbleTop + 90;
+    const tip = { x: right + TAIL_OUT, y: bottom + TAIL_OUT };            // 45° off the corner
+    const dome = { x: f.ufoX, y: f.ufoY - TABLET.ufoHalf * 2 * RECEDE_SCALE * DOME_ABOVE };
+    const gap = Math.hypot(dome.x - tip.x, dome.y - tip.y);
+    expect(gap).toBeCloseTo(domeGap(TABLET.screenH), 5);
+    expect(gap / TABLET.screenH).toBeGreaterThanOrEqual(0.02);
+    expect(gap / TABLET.screenH).toBeLessThanOrEqual(0.04);
     expect(f.ufoY + TABLET.ufoHalf * RECEDE_SCALE).toBeLessThanOrEqual(TABLET.screenH - 8);
   });
 
-  it("stays centred and narrows (never slides) to keep left of the moon's left edge", () => {
+  it("stays centred and narrows (never slides) to keep the saucer left of the moon's left edge", () => {
     const moonLeft = 272;                                            // a 344px phone
     const p = placeBubble({ ...PHONE, bubbleH: 100, moonLeft });
     if (p.kind !== 'center') throw new Error('expected centre');
-    expect(p.bubbleMaxW).toBeLessThan(LONG_MAX_W);                   // narrowed…
-    expect((PHONE.screenW + p.bubbleMaxW) / 2).toBeLessThanOrEqual(moonLeft); // …so the centred box ends at the line
-    const f = centerLayout({ ...PHONE, bubbleW: p.bubbleMaxW, bubbleH: 140, moonLeft });
-    expect(f.ufoX).toBeLessThanOrEqual(moonLeft);
+    expect(p.bubbleMaxW).toBeLessThan(CENTER_MAX_W);                 // narrowed…
+    const f = centerLayout({ ...PHONE, bubbleW: p.bubbleMaxW, bubbleH: 90, moonLeft });
+    expect(f.ufoX).toBeLessThanOrEqual(moonLeft + 0.5);              // …so the saucer meets the line at most
+    expect((PHONE.screenW + p.bubbleMaxW) / 2 + saucerReach(PHONE.screenH)).toBeLessThanOrEqual(moonLeft + 0.5);
     const tiny = placeBubble({ ...TABLET, bubbleH: 200, moonLeft: 380 });
     if (tiny.kind !== 'center') throw new Error('expected centre');
     expect(tiny.bubbleMaxW).toBe(CENTER_MIN_W);                      // the floor

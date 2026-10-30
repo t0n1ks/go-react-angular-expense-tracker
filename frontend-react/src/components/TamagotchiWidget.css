@@ -503,7 +503,10 @@
   border: 1.5px solid rgba(255, 215, 0, 0.4);
   border-radius: 10px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  padding: 0.42rem 2rem 0.42rem 0.7rem;
+  /* One padding everywhere: 7px top/bottom, 12px left, 22px right (just
+     the ✕'s room). The widget then hugs the box to its widest line. */
+  padding: 7px 22px 7px 12px;
+  min-width: 96px;
   /* max-content, not fit-content: anchored at left 50% a shrink-to-fit box
      only gets half the screen and wraps far too early. The caps below
      (short / long / side) set the real width. */
@@ -526,13 +529,24 @@
   border-top: 7px solid rgba(255, 215, 0, 0.4);
 }
 
-/* Centre stage: the same little triangle, moved near the lower-right corner
-   (TAIL_RIGHT in bubbleLayout.ts) — the stepped-back saucer's dome sits a
-   small gap below its tip. */
+/* Centre stage: a compact box (210px, 2 rows, then the text scrolls) whose
+   triangle sits ON the rounded lower-right corner, pointing down-right at
+   45° toward the stepped-back saucer's dome; its tip is TAIL_OUT (6px)
+   right of and below the corner (bubbleLayout.ts). */
 .tama-bubble--center::after {
   left: auto;
-  right: 12px;
+  right: -6px;
+  bottom: -6px;
+  width: 13px;
+  height: 13px;
+  border: 0;
   transform: none;
+  background: rgba(255, 215, 0, 0.45);
+  clip-path: polygon(0 46%, 46% 0, 100% 100%);
+}
+/* (specific enough to win over the short / long text caps) */
+.tama-screen .tama-bubble.tama-bubble--center .tama-bubble-text {
+  max-height: min(2.8em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
 }
 
 /* Tour variant: wider, no close button offset */

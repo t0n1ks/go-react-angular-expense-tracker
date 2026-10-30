@@ -295,6 +295,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   // A text bubble's height laid out above the saucer (its natural width),
   // measured once per text — the input that decides above vs beside.
   const [naturalBubble, setNaturalBubble] = useState<{ text: string; h: number } | null>(null);
+  // The text bubble's hugged width: its widest line + padding, measured before
+  // paint for this text under this width cap (key), so no box ever keeps
+  // empty side margins around wrapped or balanced text.
+  const [hug, setHug] = useState<{ key: string; w: number } | null>(null);
   // Short lines that always sit above the saucer (exit line, moon status).
   const [aboveOnlyText, setAboveOnlyText] = useState<string | null>(null);
   // Restarts the moon's ripple each time it is tapped.
@@ -899,8 +903,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   }
 
   // The text bubble's place: above (tail down to the saucer) or centre stage,
-  // always centred (its tail near the lower-right corner, pointing down at
-  // the stepped-back saucer's dome).
+  // always centred (its triangle on the rounded lower-right corner, pointing
+  // at the stepped-back saucer's dome).
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
   bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
@@ -911,6 +915,35 @@ const TamagotchiWidget: React.FC<Props> = ({
     bubbleStyle = { x: '-50%', top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW };
   }
   const ufoReceded = placement?.kind === 'center' && mode !== 'fly_to_moon';
+
+  // Hug: one pass per text × width cap — render uncapped by `width`, measure
+  // the widest wrapped line (Range rects, un-scaled from the entrance
+  // animation), then pin the box to that + padding. Same lines, no margins.
+  const hugKey = `${bubbleText}|${placement?.kind ?? '-'}|${placement?.kind === 'center' ? placement.bubbleMaxW : ''}|${widgetW}`;
+  const hugW = hug?.key === hugKey ? hug.w : undefined;
+  if (hugW !== undefined) bubbleStyle = { ...bubbleStyle, width: hugW };
+  useLayoutEffect(() => {
+    if (!inBubble || hug?.key === hugKey) return;
+    const box = bubbleRef.current;
+    const text = bubbleTextRef.current;
+    if (!box || !text || !box.offsetWidth) return;
+    const scale = box.getBoundingClientRect().width / box.offsetWidth || 1;
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    let left = Infinity;
+    let right = -Infinity;
+    for (const r of Array.from(range.getClientRects())) {
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+    }
+    if (!Number.isFinite(left)) return;
+    const votes = box.querySelector<HTMLElement>('.tama-bubble-votes');
+    const votesW = votes ? Array.from(votes.children).reduce((w, c) => w + (c as HTMLElement).offsetWidth, 0) + 6 : 0;
+    const cs = getComputedStyle(box);
+    const chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+      + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+    setHug({ key: hugKey, w: Math.ceil(Math.max((right - left) / scale, votesW) + chrome) + 1 });
+  }, [inBubble, hugKey, hug]);
   // Reveal in step: the saucer glides first (RECEDE_GLIDE_S); the bubble —
   // its tail is part of it — starts a beat later and settles just after.
   // Until a text bubble is placed it stays invisible (measured, not shown).
