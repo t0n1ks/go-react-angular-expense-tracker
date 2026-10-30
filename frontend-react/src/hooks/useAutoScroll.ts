@@ -56,7 +56,11 @@ export function useAutoScroll(
       raf = requestAnimationFrame(step);
     };
     const start = () => {
-      if (el.scrollHeight - el.clientHeight <= 2) { finish(false); return; }
+      // Only text that really overflows gets a scrollbar (CSS keys off this)
+      // and the autoscroll; a sub-pixel spill does not count.
+      const overflows = el.scrollHeight - el.clientHeight > 3;
+      el.dataset.overflow = String(overflows);
+      if (!overflows) { finish(false); return; }
       if (reduceMotion) { timer = setTimeout(() => finish(true), readingMs(el.textContent ?? '')); return; }
       timer = setTimeout(() => {
         pos = el.scrollTop;
@@ -75,6 +79,7 @@ export function useAutoScroll(
     const onScroll = () => { if (userScrolls && atEnd()) finish(true); };
 
     el.scrollTop = 0;
+    el.dataset.overflow = 'false';
     el.addEventListener('pointerdown', takeOver);
     el.addEventListener('wheel', takeOver, { passive: true });
     el.addEventListener('touchstart', takeOver, { passive: true });

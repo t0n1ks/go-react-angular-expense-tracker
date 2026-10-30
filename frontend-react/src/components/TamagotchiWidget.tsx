@@ -25,7 +25,7 @@ import {
 } from '../data/tamaContent';
 import calendarPngUrl from '../assets/companion/calendar.png';
 import CompanionCow from './CompanionCow';
-import { centerBubbleTop, placeBubble, RECEDE_OPACITY, RECEDE_SCALE } from '../utils/bubbleLayout';
+import { centerLayout, placeBubble, RECEDE_SCALE } from '../utils/bubbleLayout';
 import { useAutoScroll } from '../hooks/useAutoScroll';
 import { CALENDAR_ART } from '../utils/companionArt';
 import './TamagotchiWidget.css';
@@ -282,6 +282,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [fromHook,      setFromHook]      = useState(false);
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
+  const [bubbleW,       setBubbleW]       = useState(0);
+  // The moon's centre x: a receded saucer never goes right of this line.
+  const [moonX,         setMoonX]         = useState<number | undefined>(undefined);
   const [widgetH,       setWidgetH]       = useState(0);
   const [widgetW,       setWidgetW]       = useState(0);
   // A text bubble's height laid out above the saucer (its natural width),
@@ -348,6 +351,8 @@ const TamagotchiWidget: React.FC<Props> = ({
       setWidgetW(el.offsetWidth);
       const art = el.querySelector<HTMLElement>('.tama-ufo-art');
       if (art?.offsetHeight) setUfoHalf(art.offsetHeight / 2);
+      const moon = el.querySelector<HTMLElement>('.tama-moon');
+      if (moon?.offsetWidth) setMoonX(moon.offsetLeft + moon.offsetWidth / 2);
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -440,12 +445,13 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   // ── Measure bubble height for dynamic UFO pushdown ───────────────────────
   useEffect(() => {
-    if (!showingBubble) { setBubbleH(0); return; }
+    if (!showingBubble) { setBubbleH(0); setBubbleW(0); return; }
     const el = bubbleRef.current;
-    if (!el) { setBubbleH(0); return; }
-    const ro = new ResizeObserver(() => setBubbleH(el.offsetHeight));
+    if (!el) { setBubbleH(0); setBubbleW(0); return; }
+    const measure = () => { setBubbleH(el.offsetHeight); setBubbleW(el.offsetWidth); };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setBubbleH(el.offsetHeight);
+    measure();
     return () => ro.disconnect();
   }, [showingBubble, bubbleText, tourStep]);
 
@@ -851,10 +857,11 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Dynamic layout ────────────────────────────────────────────────────────
   const isCell = layout === 'cell';
   // Text bubbles keep the saucer steady (utils/bubbleLayout.ts): above it when
-  // that costs at most a small sink, else beside it — saucer left, bubble right.
+  // that costs at most a small sink, else centre stage with the saucer stepped
+  // back to the bubble's lower-right corner.
   const aboveOnly = mode === 'greeting' || aboveOnlyText === bubbleText;
   const placement = inBubble && naturalBubble?.text === bubbleText && widgetW > 0 && widgetH > 0
-    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf, aboveOnly })
+    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf, aboveOnly, moonX })
     : null;
   // The onboarding tour keeps the 2.23 behaviour: the stacked screen grows to
   // fit it; in a grid cell its text scrolls in the room above the saucer.
@@ -866,11 +873,20 @@ const TamagotchiWidget: React.FC<Props> = ({
     : undefined;
   const bubbleMax = placement?.bubbleMaxH ?? tourMax;
 
+  const centerFrame = placement?.kind === 'center'
+    ? centerLayout({
+        screenW: widgetW, screenH: widgetH, ufoHalf, moonX,
+        bubbleW: bubbleW || placement.bubbleMaxW,
+        bubbleH: bubbleH || naturalBubble?.h || 0,
+      })
+    : null;
+
   let ufoLeft = '50%';
   let ufoTop = '44%';
-  if (placement) {
-    ufoLeft = `${(placement.ufoX / widgetW) * 100}%`;
-    ufoTop = `${(placement.ufoY / widgetH) * 100}%`;
+  const ufoAt = placement?.kind === 'above' ? placement : centerFrame;
+  if (ufoAt) {
+    ufoLeft = `${(ufoAt.ufoX / widgetW) * 100}%`;
+    ufoTop = `${(ufoAt.ufoY / widgetH) * 100}%`;
   } else if (inTour && bubbleH > 0) {
     const screenH = Math.max(screenMinH ?? 0, widgetH > 0 ? widgetH : 100);
     const ufoCenter = BUBBLE_TOP_PAD + Math.min(bubbleH, tourMax ?? bubbleH) + UFO_GAP + ufoHalf;
@@ -878,15 +894,18 @@ const TamagotchiWidget: React.FC<Props> = ({
   }
 
   // The text bubble's place: above (tail down to the saucer) or centre stage
-  // (no tail — the saucer has stepped back into the background).
+  // (tail from its lower-right edge down to the stepped-back saucer).
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
   bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
   if (placement?.kind === 'above') {
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
-  } else if (placement?.kind === 'center') {
+  } else if (placement?.kind === 'center' && centerFrame) {
     bubbleClass += ' tama-bubble--center';
-    bubbleStyle = { x: '-50%', top: centerBubbleTop(bubbleH || naturalBubble?.h || 0, widgetH) };
+    bubbleStyle = {
+      x: '-50%', top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW,
+      '--tama-tail-right': `${centerFrame.tailRight}px`,
+    };
   }
   const ufoReceded = placement?.kind === 'center' && mode !== 'fly_to_moon';
 
@@ -1061,7 +1080,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           initial={{ left: '50%', top: '44%' }}
           animate={
             mode !== 'fly_to_moon'
-              ? { left: ufoLeft, top: ufoTop, scale: ufoReceded ? RECEDE_SCALE : 1, opacity: ufoReceded ? RECEDE_OPACITY : 1 }
+              ? { left: ufoLeft, top: ufoTop, scale: ufoReceded ? RECEDE_SCALE : 1, opacity: 1 }
               : flyPhase === 'orbit'
                 ? { left: '88%', top: '8%', scale: 0.14, opacity: 1 }
                 : flyPhase === 'return'
@@ -1073,7 +1092,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               ? (reduceMotion
                   ? { duration: 0 }
                   // a soft, slightly slow glide into / out of depth
-                  : { type: 'spring', stiffness: 70, damping: 19, opacity: { duration: 0.6, ease: 'easeInOut' } })
+                  : { type: 'spring', stiffness: 70, damping: 19 })
               : flyPhase === 'orbit'
                 ? { duration: FLY_ORBIT_S, ease: 'easeInOut' }
                 : flyPhase === 'return'

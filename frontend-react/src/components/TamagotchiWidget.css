@@ -471,11 +471,10 @@
   will-change: transform, opacity;
 }
 
-/* Receded: the saucer has stepped back into depth behind a centred bubble —
-   smaller and dimmer (set by the widget), slightly soft and cooler here. */
+/* Receded: the saucer has stepped back a little behind a centred bubble —
+   80% size (set by the widget), fully opaque; a softer glow reads as depth. */
 .tama-ufo--receded {
-  z-index: 15; /* behind the bubble (20) */
-  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.2)) blur(0.4px) saturate(0.75);
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.28));
 }
 
 /* ── Zero-G idle bob (pure CSS compositor — zero JS overhead) ───────────────── */
@@ -527,9 +526,12 @@
   border-top: 7px solid rgba(255, 215, 0, 0.4);
 }
 
-/* Centre stage: no tail — the saucer has stepped back behind the bubble. */
+/* Centre stage: the tail leaves the bubble's lower-right edge and points
+   down at the stepped-back saucer (--tama-tail-right, set by the widget). */
 .tama-bubble--center::after {
-  display: none;
+  left: auto;
+  right: var(--tama-tail-right, 8px);
+  transform: none;
 }
 
 /* Tour variant: wider, no close button offset */
@@ -565,14 +567,24 @@
   font-family: inherit;
   overflow-wrap: break-word;
   max-height: min(7em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
-  overflow-y: auto;
+  /* No scrollbar unless the text really overflows: useAutoScroll measures it
+     and sets data-overflow="true" (then: slim scrollbar + autoscroll). */
+  overflow-y: hidden;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  /* a slim, rounded, see-through scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 215, 0, 0.28) transparent;
 }
-.tama-bubble-text::-webkit-scrollbar { width: 3px; }
+/* A slim, rounded, see-through scrollbar. Chromium / Safari use the
+   ::-webkit-scrollbar rules (setting scrollbar-width there would replace
+   them with the platform's arrowed bar); Firefox gets the standard ones. */
+@supports not selector(::-webkit-scrollbar) {
+  .tama-bubble-text {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 215, 0, 0.28) transparent;
+  }
+}
+.tama-bubble-text[data-overflow='true'] { overflow-y: auto; }
+.tama-bubble-text::-webkit-scrollbar { width: 3px; height: 0; }
+.tama-bubble-text::-webkit-scrollbar-button { display: none; }
 .tama-bubble-text::-webkit-scrollbar-track { background: transparent; }
 .tama-bubble-text::-webkit-scrollbar-thumb {
   background: rgba(255, 215, 0, 0.28);
