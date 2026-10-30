@@ -126,7 +126,8 @@ button::-moz-focus-inner {
   /* ── Glass + depth (Phase 2.25) — the look's own tokens; the older tokens
      below point at them where they mean the same thing. ── */
   --bg: linear-gradient(172deg, #e7f0ff 0%, #eef6ff 46%, #e9f4ff 100%);
-  --surface: rgba(255, 255, 255, 0.72);       /* glass card fill */
+  --surface: rgba(255, 255, 255, 0.72);       /* glass card fill (blurred) */
+  --surface-card: rgba(255, 255, 255, 0.80);  /* glass card fill without blur */
   --surface-2: rgba(255, 255, 255, 0.52);     /* insets, chips, icon tiles */
   --surface-strong: rgba(255, 255, 255, 0.94);/* modals / popovers (stay readable) */
   --surface-solid: #ffffff;                   /* no-blur / reduced-transparency fallback */
@@ -146,7 +147,7 @@ button::-moz-focus-inner {
   --track: rgba(11, 54, 112, 0.09);
   --card-shadow: 0 14px 30px -12px rgba(42, 90, 166, 0.21);
   --card-hi: inset 0 1px 0 rgba(255, 255, 255, 0.80);
-  --glow: rgba(124, 196, 255, 0.5);           /* #7cc4ff at ~50% */
+  --glow: rgba(124, 196, 255, 0.30);          /* #7cc4ff — a faint hint */
   --chart-line-a: #0ea5e9;
   --chart-line-b: #2563eb;
   /* The mobile header (and the status bar that follows it) keeps its solid
@@ -287,6 +288,7 @@ button::-moz-focus-inner {
   /* ── Glass + depth (Phase 2.25) ── */
   --bg: linear-gradient(180deg, #0a1020 0%, #080c17 48%, #070a12 100%);
   --surface: rgba(255, 255, 255, 0.04);
+  --surface-card: rgba(255, 255, 255, 0.05);
   --surface-2: rgba(255, 255, 255, 0.025);
   --surface-strong: rgba(20, 28, 46, 0.94);
   --surface-solid: #141c2e;
@@ -306,7 +308,7 @@ button::-moz-focus-inner {
   --track: rgba(255, 255, 255, 0.08);
   --card-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.80);
   --card-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --glow: rgba(27, 116, 208, 0.45);           /* #1b74d0 at ~45% */
+  --glow: rgba(27, 116, 208, 0.25);           /* #1b74d0 — a faint hint */
   --chart-line-a: #22d3ee;
   --chart-line-b: #3b82f6;
   --color-header-bg: #1e2a3a;
