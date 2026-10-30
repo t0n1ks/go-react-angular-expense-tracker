@@ -898,8 +898,9 @@ const TamagotchiWidget: React.FC<Props> = ({
     ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
   }
 
-  // The text bubble's place: above (tail down to the saucer) or centre stage
-  // (an SVG tail from its rounded lower-right corner onto the saucer's dome).
+  // The text bubble's place: above (tail down to the saucer) or centre stage,
+  // always centred (its tail near the lower-right corner, pointing down at
+  // the stepped-back saucer's dome).
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
   bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
@@ -907,13 +908,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
   } else if (placement?.kind === 'center' && centerFrame) {
     bubbleClass += ' tama-bubble--center';
-    bubbleStyle = { x: 0, left: centerFrame.bubbleLeft, top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW };
+    bubbleStyle = { x: '-50%', top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW };
   }
   const ufoReceded = placement?.kind === 'center' && mode !== 'fly_to_moon';
-  // The centre-stage tail, drawn once the bubble's real size is known.
-  const tail = centerFrame && bubbleW > 0 ? centerFrame.tail : null;
-  // Reveal in step: the saucer glides first (RECEDE_GLIDE_S); the bubble
-  // starts a beat later and settles just after it; the tail joins last.
+  // Reveal in step: the saucer glides first (RECEDE_GLIDE_S); the bubble —
+  // its tail is part of it — starts a beat later and settles just after.
   // Until a text bubble is placed it stays invisible (measured, not shown).
   const bubbleReady = !inBubble || !!placement || widgetW === 0 || widgetH === 0;
   const bubbleTransition = reduceMotion
@@ -1200,37 +1199,6 @@ const TamagotchiWidget: React.FC<Props> = ({
             )}
             <button className="tama-bubble-close" onClick={dismissBubble} aria-label={t('companion.close')}>✕</button>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Centre-stage tail: from the bubble's corner onto the saucer's dome ── */}
-      <AnimatePresence>
-        {inBubble && tail && (
-          <motion.svg
-            key="tama-tail"
-            className="tama-tail"
-            width={widgetW}
-            height={widgetH}
-            aria-hidden="true"
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12 } }}
-            transition={reduceMotion ? { duration: 0 } : { delay: RECEDE_GLIDE_S * 0.9, duration: 0.2 }}
-          >
-            {(() => {
-              const { x1, y1, x2, y2, tx, ty } = tail;
-              // a gently tapering curve from each base point to the tip
-              const c1 = `${x1 + (tx - x1) * 0.55} ${y1 + (ty - y1) * 0.3}`;
-              const c2 = `${x2 + (tx - x2) * 0.25} ${y2 + (ty - y2) * 0.6}`;
-              const sides = `M ${x1} ${y1} Q ${c1} ${tx} ${ty} Q ${c2} ${x2} ${y2}`;
-              return (
-                <>
-                  <path d={`${sides} Z`} className="tama-tail-fill" />
-                  <path d={sides} className="tama-tail-edge" />
-                </>
-              );
-            })()}
-          </motion.svg>
         )}
       </AnimatePresence>
 

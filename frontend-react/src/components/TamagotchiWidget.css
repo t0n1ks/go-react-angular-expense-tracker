@@ -526,26 +526,13 @@
   border-top: 7px solid rgba(255, 215, 0, 0.4);
 }
 
-/* Centre stage: the tail is an SVG overlay (.tama-tail) from the bubble's
-   rounded corner onto the saucer's dome, not this little triangle. */
+/* Centre stage: the same little triangle, moved near the lower-right corner
+   (TAIL_RIGHT in bubbleLayout.ts) — the stepped-back saucer's dome sits a
+   small gap below its tip. */
 .tama-bubble--center::after {
-  display: none;
-}
-/* Above the bubble (covering its corner border, so the outline flows into
-   the tail) and below the saucer (so the tip tucks under its canopy). */
-.tama-tail {
-  position: absolute;
-  inset: 0;
-  z-index: 21;
-  pointer-events: none;
-  overflow: visible;
-}
-.tama-tail-fill { fill: #0a0f24; }
-.tama-tail-edge {
-  fill: none;
-  stroke: rgba(255, 215, 0, 0.4);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
+  left: auto;
+  right: 12px;
+  transform: none;
 }
 
 /* Tour variant: wider, no close button offset */
