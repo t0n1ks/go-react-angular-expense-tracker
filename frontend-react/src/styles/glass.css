@@ -92,21 +92,11 @@ html .no-cycle-icon-wrap {
   box-shadow: var(--card-hi);
 }
 
-/* ── Hero card (Budget health): a faint radial glow behind it ─────────────── */
+/* ── Hero card (Budget health): no glow layer (removed in 2.26.1) ─────────── */
 html .stat-card--hero {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-}
-html .stat-card--hero::before {
-  content: '';
-  position: absolute;
-  inset: -30% -14% auto auto;  /* the same top-right corner */
-  width: 57%;                  /* ~28% smaller than before */
-  aspect-ratio: 1 / 1;
-  background: radial-gradient(closest-side, var(--glow), transparent);
-  z-index: -1;
-  pointer-events: none;
 }
 html .stat-card--hero .budget-health-current {
   font-size: 1.15em;
@@ -118,7 +108,6 @@ html .budget-health-bar-track,
 html .weekly-budget-bar-track {
   background: var(--track);
 }
-html .budget-health-bar-fill,
 html .weekly-budget-bar-fill {
   box-shadow: 0 0 8px -1px var(--glow);
 }

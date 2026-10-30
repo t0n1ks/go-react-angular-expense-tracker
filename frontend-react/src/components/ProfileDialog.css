@@ -77,8 +77,8 @@
   border-radius: 50%;
   box-shadow: 0 0 0 3px var(--surface-2), 0 0 0 4px var(--edge), var(--card-shadow);
 }
-.profile-preview-img,
-.profile-preview .profile-letter {
+/* Only the image is a block; the letter keeps its flex centring below. */
+.profile-preview-img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
