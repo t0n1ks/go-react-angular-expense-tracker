@@ -11,6 +11,21 @@ body {
   touch-action: pan-x pan-y;
 }
 
+/* No blue tap flash / focus box on mouse or touch, anywhere in the app — but
+   keyboard users keep a visible focus ring: outlines are only dropped when
+   the browser decides focus is NOT keyboard-driven (:focus-visible stays,
+   with each component's own ring or the browser's default). Text fields
+   always match :focus-visible, so their focus indicator is unaffected. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+button::-moz-focus-inner {
+  border: 0;
+}
+
 /* Browser autofill on the auth fields: keep the app's own field styling in both
    themes instead of the browser's forced white/yellow background. The inset
    box-shadow paints over the autofill background, and -webkit-text-fill-color
