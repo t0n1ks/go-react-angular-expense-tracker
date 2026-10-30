@@ -36,6 +36,10 @@ const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
 const EXIT_LINE_WAIT_MS = 600; // pool exit line, else the built-in one
+// Bubble width by amount of text: up to this many characters (≈12–15 words)
+// a line gets the wider, balanced 1–2 row box; longer text the narrow one
+// that scrolls. Exit lines, greetings and the moon's status are always short.
+const SHORT_BUBBLE_CHARS = 90;
 const MSG_SHOW_DELAY  = 3_000;
 
 // Global entity spawner pacing — one entity (cow OR calendar) at a time, with a
@@ -841,7 +845,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // to the saucer's left, tail pointing right at the saucer's centre.
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
-  if (aboveOnly) bubbleClass += ' tama-bubble--line';
+  bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
   if (placement?.kind === 'above') {
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
   } else if (placement?.kind === 'side') {
@@ -919,7 +923,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           </button>
           {moonRipple > 0 && (
             <span key={moonRipple} className="tama-moon-ripples" aria-hidden="true">
-              <span /><span /><span />
+              <span /><span />
             </span>
           )}
         </div>

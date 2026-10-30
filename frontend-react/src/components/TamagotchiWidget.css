@@ -71,6 +71,21 @@
   overflow: visible;
 }
 
+/* No blue flash or box when tapping anything in the screen (moon, ✕, cow,
+   star, calendar, Yes/No); keyboard focus still gets a soft gold ring. */
+.tama-screen,
+.tama-screen * {
+  -webkit-tap-highlight-color: transparent;
+}
+.tama-screen :focus:not(:focus-visible) {
+  outline: none;
+}
+.tama-screen :focus-visible {
+  outline: 2px solid rgba(255, 215, 0, 0.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 .tama-screen::after {
   content: '';
   position: absolute;
@@ -392,8 +407,7 @@
   line-height: 0;
 }
 .tama-moon-btn:focus-visible {
-  outline: 2px solid #ffd700;
-  outline-offset: 2px;
+  border-radius: 50%;
 }
 
 /* Craters: shaded dents; their glow is the AI status — faint green
@@ -419,7 +433,8 @@
 /* A barely-there halo in the same colour, so the state reads even at 20px. */
 .tama-moon-btn svg { filter: drop-shadow(0 0 3px var(--crater-halo)); }
 
-/* Sonar ripple: three soft rings expanding from the moon. */
+/* Ripple: two faint, thin rings widening slowly from the moon and fading —
+   a drop falling into still water, in radio-wave form. */
 .tama-moon-ripples {
   position: absolute;
   inset: 0;
@@ -433,15 +448,16 @@
   height: var(--tama-moon);
   margin: calc(var(--tama-moon) / -2) 0 0 calc(var(--tama-moon) / -2);
   border-radius: 50%;
-  border: 1.5px solid var(--crater-ring);
+  border: 1px solid var(--crater-ring);
+  box-shadow: 0 0 6px var(--crater-ring), inset 0 0 4px var(--crater-ring);
   opacity: 0;
-  animation: tama-moon-ripple 1.5s ease-out forwards;
+  animation: tama-moon-ripple 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
-.tama-moon-ripples span:nth-child(2) { animation-delay: 0.28s; }
-.tama-moon-ripples span:nth-child(3) { animation-delay: 0.56s; }
+.tama-moon-ripples span:nth-child(2) { animation-delay: 0.6s; }
 @keyframes tama-moon-ripple {
-  0%   { transform: scale(0.8); opacity: 0.6; }
-  100% { transform: scale(3.4); opacity: 0; }
+  0%   { transform: scale(0.9); opacity: 0; }
+  12%  { opacity: 0.38; }
+  100% { transform: scale(4.2); opacity: 0; }
 }
 
 /* ── UFO ────────────────────────────────────────────────────────────────────── */
@@ -481,7 +497,11 @@
   border-radius: 10px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   padding: 0.42rem 2rem 0.42rem 0.7rem;
-  width: fit-content;
+  /* max-content, not fit-content: anchored at left 50% a shrink-to-fit box
+     only gets half the screen and wraps far too early. The caps below
+     (short / long / side) set the real width. */
+  width: max-content;
+  box-sizing: border-box; /* the caps are the whole box, padding included */
   max-width: min(320px, 88%); /* a tidy box, never edge to edge */
   z-index: 20;
   pointer-events: all;
@@ -553,9 +573,25 @@
 .tama-bubble--tour .tama-bubble-text {
   max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 4rem));
 }
-/* Short lines (exit, greeting, moon status) have no vote row below. */
-.tama-bubble--line .tama-bubble-text {
-  max-height: min(7em, calc(var(--tama-bubble-max, 999px) - 1rem));
+/* Short text (≤ SHORT_BUBBLE_CHARS, and every exit line / greeting / moon
+   status): a wider box (≈ 38 characters per row) with balanced, centred
+   1–2 rows and no line cap — it reads whole, never as one stretched line.
+   It only scrolls if the widget measured too little room (safety net). */
+.tama-bubble--short {
+  max-width: min(280px, 92%);
+}
+.tama-bubble--short .tama-bubble-text {
+  text-wrap: balance;
+  text-align: center;
+  max-height: calc(var(--tama-bubble-max, 999px) - 1rem);
+}
+.tama-bubble--short:has(.tama-bubble-votes) .tama-bubble-text {
+  max-height: calc(var(--tama-bubble-max, 999px) - 2.4rem);
+}
+/* Long text: a narrower box (≈ 30 characters per row), 5 rows, then it
+   scrolls vertically. */
+.tama-bubble--long {
+  max-width: min(240px, 82%);
 }
 
 .tama-bubble-close {
@@ -760,8 +796,7 @@
 }
 
 .tama-zone:focus-visible {
-  outline: 2px solid #ffd700;
-  outline-offset: -3px;
+  outline-offset: -4px;
 }
 
 .tama-zone--red:hover {
@@ -982,6 +1017,6 @@
 
 
 @keyframes tama-moon-ripple-still {
-  0%   { transform: scale(2); opacity: 0.5; }
+  0%   { transform: scale(2); opacity: 0.3; }
   100% { transform: scale(2); opacity: 0; }
 }

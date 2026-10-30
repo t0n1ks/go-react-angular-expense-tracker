@@ -43,7 +43,7 @@ describe('speech bubble placement', () => {
     expect(p.kind).toBe('above');
     if (p.kind !== 'above') return;
     expect(p.ufoX).toBe(PHONE.screenW / 2);
-    expect(p.ufoY - PHONE.screenH * IDLE_Y).toBeLessThanOrEqual(2 * maxSink(PHONE.screenH));
+    expect(p.ufoY + PHONE.ufoHalf + HEALTH_ROOM).toBeLessThanOrEqual(PHONE.screenH);
     expect(p.bubbleMaxH).toBeGreaterThan(0);
     expect(p.bubbleTop + (p.bubbleMaxH ?? 0)).toBeLessThanOrEqual(p.ufoY - PHONE.ufoHalf);
   });

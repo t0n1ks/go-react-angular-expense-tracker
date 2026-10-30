@@ -13,7 +13,7 @@ export const IDLE_Y = 0.44;            // the saucer's resting centre (share of 
 export const BUBBLE_TOP_MIN = 24;      // the bubble never rises above this
 export const BUBBLE_GAP = 8;           // bubble ↔ saucer (above)
 export const SIDE_GAP = 12;            // bubble ↔ saucer (beside), before the tail
-export const SIDE_MAX_W = 260;         // a side bubble's widest
+export const SIDE_MAX_W = 240;         // a side bubble's widest (= the long-text cap)
 export const SIDE_MARGIN = 14;         // side layout ↔ screen edges
 export const HEALTH_ROOM = 30;         // the health bar under everything
 
@@ -45,9 +45,9 @@ export function placeBubble({ screenW, screenH, bubbleH, ufoHalf, aboveOnly = fa
     return { kind: 'above', ufoX: screenW / 2, ufoY: idleY + sink, bubbleTop: Math.max(BUBBLE_TOP_MIN, freeTop) };
   }
   if (aboveOnly) {
-    // Still above: sink as little as needed — at most twice the usual
-    // allowance, never onto the health bar; whatever doesn't fit scrolls.
-    const ufoY = Math.min(idleY + Math.min(sink, 2 * maxSink(screenH)), lowest);
+    // Still above: sink just as far as the line needs (short lines are only
+    // 1–2 rows), never onto the health bar; anything still left over scrolls.
+    const ufoY = Math.min(idleY + sink, lowest);
     return { kind: 'above', ufoX: screenW / 2, ufoY, bubbleTop: BUBBLE_TOP_MIN, bubbleMaxH: ufoY - ufoHalf - BUBBLE_GAP - BUBBLE_TOP_MIN };
   }
   // Beside: centre the bubble + saucer pair, the saucer on the right and
