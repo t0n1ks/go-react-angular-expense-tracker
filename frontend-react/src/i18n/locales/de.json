@@ -154,6 +154,9 @@
     "budget_insight_cheer_down": "Dein Limit für nächste Woche sinkt. Bleib diszipliniert für eine bessere Woche!",
     "tama_hint_star": "Finde und klicke den bunten Stern für einen interessanten Fakt!",
     "tama_journal_prompt": "Entdeckungen\nanzeigen?",
+    "tama_choice_yes": "Ja",
+    "tama_choice_no": "Nein",
+    "tama_cal_label": "Zykluskalender — verbleibende Zeit dieser Zykluswoche",
     "tama_journal_title": "Heutige Entdeckungen",
     "tama_journal_empty": "Heute noch keine kosmischen Geheimnisse entdeckt! Beobachte die Sterne oder halte Ausschau nach schwebenden Kühen!",
     "tama_journal_facts": "⭐ Kosmische Fakten",
@@ -222,7 +225,8 @@
     "detail_note": "Notiz",
     "export_csv": "Als CSV exportieren",
     "export_pdf": "Als PDF exportieren",
-    "pdf_generated_on": "Erstellt am",
+    "pdf_generated_on": "Erstellt am"
+,
     "filter_toggle": "Filter",
     "filter_search_ph": "Suchen",
     "filter_search_aria": "Transaktionen nach Beschreibung oder Kategorie durchsuchen",

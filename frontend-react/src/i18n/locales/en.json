@@ -154,6 +154,9 @@
     "budget_insight_cheer_down": "Your limit for next week will decrease. Stay disciplined for a better week ahead!",
     "tama_hint_star": "Find and click the colored star if you want an interesting fact!",
     "tama_journal_prompt": "Show found facts\nand moo-jokes?",
+    "tama_choice_yes": "Yes",
+    "tama_choice_no": "No",
+    "tama_cal_label": "Cycle calendar — time left in this cycle week",
     "tama_journal_title": "Today's Discoveries",
     "tama_journal_empty": "You haven't caught any cosmic secrets today! Watch the stars or look out for floating cows!",
     "tama_journal_facts": "⭐ Cosmic Facts",
@@ -222,7 +225,8 @@
     "detail_note": "Note",
     "export_csv": "Export CSV",
     "export_pdf": "Export PDF",
-    "pdf_generated_on": "Generated on",
+    "pdf_generated_on": "Generated on"
+,
     "filter_toggle": "Filters",
     "filter_search_ph": "Search",
     "filter_search_aria": "Search transactions by description or category",

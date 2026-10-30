@@ -448,6 +448,22 @@
   border-top: 7px solid rgba(255, 215, 0, 0.4);
 }
 
+/* Beside the saucer: the tail points left, at the saucer's centre
+   (--tama-tail-y, set by the widget). Long text scrolls inside. */
+.tama-bubble--side::after {
+  bottom: auto;
+  left: -8px;
+  top: var(--tama-tail-y, 50%);
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 8px solid rgba(255, 215, 0, 0.55);
+  border-left: 0;
+}
+.tama-bubble--side .tama-bubble-text {
+  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
+}
+
 /* Tour variant: wider, no close button offset */
 .tama-bubble--tour {
   max-width: 84%;
@@ -684,6 +700,11 @@
   background: rgba(239, 68, 68, 0.10);
   color: #f87171;
   border-radius: 0.9rem 0 0 0.9rem;
+}
+
+.tama-zone:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: -3px;
 }
 
 .tama-zone--red:hover {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,7 @@ import {
 } from '../data/tamaContent';
 import calendarPngUrl from '../assets/companion/calendar.png';
 import CompanionCow from './CompanionCow';
+import { placeBubble, sideBubbleTop } from '../utils/bubbleLayout';
 import { CALENDAR_ART } from '../utils/companionArt';
 import './TamagotchiWidget.css';
 
@@ -257,6 +258,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
   const [widgetH,       setWidgetH]       = useState(0);
+  const [widgetW,       setWidgetW]       = useState(0);
+  // A text bubble's height laid out above the saucer (its natural width),
+  // measured once per text — the input that decides above vs beside.
+  const [naturalBubble, setNaturalBubble] = useState<{ text: string; h: number } | null>(null);
   const [ufoHalf,       setUfoHalf]       = useState(UFO_HALF_H);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
   const [rainbowStarIdx, setRainbowStarIdx] = useState<number | null>(null);
@@ -303,6 +308,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     // feeds the bubble/UFO layout below.
     const measure = () => {
       setWidgetH(el.offsetHeight);
+      setWidgetW(el.offsetWidth);
       const art = el.querySelector<HTMLElement>('.tama-ufo-art');
       if (art?.offsetHeight) setUfoHalf(art.offsetHeight / 2);
     };
@@ -383,6 +389,14 @@ const TamagotchiWidget: React.FC<Props> = ({
   const inBubble      = mode === 'greeting' || mode === 'ai_bubble';
   const inTour        = mode === 'tour';
   const showingBubble = inBubble || inTour;
+
+  // ── Measure a new text bubble's natural height before it is painted ───────
+  // (until measured it renders in the default place above the saucer).
+  useLayoutEffect(() => {
+    if (!inBubble || naturalBubble?.text === bubbleText) return;
+    const el = bubbleRef.current;
+    if (el) setNaturalBubble({ text: bubbleText, h: el.offsetHeight });
+  }, [inBubble, bubbleText, naturalBubble]);
 
   // ── Measure bubble height for dynamic UFO pushdown ───────────────────────
   useEffect(() => {
@@ -750,22 +764,44 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   // ── Dynamic layout ────────────────────────────────────────────────────────
   const isCell = layout === 'cell';
-  // Stack: the screen grows to fit the bubble. Cell: it keeps its height and
-  // the bubble's text scrolls within the room left above the UFO.
-  const screenMinH = !isCell && showingBubble && bubbleH > 0
+  // Text bubbles keep the saucer steady (utils/bubbleLayout.ts): above it when
+  // that costs at most a small sink, else beside it — saucer left, bubble right.
+  const placement = inBubble && naturalBubble?.text === bubbleText && widgetW > 0 && widgetH > 0
+    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf })
+    : null;
+  // The onboarding tour keeps the 2.23 behaviour: the stacked screen grows to
+  // fit it; in a grid cell its text scrolls in the room above the saucer.
+  const screenMinH = !isCell && inTour && bubbleH > 0
     ? BUBBLE_TOP_PAD + bubbleH + UFO_GAP + ufoHalf * 2 + HEARTS_BOTTOM
     : undefined;
-  const bubbleMax = isCell && widgetH > 0
+  const tourMax = isCell && inTour && widgetH > 0
     ? Math.max(40, widgetH - (BUBBLE_TOP_PAD + UFO_GAP + ufoHalf * 2 + HEARTS_BOTTOM))
     : undefined;
+  const bubbleMax = placement?.kind === 'side' ? placement.bubbleMaxH : tourMax;
 
-  let ufoTop: string;
-  if (showingBubble && bubbleH > 0) {
+  let ufoLeft = '50%';
+  let ufoTop = '44%';
+  if (placement) {
+    ufoLeft = `${(placement.ufoX / widgetW) * 100}%`;
+    ufoTop = `${(placement.ufoY / widgetH) * 100}%`;
+  } else if (inTour && bubbleH > 0) {
     const screenH = Math.max(screenMinH ?? 0, widgetH > 0 ? widgetH : 100);
-    const ufoCenter = BUBBLE_TOP_PAD + Math.min(bubbleH, bubbleMax ?? bubbleH) + UFO_GAP + ufoHalf;
+    const ufoCenter = BUBBLE_TOP_PAD + Math.min(bubbleH, tourMax ?? bubbleH) + UFO_GAP + ufoHalf;
     ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
-  } else {
-    ufoTop = '44%';
+  }
+
+  // The text bubble's place and tail: above (tail down, centred) or beside
+  // (tail left, aimed at the saucer's centre).
+  let bubbleClass = 'tama-bubble';
+  let bubbleStyle: Record<string, string | number> = { x: '-50%' };
+  if (placement?.kind === 'above') {
+    bubbleStyle = { x: '-50%', top: placement.bubbleTop };
+  } else if (placement?.kind === 'side') {
+    const h = bubbleH || naturalBubble?.h || 0;
+    const top = sideBubbleTop(placement.ufoY, h, widgetH);
+    const tailY = Math.max(14, Math.min(placement.ufoY - top, h - 14));
+    bubbleClass += ' tama-bubble--side';
+    bubbleStyle = { x: 0, left: placement.bubbleLeft, top, maxWidth: placement.bubbleMaxW, '--tama-tail-y': `${tailY}px` };
   }
 
   const screenStyle: React.CSSProperties & Record<'--tama-bubble-max', string | undefined> = {
@@ -902,7 +938,11 @@ const TamagotchiWidget: React.FC<Props> = ({
               }}
               onClick={handleCalendarClick}
               role="button"
-              aria-label="Cycle calendar"
+              tabIndex={0}
+              aria-label={t('dashboard.tama_cal_label')}
+              onKeyDown={ev => {
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleCalendarClick(); }
+              }}
             >
               <CalendarArt />
             </motion.div>
@@ -916,7 +956,7 @@ const TamagotchiWidget: React.FC<Props> = ({
           initial={{ left: '50%', top: '44%' }}
           animate={
             mode !== 'fly_to_moon'
-              ? { left: '50%', top: ufoTop, scale: 1 }
+              ? { left: ufoLeft, top: ufoTop, scale: 1 }
               : flyPhase === 'orbit'
                 ? { left: '88%', top: '8%', scale: 0.14 }
                 : flyPhase === 'return'
@@ -969,11 +1009,23 @@ const TamagotchiWidget: React.FC<Props> = ({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="tama-zone tama-zone--red" onClick={handleChoiceNo}>
-                  <span>✗ No</span>
+                <div
+                  className="tama-zone tama-zone--red"
+                  onClick={handleChoiceNo}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleChoiceNo(); } }}
+                >
+                  <span><span aria-hidden="true">✗ </span>{t('dashboard.tama_choice_no')}</span>
                 </div>
-                <div className="tama-zone tama-zone--green" onClick={handleChoiceYes}>
-                  <span>✓ Yes</span>
+                <div
+                  className="tama-zone tama-zone--green"
+                  onClick={handleChoiceYes}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleChoiceYes(); } }}
+                >
+                  <span><span aria-hidden="true">✓ </span>{t('dashboard.tama_choice_yes')}</span>
                 </div>
               </motion.div>
             </>
@@ -987,8 +1039,8 @@ const TamagotchiWidget: React.FC<Props> = ({
         {inBubble && (
           <motion.div
             ref={bubbleRef}
-            className="tama-bubble"
-            style={{ x: '-50%' }}
+            className={bubbleClass}
+            style={bubbleStyle}
             initial={{ opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
