@@ -10,16 +10,21 @@ import { type MoneyPoint, type PeriodEndForecast, type SavingsForecast } from ".
 import BalanceChart from "../components/BalanceChart";
 import ForecastCard from "../components/ForecastCard";
 import ForecastDetailModal from "../components/ForecastDetailModal";
+import SummaryTiles from "../components/summary/SummaryTiles";
+import { useSummaryModel } from "../components/summary/useSummaryModel";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { COMPACT_QUERY } from "../utils/breakpoints";
 import "./Statistics.css";
 
 interface Transaction {
+  id: number;
   amount: number;
   type: "expense" | "income" | "savings_deposit" | "savings_withdrawal" | "budget_transfer";
   income_type?: string;
   date: string;
   created_at?: string;
   effective_at?: string;
-  category?: { id?: number; name: string; translation_key?: string | null };
+  category?: { id: number; name: string; translation_key?: string | null };
 }
 
 interface AnalysisResult {
@@ -77,6 +82,13 @@ const Statistics: React.FC = () => {
     // Lite mode hides all analytics below the donut and must not request them.
     if (!liteMode) fetchAnalysis();
   }, [fetchData, fetchAnalysis, liteMode]);
+
+  // Phone / tablet: the four summary cards (variable budget, savings,
+  // income, expenses) live here as tiles — the same model and components as
+  // on Home, fed by this page's transactions and the shared cycle figures.
+  const isCompact = useMediaQuery(COMPACT_QUERY);
+  const refreshAnalysis = useCallback(() => { if (!liteMode) fetchAnalysis(); }, [liteMode, fetchAnalysis]);
+  const summary = useSummaryModel({ transactions, refetch: fetchData, onMutated: refreshAnalysis });
 
   // Re-read the real-money series and forecast whenever the cycle figures
   // change, so the chart's latest point and the forecast's "now" always equal
@@ -236,6 +248,9 @@ const Statistics: React.FC = () => {
   return (
     <div className="statistics-wrapper">
       <h1 className="statistics-title">{t("statistics.title")}</h1>
+
+      {/* Lite hides these cards on Home too, so no tiles there. */}
+      {isCompact && !liteMode && <SummaryTiles model={summary} />}
 
       <div className={`charts-layout${liteMode ? " charts-layout--lite" : ""}`}>
         <div className="stat-chart-card">

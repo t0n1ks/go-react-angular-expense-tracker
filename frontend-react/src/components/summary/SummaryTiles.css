@@ -1,0 +1,188 @@
+/* ── Summary tiles (phone / tablet, Statistics) ──────────────────────────────
+   A 2×2 grid of card faces: title, headline figure, one quiet note, over a
+   large faint watermark of the card's own icon in its accent colour. */
+
+.summary-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-tile {
+  --tile-accent: var(--color-wallet-icon-text);
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.9rem 0.85rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: 1.1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.summary-tile--allowance { --tile-accent: var(--color-wallet-icon-text); }
+.summary-tile--savings   { --tile-accent: #10b981; }
+.summary-tile--income    { --tile-accent: var(--color-income-text); }
+.summary-tile--expenses  { --tile-accent: var(--color-expense-text); }
+
+/* The watermark: big, low-contrast, tucked into the lower-right corner and
+   clipped by the tile, so it identifies the card without competing with the
+   text. Dark theme needs a touch more to read on the darker card. */
+.summary-tile-mark {
+  position: absolute;
+  right: -9%;
+  bottom: -14%;
+  height: 66%; /* sized by the tile's height, so it suits square and wide tiles */
+  width: auto;
+  aspect-ratio: 1 / 1;
+  color: var(--tile-accent);
+  opacity: 0.09;
+  pointer-events: none;
+}
+.dark .summary-tile-mark { opacity: 0.13; }
+
+/* Text sits above the watermark. */
+.summary-tile-title,
+.summary-tile-value,
+.summary-tile-note { position: relative; max-width: 100%; }
+
+.summary-tile-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The headline figure: as large as the tile allows, never overflowing. */
+.summary-tile-value {
+  margin-top: auto;
+  font-size: clamp(1.05rem, 5.4vw, 1.7rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--color-text-heading);
+  overflow-wrap: anywhere;
+}
+.summary-tile-value--positive { color: var(--color-income-text); }
+.summary-tile-value--negative { color: var(--color-expense-text); }
+
+.summary-tile-note {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+  opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Gentle press feedback; a soft ring for keyboard focus only. */
+.summary-tile:active { transform: scale(0.975); }
+.summary-tile:focus { outline: none; }
+.summary-tile:focus-visible {
+  outline: 2px solid var(--tile-accent);
+  outline-offset: 2px;
+}
+@media (hover: hover) {
+  .summary-tile:hover {
+    border-color: var(--tile-accent);
+    box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* Tablet: squares would tower on a wide screen (≈360px each) — keep the 2×2
+   but make the tiles wider than tall, with more air. */
+@media (min-width: 641px) {
+  .summary-tiles { gap: 1rem; }
+  .summary-tile { aspect-ratio: 5 / 3; padding: 1.1rem 1.2rem; }
+  .summary-tile-title { font-size: 0.9rem; }
+  .summary-tile-value { font-size: clamp(1.4rem, 3.6vw, 2rem); }
+  .summary-tile-note { font-size: 0.74rem; }
+}
+
+/* ── The sheet holding the full card ─────────────────────────────────────── */
+
+.summary-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 190; /* below the cards' own modals (200) */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-tap-highlight-color: transparent;
+  animation: summary-fade 0.18s ease-out;
+}
+
+/* Phone: a full-width bottom sheet. */
+.summary-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 2.4rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
+  background: var(--color-bg-main);
+  border-radius: 1.25rem 1.25rem 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+  animation: summary-sheet-up 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.summary-sheet .stat-card { margin: 0; }
+
+.summary-sheet-close {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.7rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.summary-sheet-close:focus { outline: none; }
+.summary-sheet-close:focus-visible { outline: 2px solid var(--color-text-muted); }
+
+/* Tablet: a centred dialog. */
+@media (min-width: 641px) {
+  .summary-sheet-overlay { align-items: center; padding: 1.5rem; }
+  .summary-sheet {
+    width: min(520px, 100%);
+    border-radius: 1.25rem;
+    padding: 2.6rem 1.2rem 1.2rem;
+    animation: summary-pop 0.2s ease-out;
+  }
+}
+
+@keyframes summary-fade { from { opacity: 0; } }
+@keyframes summary-sheet-up { from { transform: translateY(100%); } }
+@keyframes summary-pop { from { opacity: 0; transform: scale(0.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .summary-tile { transition: none; }
+  .summary-tile:active { transform: none; }
+  .summary-sheet-overlay,
+  .summary-sheet { animation: none; }
+}

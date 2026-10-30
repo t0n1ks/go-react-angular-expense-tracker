@@ -1,66 +1,38 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useSettings, type SalaryCycle, type CycleStats } from '../context/SettingsContext';
-import { txEventTime } from '../utils/categoryWindow';
+import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Wallet, TrendingDown, TrendingUp, Target, PiggyBank, Plus } from 'lucide-react';
+import { Target } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
 import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
 import SalaryCycleCard from '../components/SalaryCycleCard';
-import IncomeHistoryModal from '../components/IncomeHistoryModal';
-import ExpensesHistoryModal from '../components/ExpensesHistoryModal';
-import SavingsHistoryModal from '../components/SavingsHistoryModal';
-import AddIncomeModal from '../components/AddIncomeModal';
+import { SummaryCard, SummaryModals } from '../components/summary/SummaryCards';
+import { SUMMARY_KINDS, useSummaryModel, type SummaryTransaction } from '../components/summary/useSummaryModel';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import { useCompanion } from '../hooks/useCompanion';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { healthChangeText, messageText, reasonText } from '../utils/companion';
+import { WIDE_QUERY } from '../utils/breakpoints';
 import './Dashboard.css';
 
-interface Transaction {
-  id: number;
-  amount: number;
-  type: 'expense' | 'income' | 'savings_deposit' | 'savings_withdrawal' | 'budget_transfer';
-  income_type?: string;
-  date: string;
-  created_at?: string;
-  effective_at?: string;
-  category?: { id: number; name: string };
-}
-
-// Desktop: the stats grid's free 6th cell hosts the companion's cosmos screen
-// — beside Budget health (2 columns) or under Income (3 columns, ≥1272px).
-// Keep in sync with the matching media queries in Dashboard.css.
-const COSMOS_IN_GRID_QUERY = '(min-width: 1025px)';
-
 const Dashboard: React.FC = () => {
-  const wideDesktop = useMediaQuery(COSMOS_IN_GRID_QUERY);
+  // Laptop / desktop: the four summary cards are here, and the companion's
+  // cosmos screen takes the stats grid's free 6th cell (beside Budget health
+  // on 2 columns, under Income on 3). Phone / tablet: the four cards live in
+  // Statistics as tiles; Budget health stays here.
+  const wideDesktop = useMediaQuery(WIDE_QUERY);
   const { axiosInstance, user } = useAuth();
   const {
     formatAmount,
     aiAdviceEnabled,
     monthlySpendingGoal,
-    expectedSalary,
-    currentCycle,
-    cycleStats: serverCycleStats,
-    cycleWindow,
-    refreshCycle,
     liteMode,
     budgetWindow,
   } = useSettings();
   const { t, i18n } = useTranslation();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<SummaryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showIncomeModal, setShowIncomeModal] = useState(false);
-  const [showExpensesModal, setShowExpensesModal] = useState(false);
-  const [showSavingsModal, setShowSavingsModal] = useState(false);
-  const [showAddIncomeModal, setShowAddIncomeModal] = useState(false);
-  // Optimistically update cycleStats after addIncome, before the next refresh
-  const [localCycleStats, setLocalCycleStats] = useState<CycleStats | null>(null);
   const [aiServiceMode, setAIServiceMode] = useState<'online' | 'autonomous' | 'initializing'>('initializing');
-
-  // Use locally-patched stats if available, else server stats
-  const cycleStats = localCycleStats ?? serverCycleStats;
 
   const fetchData = useCallback(async () => {
     try {
@@ -109,56 +81,15 @@ const Dashboard: React.FC = () => {
     prevModeRef.current = aiServiceMode;
   }, [aiServiceMode, runAnalyze]);
 
-  // ── Server-authoritative cycle aggregation ────────────────────────────────
-  const hasCycle = !!(currentCycle && cycleStats);
-  const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
-
-  const savingsCatId = currentCycle?.saved_money_category_id ?? 0;
-  // When a cycle exists (active OR stopped), scope the client-side fallback to
-  // that cycle's own window — exactly as the server reports it, with each
-  // transaction placed by its server effective_at. Otherwise stopping a cycle
-  // would flip these figures to an ALL-TIME sum (inflating "Income" for
-  // multi-cycle users). No cycle at all → all-time, as before.
-  const inCycleWindow = (tx: Transaction): boolean => {
-    if (!cycleWindow) return true;
-    const ev = txEventTime(tx).getTime();
-    if (ev < new Date(cycleWindow.start).getTime()) return false;
-    if (cycleWindow.end && ev >= new Date(cycleWindow.end).getTime()) return false;
-    return true;
-  };
-  const legacyIncome = transactions
-    .filter(t => t.type === 'income' && !(savingsCatId > 0 && Number(t.category?.id) === savingsCatId) && inCycleWindow(t))
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const legacyExpense = transactions
-    .filter(t => t.type === 'expense' && inCycleWindow(t))
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-
-  const cycleIncome        = hasCycle ? cycleStats!.cycle_income        : legacyIncome;
-  const cycleExpenses      = hasCycle ? cycleStats!.cycle_expenses      : legacyExpense;
-  const cycleFixedExpenses = hasCycle ? cycleStats!.cycle_fixed_expenses : 0;
-  const cycleVariableExpenses = hasCycle ? cycleStats!.cycle_variable_expenses : Math.max(0, legacyExpense);
-
-  // Variable Allowance = income − savings_allocation − fixed_expenses (server-computed).
-  // For non-cycle users it falls back to the legacy balance.
-  const variableAllowance = hasCycle ? (cycleStats!.variable_allowance ?? cycleStats!.net_discretionary_budget) : (legacyIncome - legacyExpense);
-  const dynamicSavings    = hasCycle ? (cycleStats!.dynamic_savings ?? 0) : 0;
-  const savedMoneyBalance = hasCycle ? (cycleStats!.saved_money_balance ?? 0) : 0;
-  // Carry-over from the previous cycle — already part of variableAllowance;
-  // shown so a higher-than-base budget is never a mystery.
-  const carryOver        = hasCycle ? (cycleStats!.carry_over ?? 0) : 0;
-  const carryMoved       = hasCycle ? (cycleStats!.carry_over_to_savings ?? 0) : 0;
-  const carryMovable     = hasCycle ? (cycleStats!.carry_over_movable ?? 0) : 0;
+  // The four summary cards' figures and actions (shared with Statistics).
+  const summary = useSummaryModel({ transactions, refetch: fetchData, onMutated: runAnalyze });
+  const { cycleStats, variableAllowance, cycleVariableExpenses } = summary;
 
   // ── Budget Health: (Variable Allowance - Variable Spent) / Variable Allowance ──
   const budgetMax       = variableAllowance;
   const budgetRemaining = Math.max(0, variableAllowance - cycleVariableExpenses);
   const budgetPercent   = budgetMax > 0 ? (cycleVariableExpenses / budgetMax) * 100 : 0;
   const budgetBarColor  = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
-
-  // ── Income progress (no-cycle only) ──────────────────────────────────────
-  const salaryRef    = currentCycle ? currentCycle.total_income : expectedSalary;
-  const incomePercent = salaryRef > 0 ? Math.min((cycleIncome / salaryRef) * 100, 100) : 0;
-  const incomeOver    = salaryRef > 0 && cycleIncome >= salaryRef;
 
   const { message: ambientMessage, dismiss: dismissAmbient, animationHint } = useAIAssistant({
     aiAdviceEnabled,
@@ -198,43 +129,6 @@ const Dashboard: React.FC = () => {
   // A companion message (with 👍 / 👎 / neutral ✕) takes the bubble first.
   const shownMessage = companionText ?? ambientMessage;
 
-  const handleCycleStarted = useCallback((_cycle: SalaryCycle) => {
-    setLocalCycleStats(null);
-    fetchData();
-    refreshCycle();
-  }, [fetchData, refreshCycle]);
-
-  const handleCycleDeleted = useCallback(() => {
-    setShowIncomeModal(false);
-    setShowExpensesModal(false);
-    setLocalCycleStats(null);
-    fetchData();
-    refreshCycle();
-  }, [fetchData, refreshCycle]);
-
-  const handleIncomeAdded = useCallback((updatedStats: CycleStats) => {
-    setLocalCycleStats(updatedStats);
-    // Full refresh in background to sync all data
-    fetchData();
-    refreshCycle().then(() => setLocalCycleStats(null));
-    runAnalyze(); // real-time AI prediction refresh
-  }, [fetchData, refreshCycle, runAnalyze]);
-
-  // Move the carried-over budget into savings (server applies the whole-unit
-  // rule: whole euros move, cents stay spendable).
-  const [movingCarry, setMovingCarry] = useState(false);
-  const moveCarryOverToSavings = useCallback(async () => {
-    setMovingCarry(true);
-    try {
-      const res = await axiosInstance.post('/salary-cycle/carry-over/savings');
-      handleIncomeAdded(res.data.cycle_stats);
-    } catch {
-      refreshCycle(); // e.g. nothing left to move — resync the figures
-    } finally {
-      setMovingCarry(false);
-    }
-  }, [axiosInstance, handleIncomeAdded, refreshCycle]);
-
   // Lite dashboard is content-short. Tag <body> so the shared layout can fit the
   // actual content instead of reserving full-viewport height (which produced a
   // scrollable empty band below the UFO). Removed when Lite turns off / on leave.
@@ -272,144 +166,15 @@ const Dashboard: React.FC = () => {
       {/* Lite mode hides all salary-cycle / analytics cards; only the budget
           card (and the UFO's jokes/facts) remain. Nothing is removed — turning
           Lite off restores everything. */}
-      {!liteMode && <SalaryCycleCard onCycleStarted={handleCycleStarted} />}
+      {!liteMode && <SalaryCycleCard onCycleStarted={summary.handleCycleStarted} />}
 
       {/* ── Stats grid ───────────────────────────────────────────────────── */}
       {!liteMode && (
       <div className="stats-grid">
 
-        {/* Card 1: Variable Allowance (formerly "Current Balance") */}
-        <div className="stat-card">
-          <div className="stat-icon wallet"><Wallet size={24}/></div>
-          <div className="stat-content">
-            <p className="label">{t('dashboard.variable_allowance')}</p>
-            <p className="value">{formatAmount(variableAllowance)}</p>
-            {carryOver > 0 && (
-              <p className="income-breakdown">
-                {t('dashboard.carry_over_included', { amount: formatAmount(carryOver) })}
-                {carryMoved > 0 && (
-                  <span> · {t('dashboard.carry_over_moved', { amount: formatAmount(carryMoved) })}</span>
-                )}
-              </p>
-            )}
-            {carryMovable >= 1 && (
-              <button
-                type="button"
-                className="carry-over-move-btn"
-                onClick={moveCarryOverToSavings}
-                disabled={movingCarry}
-                aria-label={t('dashboard.carry_over_move_aria', { amount: formatAmount(carryMovable) })}
-              >
-                <PiggyBank size={13} aria-hidden="true" />
-                {t('dashboard.carry_over_move_btn', { amount: formatAmount(carryMovable) })}
-              </button>
-            )}
-            <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
-          </div>
-        </div>
-
-        {/* Card 2: Saved money (click → SavingsHistoryModal) */}
-        <div
-          className={`stat-card${hasCycle ? ' stat-card--clickable' : ''}`}
-          onClick={hasCycle ? () => { setShowSavingsModal(true); refreshCycle(); } : undefined}
-          role={hasCycle ? 'button' : undefined}
-          tabIndex={hasCycle ? 0 : undefined}
-          onKeyDown={hasCycle ? (e => e.key === 'Enter' && setShowSavingsModal(true)) : undefined}
-          title={t('dashboard.saved_money')}
-        >
-          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-            <PiggyBank size={24}/>
-          </div>
-          <div className="stat-content">
-            <p className="label">{t('dashboard.saved_money')}</p>
-            {/* Headline = LIVE remaining pool balance (allocated − withdrawn +
-                additions), the same figure Statistics and the savings history
-                show. The planned allocation is context, not the balance. */}
-            <p className="value" style={{ color: savedMoneyBalance < 0 ? '#ef4444' : '#10b981' }}>
-              {savedMoneyBalance < 0 ? '-' : ''}{formatAmount(savedMoneyBalance)}
-            </p>
-            {dynamicSavings > 0 && (
-              <p className="income-breakdown">
-                {t('dashboard.savings_planned_this_cycle')}: {formatAmount(dynamicSavings)}
-              </p>
-            )}
-            <p className="stat-sublabel">{t('dashboard.savings_remaining_hint')}</p>
-          </div>
-        </div>
-
-        {/* Card 3: Income — click → IncomeHistoryModal; + Add Income button */}
-        <div
-          className="stat-card stat-card--clickable"
-          onClick={() => setShowIncomeModal(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && setShowIncomeModal(true)}
-          title={t('dashboard.income')}
-          style={{ position: 'relative' }}
-        >
-          <div className="stat-icon income"><TrendingUp size={24}/></div>
-          <div className="stat-content">
-            <p className="label">{t('dashboard.income')}</p>
-            <p className="value-plus">+{formatAmount(cycleIncome)}</p>
-            {currentCycle && cycleIncome > 0 && (
-              <p className="income-breakdown">
-                {t('dashboard.income_salary')}: {formatAmount(currentCycle.base_salary)}
-                {currentCycle.bonuses > 0 && (
-                  <span> · {t('dashboard.income_bonuses')}: {formatAmount(currentCycle.bonuses)}</span>
-                )}
-                {cycleIncome - (currentCycle.base_salary + currentCycle.bonuses) > 0.01 && (
-                  <span> · {t('dashboard.income_other')}: {formatAmount(cycleIncome - currentCycle.base_salary - currentCycle.bonuses)}</span>
-                )}
-              </p>
-            )}
-            {salaryRef > 0 && !currentCycle && (
-              <>
-                <div className={`progress-track${incomeOver ? ' progress-track--glow' : ''}`}>
-                  <div className="progress-fill" style={{ width: `${incomePercent}%`, background: incomeOver ? '#10b981' : '#38bdf8' }} />
-                </div>
-                <p className="progress-label">{t('dashboard.income_of_expected', { expected: formatAmount(salaryRef) })}</p>
-              </>
-            )}
-            <p className="stat-sublabel">{t('salary_cycle.income_this_cycle')}</p>
-          </div>
-          {/* Add Income button — only when cycle is active */}
-          {hasCycle && (
-            <button
-              className="stat-card-add-btn"
-              onClick={e => { e.stopPropagation(); setShowAddIncomeModal(true); }}
-              title={t('dashboard.add_income_title')}
-              type="button"
-              aria-label={t('dashboard.add_income_title')}
-            >
-              <Plus size={13} />
-            </button>
-          )}
-        </div>
-
-        {/* Card 4: Expenses — fixed + variable; click → history modal */}
-        <div
-          className="stat-card stat-card--clickable"
-          onClick={() => setShowExpensesModal(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && setShowExpensesModal(true)}
-          title={t('dashboard.expenses')}
-        >
-          <div className="stat-icon expense"><TrendingDown size={24}/></div>
-          <div className="stat-content">
-            <p className="label">{t('dashboard.expenses')}</p>
-            <p className="value-minus">-{formatAmount(cycleExpenses)}</p>
-            {currentCycle && cycleFixedExpenses > 0 && (
-              <p className="income-breakdown">
-                {t('dashboard.expenses_fixed')}: {formatAmount(cycleFixedExpenses)}
-                {cycleVariableExpenses > 0 && (
-                  <span> · {t('dashboard.expenses_variable')}: {formatAmount(cycleVariableExpenses)}</span>
-                )}
-              </p>
-            )}
-            <p className="stat-sublabel">{t('salary_cycle.expenses_this_cycle')}</p>
-          </div>
-        </div>
+        {/* Cards 1–4: variable budget, savings, income, expenses — on wide
+            screens only (phone / tablet: Statistics tiles). */}
+        {wideDesktop && SUMMARY_KINDS.map(kind => <SummaryCard key={kind} kind={kind} model={summary} />)}
 
         {/* Card 5: Budget Health */}
         <div className="stat-card">
@@ -440,44 +205,7 @@ const Dashboard: React.FC = () => {
         formatAmount={formatAmount}
       />
 
-      {showIncomeModal && (
-        <IncomeHistoryModal
-          transactions={transactions}
-          currentCycle={currentCycle}
-          formatAmount={formatAmount}
-          onClose={() => setShowIncomeModal(false)}
-          onCycleDeleted={handleCycleDeleted}
-        />
-      )}
-      {showExpensesModal && (
-        <ExpensesHistoryModal
-          transactions={transactions}
-          currentCycle={currentCycle}
-          fixedExpCatID={fixedExpCatID}
-          formatAmount={formatAmount}
-          onClose={() => setShowExpensesModal(false)}
-          onCycleDeleted={handleCycleDeleted}
-        />
-      )}
-      {showSavingsModal && (
-        <SavingsHistoryModal
-          currentCycle={currentCycle}
-          formatAmount={formatAmount}
-          savedMoneyBalance={savedMoneyBalance}
-          onClose={() => setShowSavingsModal(false)}
-          onSaved={stats => {
-            setLocalCycleStats(stats);
-            refreshCycle().then(() => setLocalCycleStats(null));
-            runAnalyze(); // real-time AI prediction refresh
-          }}
-        />
-      )}
-      {showAddIncomeModal && (
-        <AddIncomeModal
-          onClose={() => setShowAddIncomeModal(false)}
-          onSuccess={handleIncomeAdded}
-        />
-      )}
+      <SummaryModals model={summary} />
 
       {!cosmosInGrid && companionWidget}
     </div>
