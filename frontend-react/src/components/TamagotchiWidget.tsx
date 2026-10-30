@@ -49,6 +49,12 @@ const UFO_GAP        = 8;
 const UFO_HALF_H     = 22; // half the Lottie UFO's box (44 px; re-measured — it scales per breakpoint)
 const HEARTS_BOTTOM  = 30; // room for the health bar under the UFO
 
+// The flight round the moon (seconds per leg): out, a short orbit, back —
+// lively but smooth (it was 5 s per leg, 15 s in all).
+const FLY_APPROACH_S = 2.2;
+const FLY_ORBIT_S    = 2.6;
+const FLY_RETURN_S   = 2.4;
+
 // ── Tour steps ────────────────────────────────────────────────────────────────
 
 const STEPS = [
@@ -600,9 +606,9 @@ const TamagotchiWidget: React.FC<Props> = ({
           flyTimerRef.current = setTimeout(() => {
             setFlyPhase(null);
             setMode('idle');
-          }, 5000);
-        }, 5000);
-      }, 5000);
+          }, FLY_RETURN_S * 1000);
+        }, FLY_ORBIT_S * 1000);
+      }, FLY_APPROACH_S * 1000);
     }, 1500);
   }, [t, axiosInstance, i18n.language, aiServiceMode]);
 
@@ -921,10 +927,10 @@ const TamagotchiWidget: React.FC<Props> = ({
             mode !== 'fly_to_moon'
               ? { type: 'spring', stiffness: 80, damping: 18 }
               : flyPhase === 'orbit'
-                ? { duration: 5.0, ease: 'easeInOut' }
+                ? { duration: FLY_ORBIT_S, ease: 'easeInOut' }
                 : flyPhase === 'return'
-                  ? { duration: 5.0, ease: [0.42, 0, 0.58, 1] }
-                  : { duration: 5.0, ease: [0.25, 0.1, 0.25, 1] }
+                  ? { duration: FLY_RETURN_S, ease: [0.42, 0, 0.58, 1] }
+                  : { duration: FLY_APPROACH_S, ease: [0.25, 0.1, 0.25, 1] }
           }
           onClick={handleUfoClick}
         >
@@ -951,20 +957,8 @@ const TamagotchiWidget: React.FC<Props> = ({
                 exit={{ opacity: 0, scale: 0.85 }}
                 transition={{ duration: 0.25 }}
               >
-                {(() => {
-                  const factsQ = t('dashboard.tama_journal_prompt');
-                  const [qLine1, qLine2 = ''] = factsQ.split('\n');
-                  return (
-                    <svg viewBox="0 0 120 56" width="96" xmlns="http://www.w3.org/2000/svg" overflow="visible">
-                      <circle cx="57" cy="54" r="3" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
-                      <circle cx="59" cy="48" r="4.5" fill="#0c0c0c" stroke="rgba(255,215,0,0.4)" strokeWidth="1"/>
-                      <rect x="4" y="4" width="112" height="38" rx="10"
-                        fill="#0c0c0c" stroke="rgba(255,215,0,0.45)" strokeWidth="1.5"/>
-                      <text x="60" y="20" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">{qLine1}</text>
-                      <text x="60" y="32" textAnchor="middle" fontSize="7.5" fill="rgba(255,255,255,0.85)" fontFamily="'Courier New', monospace">{qLine2}</text>
-                    </svg>
-                  );
-                })()}
+                {/* HTML, not SVG text: it wraps and stays readable at any size. */}
+                <p className="tama-thought-text">{t('dashboard.tama_journal_prompt')}</p>
               </motion.div>
 
               <motion.div

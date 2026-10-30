@@ -28,10 +28,10 @@ interface Transaction {
   category?: { id: number; name: string };
 }
 
-// Wide desktop: the stats grid has 3 columns and a free 6th cell directly
-// under Income, which the companion's cosmos screen takes. Keep in sync with
-// the matching media query in Dashboard.css.
-const COSMOS_IN_GRID_QUERY = '(min-width: 1272px)';
+// Desktop: the stats grid's free 6th cell hosts the companion's cosmos screen
+// — beside Budget health (2 columns) or under Income (3 columns, ≥1272px).
+// Keep in sync with the matching media queries in Dashboard.css.
+const COSMOS_IN_GRID_QUERY = '(min-width: 1025px)';
 
 const Dashboard: React.FC = () => {
   const wideDesktop = useMediaQuery(COSMOS_IN_GRID_QUERY);
@@ -426,7 +426,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Cell 6 (wide desktop only): the companion, under Income. */}
+        {/* Cell 6 (desktop): the companion — beside Budget health, or under Income. */}
         {cosmosInGrid && companionWidget}
       </div>
       )}

@@ -15,34 +15,45 @@
   --tama-screen-glow: rgba(96, 130, 255, 0.2);
 }
 
+/* No card chrome: the dark screen IS the widget. The wrapper only keeps the
+   grid slot and leaves 6px for the bezel ring, so the ring's outer edge lines
+   up with the neighbouring cards' edges. */
 .tama-device {
-  /* Laptop / full-width desktop sizes (overridden per breakpoint below). */
+  /* Full-width desktop sizes (Lite) — overridden per breakpoint below. */
   --tama-ufo: 48px;
-  --tama-moon: 24px;
-  --tama-cow-w: 19px;
-  --tama-cow-h: 33px;
+  --tama-moon: 28px;
+  --tama-cow-w: 21px;
+  --tama-cow-h: 37px;
   --tama-cal: 20px;
 
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-card);
-  border-radius: 1.25rem;
-  padding: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  padding: 6px;
   margin-top: 1.5rem;
 }
 
-/* Dashboard grid cell (≥1272px, under Income): fills its row, fixed height. */
+/* Dashboard grid cell (desktop ≥1025px): fills its row, fixed height. */
 .tama-device--cell {
-  --tama-ufo: 44px;
-  --tama-moon: 23px;
-  --tama-cow-w: 18px;
-  --tama-cow-h: 32px;
-  --tama-cal: 18px;
+  --tama-ufo: 46px;
+  --tama-moon: 27px;
+  --tama-cow-w: 20px;
+  --tama-cow-h: 35px;
+  --tama-cal: 19px;
 
   margin-top: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+/* In a cell the screen fills the whole slot: the AI status moves into the
+   screen's bottom-right corner (above the glass) instead of under it. */
+.tama-device--cell .tama-service-status {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  margin: 0;
+  z-index: 31;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
 }
 .tama-device--cell .tama-screen {
   flex: 1 1 0;
@@ -53,12 +64,10 @@
 /* The screen keeps its height here: long bubble text scrolls in the room
    left above the UFO (--tama-bubble-max, measured by the widget). */
 .tama-device--cell .tama-bubble-text {
-  max-height: calc(var(--tama-bubble-max, 999px) - 2.4rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
 }
 .tama-device--cell .tama-bubble--tour .tama-bubble-text {
-  max-height: calc(var(--tama-bubble-max, 999px) - 3.6rem);
+  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 4rem));
 }
 
 /* The screen: recessed into the card — a thin dark edge, a bezel ring, a
@@ -453,7 +462,7 @@
 }
 
 .tama-bubble-title {
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: #ffd700;
   margin: 0 0 0.2rem;
@@ -462,13 +471,18 @@
   overflow-wrap: break-word;
 }
 
+/* Readable size (≈13px); very long text scrolls instead of making the
+   screen tower (in a grid cell the cap is tighter — see .tama-device--cell). */
 .tama-bubble-text {
-  font-size: 0.63rem;
+  font-size: 0.8rem;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.88);
   margin: 0;
   font-family: inherit;
   overflow-wrap: break-word;
+  max-height: 9.8em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .tama-bubble-close {
@@ -610,12 +624,40 @@
 
 /* ── SVG thought bubble (choice mode) ───────────────────────────────────────── */
 
+/* Sits just above the UFO (centred at 44% from the top), whatever its size. */
 .tama-thought-bubble {
   position: absolute;
-  bottom: 62%;
+  bottom: calc(56% + var(--tama-ufo, 44px) / 2 + 8px);
   left: 50%;
   z-index: 20;
   pointer-events: none;
+  width: max-content;
+  max-width: 76%;
+  padding: 0.38rem 0.8rem;
+  background: #0a0f24;
+  border: 1.5px solid rgba(255, 215, 0, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+/* the two "thought" dots trailing down to the UFO */
+.tama-thought-bubble::before,
+.tama-thought-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  background: #0a0f24;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+.tama-thought-bubble::before { width: 7px; height: 7px; bottom: -10px; margin-left: -3px; }
+.tama-thought-bubble::after  { width: 4px; height: 4px; bottom: -16px; margin-left: -1px; }
+.tama-thought-text {
+  margin: 0;
+  font: 700 0.8rem/1.3 'Courier New', monospace;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  white-space: pre-line;
+  overflow-wrap: break-word;
 }
 
 /* ── Choice zones (left = No, right = Yes) ──────────────────────────────────── */
@@ -792,11 +834,11 @@
    objects and a little more air at the edges. */
 @media (max-width: 1024px) {
   .tama-device {
-    --tama-ufo: 52px;
-    --tama-moon: 20px;
-    --tama-cow-w: 19px;
-    --tama-cow-h: 33px;
-    --tama-cal: 21px;
+    --tama-ufo: 56px;
+    --tama-moon: 30px;
+    --tama-cow-w: 23px;
+    --tama-cow-h: 40px;
+    --tama-cal: 23px;
     margin-top: 1rem;
   }
 
@@ -819,7 +861,7 @@
   }
 
   .tama-bubble-text {
-    font-size: 0.59rem;
+    font-size: 0.78rem;
   }
 
   .tama-tour-footer {
@@ -836,7 +878,6 @@
   .tama-corner-btn--tl { left: 6px; }
 
 
-  .tama-thought-bubble { bottom: 60%; }
 
   .tama-zone { font-size: 0.58rem; }
 
@@ -847,11 +888,10 @@
 @media (max-width: 640px) {
   .tama-device {
     --tama-ufo: 44px;
-    --tama-moon: 20px;
-    --tama-cow-w: 18px;
-    --tama-cow-h: 32px;
+    --tama-moon: 23px;
+    --tama-cow-w: 20px;
+    --tama-cow-h: 35px;
     --tama-cal: 18px;
-    padding: 10px;
   }
 
   .tama-screen {

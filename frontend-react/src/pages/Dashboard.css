@@ -49,16 +49,22 @@ body.dashboard-lite {
     margin-bottom: 2rem;
 }
 
-/* Wide desktop (≥1272px — where three 300px columns fit beside the 260px
-   sidebar): an explicit 3-column grid so the companion's cosmos screen
-   always takes the free 6th cell, directly under Income. Rows are a little
-   taller and further apart so the cosmos cell matches its neighbours.
+/* Desktop (≥1025px, sidebar shown): the companion's cosmos screen takes the
+   grid's free 6th cell — beside Budget health on small laptops (2 columns),
+   under Income from 1272px, where three 300px columns fit (3 columns).
+   Explicit column counts guarantee that slot; rows are a little taller and
+   further apart so the cosmos cell matches its neighbours.
    Keep in sync with COSMOS_IN_GRID_QUERY in Dashboard.tsx. */
+@media (min-width: 1025px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(13.5rem, auto);
+        gap: 1.75rem;
+    }
+}
 @media (min-width: 1272px) {
     .stats-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-auto-rows: minmax(13.5rem, auto);
-        gap: 1.75rem;
     }
 }
 
