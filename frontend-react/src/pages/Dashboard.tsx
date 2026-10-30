@@ -13,6 +13,7 @@ import SavingsHistoryModal from '../components/SavingsHistoryModal';
 import AddIncomeModal from '../components/AddIncomeModal';
 import { useAIAssistant } from '../hooks/useAIAssistant';
 import { useCompanion } from '../hooks/useCompanion';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { healthChangeText, messageText, reasonText } from '../utils/companion';
 import './Dashboard.css';
 
@@ -27,7 +28,13 @@ interface Transaction {
   category?: { id: number; name: string };
 }
 
+// Wide desktop: the stats grid has 3 columns and a free 6th cell directly
+// under Income, which the companion's cosmos screen takes. Keep in sync with
+// the matching media query in Dashboard.css.
+const COSMOS_IN_GRID_QUERY = '(min-width: 1272px)';
+
 const Dashboard: React.FC = () => {
+  const wideDesktop = useMediaQuery(COSMOS_IN_GRID_QUERY);
   const { axiosInstance, user } = useAuth();
   const {
     formatAmount,
@@ -239,6 +246,25 @@ const Dashboard: React.FC = () => {
 
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
+  // Lite hides the stats grid, so the companion stays a full-width block there.
+  const cosmosInGrid = wideDesktop && !liteMode;
+  const companionWidget = (
+    <TamagotchiWidget
+      message={shownMessage}
+      onDismiss={dismissAmbient}
+      onMessageAction={companionText ? companion.act : undefined}
+      mood={companion.state?.mood}
+      animationHint={animationHint}
+      aiServiceMode={aiServiceMode}
+      health={companion.state?.health}
+      reasonText={companionReason}
+      healthNote={healthNote}
+      questOpen={companion.state?.quest.open ?? false}
+      onCatch={companion.catchEntity}
+      layout={cosmosInGrid ? 'cell' : 'stack'}
+    />
+  );
+
   return (
     <div className={`dashboard-wrapper${liteMode ? ' dashboard-wrapper--lite' : ''}`}>
       <h1 className="dashboard-title">{t('dashboard.title')}</h1>
@@ -399,6 +425,9 @@ const Dashboard: React.FC = () => {
             <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
           </div>
         </div>
+
+        {/* Cell 6 (wide desktop only): the companion, under Income. */}
+        {cosmosInGrid && companionWidget}
       </div>
       )}
 
@@ -450,19 +479,7 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      <TamagotchiWidget
-        message={shownMessage}
-        onDismiss={dismissAmbient}
-        onMessageAction={companionText ? companion.act : undefined}
-        mood={companion.state?.mood}
-        animationHint={animationHint}
-        aiServiceMode={aiServiceMode}
-        health={companion.state?.health}
-        reasonText={companionReason}
-        healthNote={healthNote}
-        questOpen={companion.state?.quest.open ?? false}
-        onCatch={companion.catchEntity}
-      />
+      {!cosmosInGrid && companionWidget}
     </div>
   );
 };

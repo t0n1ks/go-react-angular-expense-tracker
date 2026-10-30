@@ -14,7 +14,7 @@
 .dashboard-wrapper--lite .weekly-budget-card {
     margin-bottom: 1rem;
 }
-.dashboard-wrapper--lite .tama-screen {
+.dashboard-wrapper--lite .tama-device {
     margin-top: 0.5rem;
 }
 
@@ -47,6 +47,19 @@ body.dashboard-lite {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
     margin-bottom: 2rem;
+}
+
+/* Wide desktop (≥1272px — where three 300px columns fit beside the 260px
+   sidebar): an explicit 3-column grid so the companion's cosmos screen
+   always takes the free 6th cell, directly under Income. Rows are a little
+   taller and further apart so the cosmos cell matches its neighbours.
+   Keep in sync with COSMOS_IN_GRID_QUERY in Dashboard.tsx. */
+@media (min-width: 1272px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: minmax(13.5rem, auto);
+        gap: 1.75rem;
+    }
 }
 
 .stat-card {

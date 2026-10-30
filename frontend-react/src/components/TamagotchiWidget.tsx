@@ -46,7 +46,7 @@ const PROACTIVE_CYCLE_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3h
 
 const BUBBLE_TOP_PAD = 24;
 const UFO_GAP        = 8;
-const UFO_HALF_H     = 22; // the Lottie UFO's box is 44 px
+const UFO_HALF_H     = 22; // half the Lottie UFO's box (44 px; re-measured — it scales per breakpoint)
 const HEARTS_BOTTOM  = 30; // room for the health bar under the UFO
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
@@ -220,6 +220,10 @@ interface Props {
   // The weekly quest is open: make sure a catchable star shows up soon.
   questOpen?: boolean;
   onCatch?: (kind: CatchKind) => void;
+  // 'stack': full-width block that grows with its bubble (mobile, laptop,
+  // Lite). 'cell': a fixed-height dashboard grid cell — the screen never grows
+  // (its neighbours would jump); a long bubble scrolls instead.
+  layout?: 'stack' | 'cell';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -235,6 +239,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   healthNote,
   questOpen,
   onCatch,
+  layout = 'stack',
 }) => {
   const reduceMotion = useReducedMotion();
   const { t, i18n } = useTranslation();
@@ -246,6 +251,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
   const [widgetH,       setWidgetH]       = useState(0);
+  const [ufoHalf,       setUfoHalf]       = useState(UFO_HALF_H);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
   const [rainbowStarIdx, setRainbowStarIdx] = useState<number | null>(null);
   const [cowVisible,     setCowVisible]     = useState(false);
@@ -287,9 +293,16 @@ const TamagotchiWidget: React.FC<Props> = ({
   useEffect(() => {
     const el = widgetRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWidgetH(el.offsetHeight));
+    // The UFO's box scales per breakpoint (CSS --tama-ufo); its half-height
+    // feeds the bubble/UFO layout below.
+    const measure = () => {
+      setWidgetH(el.offsetHeight);
+      const art = el.querySelector<HTMLElement>('.tama-ufo-art');
+      if (art?.offsetHeight) setUfoHalf(art.offsetHeight / 2);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setWidgetH(el.offsetHeight);
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -730,25 +743,38 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, []);
 
   // ── Dynamic layout ────────────────────────────────────────────────────────
-  const screenMinH = showingBubble && bubbleH > 0
-    ? BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H * 2 + HEARTS_BOTTOM
+  const isCell = layout === 'cell';
+  // Stack: the screen grows to fit the bubble. Cell: it keeps its height and
+  // the bubble's text scrolls within the room left above the UFO.
+  const screenMinH = !isCell && showingBubble && bubbleH > 0
+    ? BUBBLE_TOP_PAD + bubbleH + UFO_GAP + ufoHalf * 2 + HEARTS_BOTTOM
+    : undefined;
+  const bubbleMax = isCell && widgetH > 0
+    ? Math.max(40, widgetH - (BUBBLE_TOP_PAD + UFO_GAP + ufoHalf * 2 + HEARTS_BOTTOM))
     : undefined;
 
   let ufoTop: string;
   if (showingBubble && bubbleH > 0) {
     const screenH = Math.max(screenMinH ?? 0, widgetH > 0 ? widgetH : 100);
-    const ufoCenter = BUBBLE_TOP_PAD + bubbleH + UFO_GAP + UFO_HALF_H;
+    const ufoCenter = BUBBLE_TOP_PAD + Math.min(bubbleH, bubbleMax ?? bubbleH) + UFO_GAP + ufoHalf;
     ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
   } else {
     ufoTop = '44%';
   }
 
+  const screenStyle: React.CSSProperties & Record<'--tama-bubble-max', string | undefined> = {
+    minHeight: screenMinH ? `${screenMinH}px` : undefined,
+    '--tama-bubble-max': bubbleMax ? `${bubbleMax}px` : undefined,
+  };
+
   return (
     <>
+    {/* The device: a card with the cosmos screen set into it (bezel, glass). */}
+    <div className={`tama-device tama-device--${layout}`}>
     <div
       className="tama-screen"
       ref={widgetRef}
-      style={screenMinH ? { minHeight: `${screenMinH}px` } : undefined}
+      style={screenStyle}
     >
 
       {/* ── Corner button (tour) ── */}
@@ -1031,6 +1057,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         </span>
       </div>
     )}
+    </div>
 
     <TamagotchiJournalModal
       open={showJournal}

@@ -1,18 +1,98 @@
-/* ── Tamagotchi mini-screen ─────────────────────────────────────────────────── */
+/* ── The device: a card with the cosmos screen set into it ─────────────────────
+   Theme tokens for the bezel; object sizes per breakpoint (see Responsive). The
+   screen itself is always dark space in both themes. */
 
+:root {
+  --tama-bezel: #e4e8f0;
+  --tama-bezel-edge: rgba(15, 23, 42, 0.22);
+  --tama-bezel-rim: rgba(255, 255, 255, 0.95);
+  --tama-screen-glow: rgba(76, 110, 245, 0.16);
+}
+.dark {
+  --tama-bezel: #111a28;
+  --tama-bezel-edge: rgba(0, 0, 0, 0.6);
+  --tama-bezel-rim: rgba(255, 255, 255, 0.06);
+  --tama-screen-glow: rgba(96, 130, 255, 0.2);
+}
+
+.tama-device {
+  /* Laptop / full-width desktop sizes (overridden per breakpoint below). */
+  --tama-ufo: 48px;
+  --tama-moon: 24px;
+  --tama-cow-w: 19px;
+  --tama-cow-h: 33px;
+  --tama-cal: 20px;
+
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-card);
+  border-radius: 1.25rem;
+  padding: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  margin-top: 1.5rem;
+}
+
+/* Dashboard grid cell (≥1272px, under Income): fills its row, fixed height. */
+.tama-device--cell {
+  --tama-ufo: 44px;
+  --tama-moon: 23px;
+  --tama-cow-w: 18px;
+  --tama-cow-h: 32px;
+  --tama-cal: 18px;
+
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tama-device--cell .tama-screen {
+  flex: 1 1 0;
+  aspect-ratio: auto;
+  min-height: 0;
+  max-height: none;
+}
+/* The screen keeps its height here: long bubble text scrolls in the room
+   left above the UFO (--tama-bubble-max, measured by the widget). */
+.tama-device--cell .tama-bubble-text {
+  max-height: calc(var(--tama-bubble-max, 999px) - 2.4rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tama-device--cell .tama-bubble--tour .tama-bubble-text {
+  max-height: calc(var(--tama-bubble-max, 999px) - 3.6rem);
+}
+
+/* The screen: recessed into the card — a thin dark edge, a bezel ring, a
+   faint glow; the glass (inner shadow + sheen) sits on top in ::after. */
 .tama-screen {
   position: relative;
+  isolation: isolate; /* keep the scene's z-layers inside the screen */
+  box-sizing: border-box;
   width: 100%;
   aspect-ratio: 5 / 2;
-  min-height: 100px;
-  max-height: 140px;
-  border-radius: 1.25rem;
-  border: 1.5px solid #1c1c1c;
+  min-height: 120px;
+  max-height: 170px;
+  border-radius: 0.9rem;
+  border: 1px solid #000;
   box-shadow:
-    inset 0 2px 24px rgba(0, 0, 0, 0.75),
-    0 4px 20px rgba(0, 0, 0, 0.15);
+    0 0 0 1px var(--tama-bezel-edge),
+    0 0 0 5px var(--tama-bezel),
+    0 0 0 6px var(--tama-bezel-rim),
+    0 0 26px 4px var(--tama-screen-glow);
   overflow: visible;
-  margin-top: 1.5rem;
+}
+
+.tama-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 30;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 26%, transparent 40%);
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.75),
+    inset 0 0 28px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 /* ── Corner buttons ─────────────────────────────────────────────────────────── */
@@ -49,17 +129,62 @@
 
 /* ── Scene layer ────────────────────────────────────────────────────────────── */
 
+/* Deep space: a navy → black gradient, three soft nebula glows and a
+   vignette — all one static background (painted once). */
 .tama-scene {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    #080808;
-  background-size: 18px 18px, 18px 18px, auto;
-  border-radius: 1.25rem;
+    radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(70% 90% at 16% 24%, rgba(98, 72, 210, 0.30), transparent 62%),
+    radial-gradient(60% 80% at 86% 82%, rgba(16, 124, 176, 0.24), transparent 64%),
+    radial-gradient(40% 50% at 62% 6%, rgba(196, 72, 156, 0.13), transparent 72%),
+    linear-gradient(165deg, #0d1536 0%, #070b20 48%, #020309 100%);
+  border-radius: inherit;
   overflow: hidden;
 }
+
+/* Two tiled star layers drifting at different speeds = parallax depth. Each is
+   a static image moved by transform only (compositor, no per-frame paint). */
+.tama-scene::before,
+.tama-scene::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+/* Far layer: many faint, tiny stars, slow. */
+.tama-scene::before {
+  z-index: 1;
+  width: calc(100% + 140px);
+  background-image:
+    radial-gradient(1px 1px at 12px 18px, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 64px 92px, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 102px 40px, rgba(200, 215, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 31px 121px, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 128px 110px, rgba(255, 240, 220, 0.4), transparent),
+    radial-gradient(1px 1px at 84px 6px, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 48px 62px, rgba(255, 255, 255, 0.25), transparent);
+  background-size: 140px 140px;
+  animation: tama-drift-far 160s linear infinite;
+}
+/* Near layer: fewer, larger, brighter stars, faster. */
+.tama-scene::after {
+  z-index: 2;
+  width: calc(100% + 260px);
+  background-image:
+    radial-gradient(1.5px 1.5px at 40px 60px, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 190px 30px, rgba(190, 210, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 220px 170px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 110px 210px, rgba(255, 230, 200, 0.75), transparent);
+  background-size: 260px 260px;
+  animation: tama-drift-near 110s linear infinite;
+}
+@keyframes tama-drift-far  { to { transform: translateX(-140px); } }
+@keyframes tama-drift-near { to { transform: translateX(-260px); } }
 
 .tama-overlay {
   position: absolute;
@@ -154,6 +279,12 @@
   animation: tama-cal-bob 4s ease-in-out infinite;
 }
 
+.tama-calendar img,
+.tama-calendar svg {
+  width: var(--tama-cal);
+  height: var(--tama-cal);
+}
+
 @keyframes tama-cal-bob {
   0%, 100% { transform: translateY(0px) rotate(-3deg); }
   50%       { transform: translateY(-5px) rotate(3deg); }
@@ -233,6 +364,8 @@
   .tama-health-fill { transition: none; }
   .tama-ufo-bob { animation: none; }
   .tama-space-cow { animation: none; }
+  .tama-scene::before,
+  .tama-scene::after { animation: none; }
   .tama-vote { transition: none; }
 }
 
@@ -244,6 +377,11 @@
   right: 13%;
   pointer-events: none;
   z-index: 6;
+  line-height: 0;
+}
+.tama-moon svg {
+  width: var(--tama-moon);
+  height: var(--tama-moon);
 }
 
 /* ── UFO ────────────────────────────────────────────────────────────────────── */
@@ -278,9 +416,10 @@
   position: absolute;
   top: 24px;
   left: 50%;
-  background: #0c0c0c;
+  background: #0a0f24;
   border: 1.5px solid rgba(255, 215, 0, 0.4);
   border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   padding: 0.42rem 2rem 0.42rem 0.7rem;
   width: fit-content;
   max-width: 88%;
@@ -502,7 +641,7 @@
   left: 0;
   background: rgba(239, 68, 68, 0.10);
   color: #f87171;
-  border-radius: 1.25rem 0 0 1.25rem;
+  border-radius: 0.9rem 0 0 0.9rem;
 }
 
 .tama-zone--red:hover {
@@ -513,7 +652,7 @@
   right: 0;
   background: rgba(16, 185, 129, 0.10);
   color: #34d399;
-  border-radius: 0 1.25rem 1.25rem 0;
+  border-radius: 0 0.9rem 0.9rem 0;
 }
 
 .tama-zone--green:hover {
@@ -615,19 +754,21 @@
 /* ── Lottie art (UFO, cow): the SVG fills its box; a fallback shows while it loads ── */
 .tama-lottie-art { position: relative; }
 .tama-ufo-art {
-  width: 44px;
-  height: 44px;
+  width: var(--tama-ufo, 44px);
+  height: var(--tama-ufo, 44px);
 }
-/* The cow animation is cropped to a tall box (see COW_VIEWBOX), about the
-   old 24 px sprite's height; the sprite stands in, centred, while it loads. */
+/* The cow animation is cropped to a tall box (see COW_VIEWBOX); the pixel
+   sprite stands in, centred, while it loads. */
 .tama-cow-art {
-  width: 16px;
-  height: 28px;
+  width: var(--tama-cow-w, 18px);
+  height: var(--tama-cow-h, 32px);
 }
 .tama-cow-fallback {
   position: absolute;
-  left: -4px;
-  top: 2px;
+  left: -25%;
+  top: 7%;
+  width: 150%;
+  height: auto;
 }
 .tama-lottie-player,
 .tama-lottie-player > svg {
@@ -639,21 +780,33 @@
 }
 .tama-ufo-static {
   position: absolute;
-  left: 2px;
-  top: 10px;
-  width: 40px;
-  height: 24px;
+  left: 4.5%;
+  top: 22.7%;
+  width: 91%;
+  height: 54.5%;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 
+/* Tablet (641–1024px): a wider screen, capped so it doesn't tower; larger
+   objects and a little more air at the edges. */
 @media (max-width: 1024px) {
-  .tama-screen {
-    aspect-ratio: 4 / 2;
-    min-height: 180px;
-    max-height: none;
+  .tama-device {
+    --tama-ufo: 52px;
+    --tama-moon: 20px;
+    --tama-cow-w: 19px;
+    --tama-cow-h: 33px;
+    --tama-cal: 21px;
     margin-top: 1rem;
   }
+
+  .tama-screen {
+    aspect-ratio: 5 / 2;
+    min-height: 220px;
+    max-height: 320px;
+  }
+
+  .tama-moon { top: 10%; right: 9%; }
 
   .tama-bubble {
     top: 20px;
@@ -682,12 +835,31 @@
 
   .tama-corner-btn--tl { left: 6px; }
 
-  .tama-moon { top: 10%; right: 10%; transform: scale(0.85); transform-origin: top right; }
 
   .tama-thought-bubble { bottom: 60%; }
 
   .tama-zone { font-size: 0.58rem; }
 
+}
+
+
+/* Phone (≤640px): a slightly taller screen than before (180 → 200px). */
+@media (max-width: 640px) {
+  .tama-device {
+    --tama-ufo: 44px;
+    --tama-moon: 20px;
+    --tama-cow-w: 18px;
+    --tama-cow-h: 32px;
+    --tama-cal: 18px;
+    padding: 10px;
+  }
+
+  .tama-screen {
+    aspect-ratio: 2 / 1;
+    min-height: 200px;
+  }
+
+  .tama-moon { top: 11%; right: 11%; }
 }
 
 
