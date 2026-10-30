@@ -90,6 +90,11 @@ const Dashboard: React.FC = () => {
   const budgetRemaining = Math.max(0, variableAllowance - cycleVariableExpenses);
   const budgetPercent   = budgetMax > 0 ? (cycleVariableExpenses / budgetMax) * 100 : 0;
   const budgetBarColor  = budgetPercent >= 100 ? '#ef4444' : budgetPercent >= 80 ? '#f59e0b' : '#38bdf8';
+  // On track: the hero figure in the theme's blue ink and the bar in the accent
+  // gradient; warning / over keep their amber / red.
+  const onTrack         = budgetPercent < 80;
+  const budgetTextColor = onTrack ? 'var(--blue-ink)' : budgetBarColor;
+  const budgetFill      = onTrack ? 'var(--accent-grad)' : budgetBarColor;
 
   const { message: ambientMessage, dismiss: dismissAmbient, animationHint } = useAIAssistant({
     aiAdviceEnabled,
@@ -185,20 +190,20 @@ const Dashboard: React.FC = () => {
             screens only (phone / tablet: Statistics tiles). */}
         {wideDesktop && SUMMARY_KINDS.map(kind => <SummaryCard key={kind} kind={kind} model={summary} />)}
 
-        {/* Card 5: Budget Health */}
-        <div className="stat-card">
+        {/* Card 5: Budget Health — the hero card */}
+        <div className="stat-card stat-card--hero">
           <div className="stat-icon budget-icon"><Target size={24}/></div>
           <div className="stat-content">
             <p className="label">{t('dashboard.budget_health')}</p>
             {/* Left now, then "/ total" as one smaller unit: on a narrow
                 screen the whole "/ total" moves down together — the slash
                 never dangles at a line end. */}
-            <p className="value budget-health-value" style={{ color: budgetBarColor }}>
+            <p className="value budget-health-value" style={{ color: budgetTextColor }}>
               <span className="budget-health-current">{formatAmount(budgetRemaining)}</span>
               <span className="budget-health-total">/&nbsp;{formatAmount(budgetMax)}</span>
             </p>
             <div className="budget-health-bar-track">
-              <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetBarColor }} />
+              <div className="budget-health-bar-fill" style={{ width: `${Math.min(budgetPercent, 100)}%`, background: budgetFill }} />
             </div>
             <p className="stat-sublabel">{t('dashboard.since_payday')}</p>
           </div>

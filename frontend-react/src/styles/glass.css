@@ -1,0 +1,169 @@
+/* ── Glass + depth (Phase 2.25) ──────────────────────────────────────────────
+   One recipe for the app's surfaces, built only from the theme tokens in
+   index.css (--surface, --edge, --card-shadow, --card-hi, …), so both themes
+   follow and the look stays revertible in one place.
+
+   Selectors are prefixed with `html` so the recipe wins over each component's
+   own base rule regardless of stylesheet order (component tints / states with
+   their own modifier classes are re-applied below on top of the glass).
+
+   Performance: backdrop blur is GPU work, so it is only on real cards and on
+   modals / popovers — never on list rows or chips (they stay translucent over
+   the smooth gradient, which looks the same without the cost). */
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+html .card,
+html .stat-card,
+html .sc-card,
+html .weekly-budget-card,
+html .no-cycle-card,
+html .stat-chart-card,
+html .savings-forecast-card,
+html .forecast-card,
+html .summary-tile,
+html .category-card,
+html .settings-card,
+html .transaction-card,
+html .ai-message-box {
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  box-shadow: var(--card-shadow), var(--card-hi);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.3);
+}
+
+/* Forecast card tints, re-applied over the glass. */
+html .forecast-card--positive { background: linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, transparent 60%), var(--surface); }
+html .forecast-card--negative { background: linear-gradient(135deg, rgba(248, 113, 113, 0.10) 0%, transparent 60%), var(--surface); }
+html .forecast-card--calibrating { background: linear-gradient(135deg, rgba(56, 189, 248, 0.10) 0%, transparent 60%), var(--surface); }
+
+/* Rows inside lists: the same glass fill, no blur (many on screen). */
+html .tx-card-item {
+  background: var(--surface);
+  border-color: var(--edge);
+}
+
+/* ── Modals & popovers: frosted, near-opaque so text never fights what's
+   behind them. ─────────────────────────────────────────────────────────── */
+html .hist-modal,
+html .fmd-modal,
+html .txd-modal,
+html .lite-modal,
+html .delete-modal,
+html .privacy-modal-card,
+html .sc-tip-modal,
+html .budget-insight-popover,
+html .settings-lite-info-popover,
+html .rule-explain-popup,
+html .summary-sheet .stat-card {
+  background: var(--surface-strong);
+  border: 1px solid var(--edge);
+  box-shadow: var(--card-shadow), var(--card-hi);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+}
+
+/* ── Icon tiles (the small rounded squares on cards) ──────────────────────── */
+html .stat-icon,
+html .weekly-budget-icon {
+  border: 1px solid var(--edge);
+  box-shadow: var(--card-hi);
+}
+html .stat-icon.wallet,
+html .stat-icon.budget-icon,
+html .weekly-budget-icon,
+html .sc-icon,
+html .no-cycle-icon-wrap {
+  background: var(--surface-2);
+  color: var(--blue);
+}
+html .sc-icon,
+html .no-cycle-icon-wrap {
+  border: 1px solid var(--edge);
+  box-shadow: var(--card-hi);
+}
+
+/* ── Hero card (Budget health): a faint radial glow behind it ─────────────── */
+html .stat-card--hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+html .stat-card--hero::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 80%;
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(closest-side, var(--glow), transparent);
+  z-index: -1;
+  pointer-events: none;
+}
+html .stat-card--hero .budget-health-current {
+  font-size: 1.15em;
+  letter-spacing: -0.01em;
+}
+
+/* ── Progress bars ─────────────────────────────────────────────────────────── */
+html .budget-health-bar-track,
+html .weekly-budget-bar-track {
+  background: var(--track);
+}
+html .budget-health-bar-fill,
+html .weekly-budget-bar-fill {
+  box-shadow: 0 0 8px -1px var(--glow);
+}
+
+/* ── Primary buttons & active segmented pills: the accent gradient ─────────── */
+html .btn-add-transaction,
+html .btn-save-settings,
+html .tx-card-edit-btn--save,
+html .tx-filters-badge,
+html .sc-submit-btn,
+html .cpe-save,
+html .weekly-budget-action-btn--save {
+  background: var(--accent-grad);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: var(--accent-shadow);
+}
+html .balance-seg--active,
+html .tx-date-mode-btn--active {
+  background: var(--accent-grad);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: var(--accent-shadow);
+}
+html .balance-seg--active .balance-seg-label,
+html .balance-seg--active * { color: #ffffff; }
+
+/* ── Fallbacks ──────────────────────────────────────────────────────────────
+   No backdrop blur → a solid surface, so cards are never see-through text
+   boxes. Reduced transparency → the same solid surfaces. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html .card, html .stat-card, html .sc-card, html .weekly-budget-card, html .no-cycle-card,
+  html .stat-chart-card, html .savings-forecast-card, html .forecast-card, html .summary-tile,
+  html .category-card, html .settings-card, html .transaction-card, html .ai-message-box,
+  html .tx-card-item {
+    background: var(--surface-solid);
+  }
+  html .hist-modal, html .fmd-modal, html .txd-modal, html .lite-modal, html .delete-modal,
+  html .privacy-modal-card, html .sc-tip-modal, html .budget-insight-popover,
+  html .settings-lite-info-popover, html .rule-explain-popup, html .summary-sheet .stat-card {
+    background: var(--surface-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html .card, html .stat-card, html .sc-card, html .weekly-budget-card, html .no-cycle-card,
+  html .stat-chart-card, html .savings-forecast-card, html .forecast-card, html .summary-tile,
+  html .category-card, html .settings-card, html .transaction-card, html .ai-message-box,
+  html .tx-card-item,
+  html .hist-modal, html .fmd-modal, html .txd-modal, html .lite-modal, html .delete-modal,
+  html .privacy-modal-card, html .sc-tip-modal, html .budget-insight-popover,
+  html .settings-lite-info-popover, html .rule-explain-popup, html .summary-sheet .stat-card {
+    background: var(--surface-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

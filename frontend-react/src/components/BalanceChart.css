@@ -21,8 +21,8 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.25rem;
-  background: var(--color-no-data-bg);
-  border: 1px solid var(--color-border-card);
+  background: var(--surface-2);
+  border: 1px solid var(--edge);
   border-radius: 0.85rem;
 }
 .balance-bar--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -137,6 +137,8 @@
   min-width: 0;
   cursor: crosshair;
 }
+/* The line's soft glow (the SVG filter defined in the chart). */
+.balance-chart-plot .recharts-area-curve { filter: var(--balance-glow); }
 
 /* ── Scrubber: a native range input under the plot, aligned to its x span ── */
 .balance-scrubber {
@@ -159,12 +161,12 @@
 .balance-scrubber-input::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
-  background: var(--color-border-card);
+  background: var(--track);
 }
 .balance-scrubber-input::-moz-range-track {
   height: 6px;
   border-radius: 999px;
-  background: var(--color-border-card);
+  background: var(--track);
 }
 .balance-scrubber-input::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -173,17 +175,17 @@
   height: 22px;
   margin-top: -8px;
   border-radius: 50%;
-  background: var(--balance-line);
-  border: 3px solid var(--color-bg-card);
-  box-shadow: 0 0 0 1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
+  border: 3px solid var(--balance-line);
+  box-shadow: 0 0 10px -1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 .balance-scrubber-input::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--balance-line);
-  border: 3px solid var(--color-bg-card);
-  box-shadow: 0 0 0 1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
+  border: 3px solid var(--balance-line);
+  box-shadow: 0 0 10px -1px var(--balance-line), 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 .balance-scrubber-input:focus { outline: none; }
 .balance-scrubber-input:focus-visible::-webkit-slider-thumb {

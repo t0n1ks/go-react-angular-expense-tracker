@@ -40,10 +40,15 @@ const TIMELINE_PERIODS = [
 
 // Line colours: budget = the budget bar's blue, savings = the savings card's
 // green, total = the app's indigo accent (lighter in the dark theme).
-const lineColor = (view: BalanceView | null, isDark: boolean): string =>
-  view === 'budget' ? '#38bdf8'
-  : view === 'savings' || view === null ? '#10b981'
-  : isDark ? '#818cf8' : '#6366f1';
+// The line is a gradient (start → end) per view: Total in the signature blue,
+// Budget a lighter sky blue, Savings (and the no-cycle cash flow) green.
+const lineStops = (view: BalanceView | null, isDark: boolean): [string, string] =>
+  view === 'budget' ? (isDark ? ['#7dd3fc', '#38bdf8'] : ['#38bdf8', '#0284c7'])
+  : view === 'savings' || view === null ? (isDark ? ['#6ee7b7', '#34d399'] : ['#10b981', '#0f9d6b'])
+  : isDark ? ['#22d3ee', '#3b82f6'] : ['#0ea5e9', '#2563eb'];
+
+// The line's main hue (its end colour): markers, the guide, the readout frame.
+const lineColor = (view: BalanceView | null, isDark: boolean): string => lineStops(view, isDark)[1];
 
 // The same hues for TEXT and controls, darkened in the light theme so small
 // text keeps ≥ 4.5:1 contrast on white.
@@ -51,7 +56,7 @@ const accentColor = (view: BalanceView | null, isDark: boolean): string =>
   isDark ? lineColor(view, true)
   : view === 'budget' ? '#0369a1'
   : view === 'savings' || view === null ? '#047857'
-  : '#4f46e5';
+  : '#1d4ed8';
 
 // Plot geometry, shared by the chart and the slider so the slider's ends sit
 // exactly under the first and last day: Y axis + X padding on the left,
@@ -96,6 +101,7 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
   const hasViews = moneySeries.length > 0;
   const activeView = hasViews ? view : null;
   const color = lineColor(activeView, isDark);
+  const [lineA, lineB] = lineStops(activeView, isDark);
   const accent = accentColor(activeView, isDark);
   const locale = i18n.language;
 
@@ -135,12 +141,16 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
     if (abs >= 1000) return `${sign}${currencySymbol}${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`;
     return `${sign}${currencySymbol}${Math.round(abs)}`;
   };
-  const gridColor = isDark ? '#1e2a3a' : '#eef2f7';
-  const axisColor = isDark ? '#2a3852' : '#e2e8f0';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(11, 54, 112, 0.07)';
+  const axisColor = isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(11, 54, 112, 0.12)';
+  const tickColor = isDark ? '#8a97ad' : '#5d6b82';
   const gradientId = `balance-fill-${activeView ?? 'cashflow'}`;
+  const strokeId = `${gradientId}-stroke`;
+  const glowId = `${gradientId}-glow`;
+  const last = data.length > 0 ? data[data.length - 1] : null;
   const negative = 'var(--color-expense-text)';
 
-  const cardStyle = { '--balance-accent': accent, '--balance-line': color } as CSSProperties;
+  const cardStyle = { '--balance-accent': accent, '--balance-line': color, '--balance-glow': `url(#${glowId})` } as CSSProperties;
   const selectedText = selected ? `${formatDay(selected.date, locale)}: ${formatAmount(selected.value)}` : '';
 
   return (
@@ -213,17 +223,32 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
                   onClick={(s) => pickIndex(s.activeTooltipIndex)}
                 >
                   <defs>
+                    {/* Area: the line's hue fading to transparent. */}
                     <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={color} stopOpacity={0.24} />
-                      <stop offset="95%" stopColor={color} stopOpacity={0} />
+                      <stop offset="0%" stopColor={lineB} stopOpacity={0.30} />
+                      <stop offset="95%" stopColor={lineB} stopOpacity={0} />
                     </linearGradient>
+                    {/* Line: left → right gradient in user space (a flat line
+                        has a zero-height box, which would hide a bbox gradient). */}
+                    <linearGradient id={strokeId} gradientUnits="userSpaceOnUse" x1="0%" y1="0" x2="100%" y2="0">
+                      <stop offset="0%" stopColor={lineA} />
+                      <stop offset="100%" stopColor={lineB} />
+                    </linearGradient>
+                    {/* Soft glow: a blurred copy under the crisp line. */}
+                    <filter id={glowId} x="-5%" y="-40%" width="110%" height="180%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                   <YAxis
                     width={Y_AXIS_W}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: tickColor, fontSize: 11 }}
                     tickFormatter={compact}
                     tickCount={5}
                   />
@@ -232,7 +257,7 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
                     tickFormatter={shortDay}
                     axisLine={{ stroke: axisColor }}
                     tickLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                    tick={{ fill: tickColor, fontSize: 11 }}
                     dy={10}
                     padding={{ left: X_PAD, right: X_PAD }}
                     minTickGap={44}
@@ -245,24 +270,41 @@ const BalanceChart: React.FC<Props> = ({ moneySeries, transactions }) => {
                     type={BALANCE_CURVE}
                     dataKey="value"
                     name={viewLabel}
-                    stroke={color}
-                    strokeWidth={2.5}
+                    stroke={`url(#${strokeId})`}
+                    strokeWidth={3}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
                     fillOpacity={1}
                     fill={`url(#${gradientId})`}
                     activeDot={false}
                     isAnimationActive={!reduceMotion}
                     animationDuration={450}
                   />
+                  {/* Today: a glowing endpoint dot. */}
+                  {last && (
+                    <ReferenceDot
+                      x={last.date}
+                      y={last.value}
+                      r={4.5}
+                      shape={(p: { cx?: number; cy?: number }) => (
+                        <g>
+                          <circle cx={p.cx} cy={p.cy} r={10} fill={lineB} opacity={0.22} />
+                          <circle cx={p.cx} cy={p.cy} r={4.5} fill={lineB} stroke="#ffffff" strokeWidth={2} />
+                        </g>
+                      )}
+                    />
+                  )}
                   {selected && (
                     <>
-                      <ReferenceLine x={selected.date} stroke={color} strokeOpacity={0.55} strokeDasharray="3 3" />
+                      <ReferenceLine x={selected.date} stroke={color} strokeOpacity={0.6} strokeDasharray="4 4" />
+                      {/* The picked day: a white dot with a ring in the line's hue. */}
                       <ReferenceDot
                         x={selected.date}
                         y={selected.value}
-                        r={5}
-                        fill={color}
-                        stroke={isDark ? '#0f172a' : '#ffffff'}
-                        strokeWidth={2}
+                        r={5.5}
+                        fill="#ffffff"
+                        stroke={color}
+                        strokeWidth={3}
                       />
                     </>
                   )}

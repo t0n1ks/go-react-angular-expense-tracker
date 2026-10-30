@@ -127,7 +127,9 @@
     width: calc(100vw - 260px);
     max-width: calc(100vw - 260px);
     overflow-x: hidden;
-    background: var(--color-bg-main);
+    /* The deep gradient behind all content (its end colour as the base). */
+    background: var(--bg);
+    background-color: var(--color-bg-main);
 }
 
 /* ── Mobile / tablet top header ─────────────────────────────────────────── */
@@ -153,7 +155,7 @@
         left: 0;
         right: 0;
         height: var(--header-total-height);
-        background: var(--color-bg-card);
+        background: var(--color-header-bg);
         border-bottom: 1px solid var(--color-border-card);
         z-index: 300;
         align-items: center;

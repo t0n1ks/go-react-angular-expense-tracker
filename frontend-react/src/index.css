@@ -5,6 +5,7 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain;
@@ -122,9 +123,40 @@ button::-moz-focus-inner {
   --header-height: 54px;
   --header-total-height: calc(var(--header-height) + env(safe-area-inset-top));
 
-  /* App layout */
-  --color-bg-app: #f1f5f9;
-  --color-bg-main: #f8fafc;
+  /* ── Glass + depth (Phase 2.25) — the look's own tokens; the older tokens
+     below point at them where they mean the same thing. ── */
+  --bg: linear-gradient(172deg, #e7f0ff 0%, #eef6ff 46%, #e9f4ff 100%);
+  --surface: rgba(255, 255, 255, 0.72);       /* glass card fill */
+  --surface-2: rgba(255, 255, 255, 0.52);     /* insets, chips, icon tiles */
+  --surface-strong: rgba(255, 255, 255, 0.94);/* modals / popovers (stay readable) */
+  --surface-solid: #ffffff;                   /* no-blur / reduced-transparency fallback */
+  --edge: rgba(255, 255, 255, 0.93);          /* 1px border / top highlight */
+  --text: #1d2838;
+  --muted: #5d6b82;
+  --label: #71809a;
+  --blue: #0ea5e9;                            /* accent: icons, active, links */
+  --blue-ink: #0b84bd;                        /* hero figures */
+  --accent-grad: linear-gradient(135deg, #0ea5e9, #2563eb);
+  --amber-grad: linear-gradient(90deg, #f6b352, #d9881c);
+  --accent-shadow: 0 6px 16px -6px rgba(14, 116, 233, 0.55);
+  --green: #0f9d6b;
+  --coral: #e5556a;
+  --amber: #d9881c;
+  --amber-ink: #a8650f;                       /* amber TEXT: #d9881c is < 3:1 on white */
+  --track: rgba(11, 54, 112, 0.09);
+  --card-shadow: 0 14px 30px -12px rgba(42, 90, 166, 0.21);
+  --card-hi: inset 0 1px 0 rgba(255, 255, 255, 0.80);
+  --glow: rgba(124, 196, 255, 0.5);           /* #7cc4ff at ~50% */
+  --chart-line-a: #0ea5e9;
+  --chart-line-b: #2563eb;
+  /* The mobile header (and the status bar that follows it) keeps its solid
+     surface — the glass look is for the content, not the system bars. */
+  --color-header-bg: #ffffff;
+
+  /* App layout — the page itself is --bg (gradient); bg-main is its end
+     colour, for anything that needs a plain colour behind the content. */
+  --color-bg-app: #e7f0ff;
+  --color-bg-main: #e9f4ff;
   --color-bg-card: #ffffff;
   --color-bg-card-rgb: 255, 255, 255;
   --color-border-card: #e8edf2;
@@ -142,10 +174,10 @@ button::-moz-focus-inner {
   --color-nav-active-text: #0284c7;
 
   /* Text */
-  --color-text-heading: #1e293b;
+  --color-text-heading: var(--text);
   --color-text-body: #334155;
-  --color-text-muted: #64748b;
-  --color-text-secondary: #64748b;
+  --color-text-muted: var(--muted);
+  --color-text-secondary: var(--muted);
   --color-text-placeholder: #94a3b8;
 
   /* Inputs */
@@ -165,17 +197,17 @@ button::-moz-focus-inner {
 
   /* Income / Expense badges — Mint Green / Coral Soft Red */
   --color-income-bg: #ecfdf5;
-  --color-income-text: #10b981;
+  --color-income-text: var(--green);
   --color-expense-bg: #fff1f5;
-  --color-expense-text: #f43f5e;
+  --color-expense-text: var(--coral);
 
   /* Dashboard stat icons */
-  --color-wallet-icon-bg: #e0f2fe;
-  --color-wallet-icon-text: #0ea5e9;
-  --color-income-icon-bg: #ecfdf5;
-  --color-income-icon-text: #10b981;
-  --color-expense-icon-bg: #fff1f5;
-  --color-expense-icon-text: #f43f5e;
+  --color-wallet-icon-bg: var(--surface-2);
+  --color-wallet-icon-text: var(--blue);
+  --color-income-icon-bg: var(--surface-2);
+  --color-income-icon-text: var(--green);
+  --color-expense-icon-bg: var(--surface-2);
+  --color-expense-icon-text: var(--coral);
 
   /* Table */
   --color-table-header-bg: #f8fafc;
@@ -244,7 +276,7 @@ button::-moz-focus-inner {
   --color-auth-input-focus-bg-reg: #f0fff4;
 
   /* Chart */
-  --color-chart-grid: #f1f5f9;
+  --color-chart-grid: rgba(11, 54, 112, 0.07);
   --color-chart-axis-text: #94a3b8;
 }
 
@@ -252,12 +284,39 @@ button::-moz-focus-inner {
   --shadow-card: 0 1px 2px rgba(0,0,0,0.16), 0 4px 16px rgba(0,0,0,0.24);
   --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.24), 0 12px 32px rgba(0,0,0,0.36);
 
+  /* ── Glass + depth (Phase 2.25) ── */
+  --bg: linear-gradient(180deg, #0a1020 0%, #080c17 48%, #070a12 100%);
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.025);
+  --surface-strong: rgba(20, 28, 46, 0.94);
+  --surface-solid: #141c2e;
+  --edge: rgba(255, 255, 255, 0.10);
+  --text: #eaf0fb;
+  --muted: #8a97ad;
+  --label: #6b7890;
+  --blue: #38bdf8;
+  --blue-ink: #7dd3fc;
+  --accent-grad: linear-gradient(135deg, #22d3ee, #3b82f6);
+  --amber-grad: linear-gradient(90deg, #f8c46e, #f6b352);
+  --accent-shadow: 0 6px 18px -6px rgba(56, 189, 248, 0.55);
+  --green: #34d399;
+  --coral: #fb7185;
+  --amber: #f6b352;
+  --amber-ink: #f6b352;
+  --track: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.80);
+  --card-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glow: rgba(27, 116, 208, 0.45);           /* #1b74d0 at ~45% */
+  --chart-line-a: #22d3ee;
+  --chart-line-b: #3b82f6;
+  --color-header-bg: #1e2a3a;
+
   /* App layout */
-  --color-bg-app: #0d1117;
-  --color-bg-main: #111827;
-  --color-bg-card: #1e2a3a;
-  --color-bg-card-rgb: 30, 42, 58;
-  --color-border-card: #2d3a4a;
+  --color-bg-app: #0a1020;
+  --color-bg-main: #070a12;
+  --color-bg-card: #141c2e;
+  --color-bg-card-rgb: 20, 28, 46;
+  --color-border-card: rgba(255, 255, 255, 0.09);
 
   /* Sidebar — dark mode: deep navy */
   --color-bg-sidebar: #0a0e1a;
@@ -272,10 +331,10 @@ button::-moz-focus-inner {
   --color-nav-active-text: #0f172a;
 
   /* Text */
-  --color-text-heading: #e2e8f0;
+  --color-text-heading: var(--text);
   --color-text-body: #cbd5e1;
-  --color-text-muted: #94a3b8;
-  --color-text-secondary: #94a3b8;
+  --color-text-muted: var(--muted);
+  --color-text-secondary: var(--muted);
   --color-text-placeholder: #64748b;
 
   /* Inputs */
@@ -295,17 +354,17 @@ button::-moz-focus-inner {
 
   /* Income / Expense badges */
   --color-income-bg: #052e16;
-  --color-income-text: #34d399;
+  --color-income-text: var(--green);
   --color-expense-bg: #450a0a;
-  --color-expense-text: #fb7185;
+  --color-expense-text: var(--coral);
 
   /* Dashboard stat icons */
-  --color-wallet-icon-bg: #1e3a5f;
-  --color-wallet-icon-text: #60a5fa;
-  --color-income-icon-bg: #052e16;
-  --color-income-icon-text: #34d399;
-  --color-expense-icon-bg: #450a0a;
-  --color-expense-icon-text: #f87171;
+  --color-wallet-icon-bg: var(--surface-2);
+  --color-wallet-icon-text: var(--blue);
+  --color-income-icon-bg: var(--surface-2);
+  --color-income-icon-text: var(--green);
+  --color-expense-icon-bg: var(--surface-2);
+  --color-expense-icon-text: var(--coral);
 
   /* Table */
   --color-table-header-bg: #151f2e;
@@ -362,6 +421,6 @@ button::-moz-focus-inner {
   --color-auth-input-focus-bg-reg: #1a2e20;
 
   /* Chart */
-  --color-chart-grid: #1e2a3a;
+  --color-chart-grid: rgba(255, 255, 255, 0.06);
   --color-chart-axis-text: #94a3b8;
 }

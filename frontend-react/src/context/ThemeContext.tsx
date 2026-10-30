@@ -35,7 +35,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     localStorage.setItem('theme', theme);
     // The mobile status bar takes the header's colour in this theme (both
     // first-paint metas, so whichever the OS theme selects is right too).
-    const headerColor = getComputedStyle(root).getPropertyValue('--color-bg-card').trim();
+    const headerColor = getComputedStyle(root).getPropertyValue('--color-header-bg').trim();
     if (headerColor) {
       document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', headerColor));
     }

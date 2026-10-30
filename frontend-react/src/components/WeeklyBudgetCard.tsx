@@ -232,7 +232,9 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
     ? '#94a3b8'
     : budgetZone === 'danger' ? '#ef4444'
     : budgetZone === 'warning' ? '#f59e0b'
-    : '#38bdf8';
+    : 'var(--amber-grad)';
+  // "Can spend" carries the weekly card's amber while on track.
+  const canSpendColor = budgetZone === 'danger' || budgetZone === 'warning' ? zoneTextColor : 'var(--amber-ink)';
 
   // Today's variable spend vs daily baseline — a small display nicety (delta arrow).
   const spentToday = transactions
@@ -407,7 +409,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
               <div className="budget-can-spend-row">
                 <span
                   className="weekly-budget-stat-value"
-                  style={{ color: zoneTextColor }}
+                  style={{ color: canSpendColor }}
                 >
                   {formatAmount(displayCanSpend)}
                 </span>
