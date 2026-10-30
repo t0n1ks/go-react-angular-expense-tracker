@@ -194,6 +194,19 @@ const CalendarArt: React.FC = () =>
     ? <img src={calendarPngUrl} width="18" height="18" alt="" draggable={false} style={{ display: 'block' }} />
     : <PixelCalendar />;
 
+// The centre-stage tail: drawn on the bubble's rounded lower-right corner
+// (20×20 box, the bubble's outer corner at 13,13; the corner's curve starts
+// at 3 on each edge). An opaque fill in the bubble's colour covers that bit
+// of the border; a stroke traces only the two outer sides, starting on the
+// border's centre line — so the outline runs into the tail as one shape.
+// The tip is 5px right of and below the corner (TAIL_OUT).
+const CornerTail: React.FC = () => (
+  <svg className="tama-bubble-tail" viewBox="0 0 20 20" aria-hidden="true">
+    <path className="tama-bubble-tail-fill" d="M 3 11.4 L 18 18 L 11.4 3 Z" />
+    <path className="tama-bubble-tail-edge" d="M 3 12.25 L 18 18 L 12.25 3" />
+  </svg>
+);
+
 // ── Cycle-week countdown helpers ──────────────────────────────────────────────
 
 // A "cycle week" is a 7-day window from the cycle start. The next week begins at
@@ -1220,6 +1233,7 @@ const TamagotchiWidget: React.FC<Props> = ({
             transition={bubbleTransition}
           >
             <p className="tama-bubble-text" ref={bubbleTextRef}>{bubbleText}</p>
+            {placement?.kind === 'center' && <CornerTail />}
             {fromHook && onMessageAction && (
               <div className="tama-bubble-votes">
                 <button type="button" className="tama-vote" onClick={() => voteOnMessage('like')} aria-label={t('companion.vote_like')} title={t('companion.vote_like')}>
