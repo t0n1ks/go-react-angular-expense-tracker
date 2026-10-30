@@ -9,8 +9,9 @@ import './SummaryTiles.css';
 
 // Phone / tablet: the four summary cards as a 2×2 grid of tiles. Each tile
 // shows the card's title and headline figure over a faint watermark of its
-// icon; tapping it opens the very same card (SummaryCard) in a sheet, so
-// every button and modal works exactly as on Home.
+// icon; tapping it opens the very same card (SummaryCard) as a centred
+// dialog over a frosted backdrop, so every button and modal works exactly as
+// on Home.
 
 interface TileFace {
   title: string;
@@ -65,20 +66,37 @@ const SummaryTiles: React.FC<{ model: SummaryModel }> = ({ model }) => {
   const [openKind, setOpenKind] = useState<SummaryKind | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   const open = (kind: SummaryKind, el: HTMLElement) => { returnFocus.current = el; setOpenKind(kind); };
   const close = () => { setOpenKind(null); returnFocus.current?.focus(); };
 
-  // While the sheet is open: Escape closes it (unless a card's own modal is
-  // on top — that modal handles its own close), focus starts on ✕.
+  // While the dialog is open: the page behind doesn't scroll; focus starts on
+  // ✕ and Tab stays inside the dialog; Escape closes it — unless one of the
+  // card's own modals is on top (those handle their own close and focus).
   useEffect(() => {
     if (!openKind) return;
     closeRef.current?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !model.open) { setOpenKind(null); returnFocus.current?.focus(); }
+      if (model.open) return;
+      if (e.key === 'Escape') { setOpenKind(null); returnFocus.current?.focus(); return; }
+      if (e.key !== 'Tab' || !sheetRef.current) return;
+      const focusables = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [openKind, model.open]);
 
   return (
@@ -90,6 +108,7 @@ const SummaryTiles: React.FC<{ model: SummaryModel }> = ({ model }) => {
       {openKind && createPortal(
         <div className="summary-sheet-overlay" onClick={close}>
           <div
+            ref={sheetRef}
             className="summary-sheet"
             role="dialog"
             aria-modal="true"

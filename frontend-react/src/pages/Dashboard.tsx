@@ -138,6 +138,15 @@ const Dashboard: React.FC = () => {
     return () => document.body.classList.remove('dashboard-lite');
   }, [liteMode]);
 
+  // Phone / tablet: with the four summary cards in Statistics, Home is short
+  // too — let the layout fit it (Dashboard.css, ≤1024px only) so the page
+  // ends just below the cosmos screen instead of scrolling into empty space.
+  useEffect(() => {
+    if (wideDesktop) return;
+    document.body.classList.add('dashboard-compact');
+    return () => document.body.classList.remove('dashboard-compact');
+  }, [wideDesktop]);
+
   if (loading) return <div className="dashboard-wrapper">{t('dashboard.loading')}</div>;
 
   // Lite hides the stats grid, so the companion stays a full-width block there.
@@ -160,7 +169,7 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className={`dashboard-wrapper${liteMode ? ' dashboard-wrapper--lite' : ''}`}>
+    <div className={`dashboard-wrapper${liteMode ? ' dashboard-wrapper--lite' : ''}${wideDesktop ? '' : ' dashboard-wrapper--compact'}`}>
       <h1 className="dashboard-title">{t('dashboard.title')}</h1>
 
       {/* Lite mode hides all salary-cycle / analytics cards; only the budget

@@ -899,6 +899,43 @@ body.dashboard-lite {
   display: block;
 }
 
+/* ── Phone / tablet Home: fit the page to its content ────────────────────────
+   The four summary cards live in Statistics here, so Home is short. The
+   shared layout reserves a full viewport (min-height: 100dvh) PLUS the fixed
+   header / bottom-nav clearance, which left a scrollable empty band; like
+   Lite, let it fit the content. Gaps: 1.25rem from the header to the title
+   (the wrapper's top padding) and 1.25rem from the cosmos screen to the nav
+   (.main-content's clearance; the wrapper adds none at the bottom). */
+@media (max-width: 1024px) {
+  body.dashboard-compact .app-container,
+  body.dashboard-compact .main-content {
+    min-height: 0;
+  }
+  body.dashboard-compact {
+    background: var(--color-bg-main); /* no colour seam below short content */
+  }
+  .dashboard-wrapper--compact:not(.dashboard-wrapper--lite) {
+    padding-bottom: 0;
+  }
+
+  /* The cards' history / add-income modals: above the mobile header and the
+     summary-tile dialog (310), inside the safe area, scrolling as a whole if
+     taller than the screen — never clipped. */
+  .hist-modal-overlay {
+    z-index: 320;
+    padding:
+      calc(1rem + env(safe-area-inset-top))
+      calc(1rem + env(safe-area-inset-right))
+      calc(1rem + env(safe-area-inset-bottom))
+      calc(1rem + env(safe-area-inset-left));
+  }
+  .hist-modal {
+    max-height: min(88dvh, 100%);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 /* ── Mobile / Tablet responsive ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .dashboard-wrapper {

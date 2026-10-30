@@ -117,39 +117,82 @@
   .summary-tile-note { font-size: 0.74rem; }
 }
 
-/* ── The sheet holding the full card ─────────────────────────────────────── */
+/* ── The dialog holding the full card ────────────────────────────────────────
+   Centred on phone and tablet over a frosted backdrop (a dimming tint +
+   blur, so the tiles behind soften but stay recognisable). The card itself
+   is the panel — solid, so every figure keeps full contrast — laid out as a
+   centred column; it never exceeds the viewport (safe areas included) and
+   scrolls inside when tall. It sits above the mobile header (300) and nav
+   (200); the cards' own modals sit above it (see Dashboard.css). */
 
 .summary-sheet-overlay {
   position: fixed;
   inset: 0;
-  z-index: 190; /* below the cards' own modals (200) */
+  z-index: 310;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(2px);
+  padding:
+    calc(1rem + env(safe-area-inset-top))
+    calc(1rem + env(safe-area-inset-right))
+    calc(1rem + env(safe-area-inset-bottom))
+    calc(1rem + env(safe-area-inset-left));
+  background: rgba(15, 23, 42, 0.3);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
   -webkit-tap-highlight-color: transparent;
   animation: summary-fade 0.18s ease-out;
 }
+.dark .summary-sheet-overlay { background: rgba(2, 6, 23, 0.5); }
+/* No backdrop blur available: a plain, denser tint instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .summary-sheet-overlay { background: rgba(15, 23, 42, 0.6); }
+  .dark .summary-sheet-overlay { background: rgba(2, 6, 23, 0.75); }
+}
 
-/* Phone: a full-width bottom sheet. */
 .summary-sheet {
   position: relative;
-  width: 100%;
-  max-height: 85dvh;
+  width: min(92vw, 460px);
+  max-height: min(88dvh, 100%);
   overflow-y: auto;
-  padding: 2.4rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
-  background: var(--color-bg-main);
-  border-radius: 1.25rem 1.25rem 0 0;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
-  animation: summary-sheet-up 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  overscroll-behavior: contain;
+  border-radius: 1.4rem;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.45);
+  animation: summary-pop 0.2s ease-out;
 }
-.summary-sheet .stat-card { margin: 0; }
+
+/* The card as the panel: one surface, content centred, balanced padding. */
+.summary-sheet .stat-card {
+  margin: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: 2.75rem 1.5rem 1.75rem;
+  border-radius: 1.4rem;
+  box-shadow: none;
+}
+.summary-sheet .stat-icon { margin: 0 0 0.85rem; }
+.summary-sheet .stat-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+.summary-sheet .stat-content .label { font-size: 0.95rem; }
+.summary-sheet .stat-content .value,
+.summary-sheet .stat-content .value-plus,
+.summary-sheet .stat-content .value-minus { font-size: 1.9rem; }
+.summary-sheet .progress-track { width: 100%; }
+/* The Income card's + sits left of the close button, not under it. */
+.summary-sheet .stat-card-add-btn { top: 0.9rem; right: 3.4rem; }
 
 .summary-sheet-close {
   position: absolute;
   top: 0.55rem;
-  right: 0.7rem;
+  right: 0.6rem;
+  z-index: 1;
   width: 36px;
   height: 36px;
   display: flex;
@@ -165,19 +208,7 @@
 .summary-sheet-close:focus { outline: none; }
 .summary-sheet-close:focus-visible { outline: 2px solid var(--color-text-muted); }
 
-/* Tablet: a centred dialog. */
-@media (min-width: 641px) {
-  .summary-sheet-overlay { align-items: center; padding: 1.5rem; }
-  .summary-sheet {
-    width: min(520px, 100%);
-    border-radius: 1.25rem;
-    padding: 2.6rem 1.2rem 1.2rem;
-    animation: summary-pop 0.2s ease-out;
-  }
-}
-
 @keyframes summary-fade { from { opacity: 0; } }
-@keyframes summary-sheet-up { from { transform: translateY(100%); } }
 @keyframes summary-pop { from { opacity: 0; transform: scale(0.96); } }
 
 @media (prefers-reduced-motion: reduce) {
