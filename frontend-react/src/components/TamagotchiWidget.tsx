@@ -26,6 +26,11 @@ import {
 import calendarPngUrl from '../assets/companion/calendar.png';
 import CompanionCow from './CompanionCow';
 import { centerLayout, placeBubble, RECEDE_SCALE } from '../utils/bubbleLayout';
+
+// The saucer's glide into / out of centre-stage depth (the bubble and its tail
+// are timed off it so the saucer always leads).
+const RECEDE_GLIDE_S = 0.55;
+const GLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 import { useAutoScroll } from '../hooks/useAutoScroll';
 import { CALENDAR_ART } from '../utils/companionArt';
 import './TamagotchiWidget.css';
@@ -283,8 +288,8 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [tourStep,      setTourStep]      = useState(0);
   const [bubbleH,       setBubbleH]       = useState(0);
   const [bubbleW,       setBubbleW]       = useState(0);
-  // The moon's centre x: a receded saucer never goes right of this line.
-  const [moonX,         setMoonX]         = useState<number | undefined>(undefined);
+  // The moon's left edge: a centred bubble never passes this line.
+  const [moonLeft,      setMoonLeft]      = useState<number | undefined>(undefined);
   const [widgetH,       setWidgetH]       = useState(0);
   const [widgetW,       setWidgetW]       = useState(0);
   // A text bubble's height laid out above the saucer (its natural width),
@@ -352,7 +357,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       const art = el.querySelector<HTMLElement>('.tama-ufo-art');
       if (art?.offsetHeight) setUfoHalf(art.offsetHeight / 2);
       const moon = el.querySelector<HTMLElement>('.tama-moon');
-      if (moon?.offsetWidth) setMoonX(moon.offsetLeft + moon.offsetWidth / 2);
+      if (moon?.offsetWidth) setMoonLeft(moon.offsetLeft);
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -861,7 +866,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // back to the bubble's lower-right corner.
   const aboveOnly = mode === 'greeting' || aboveOnlyText === bubbleText;
   const placement = inBubble && naturalBubble?.text === bubbleText && widgetW > 0 && widgetH > 0
-    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf, aboveOnly, moonX })
+    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf, aboveOnly, moonLeft })
     : null;
   // The onboarding tour keeps the 2.23 behaviour: the stacked screen grows to
   // fit it; in a grid cell its text scrolls in the room above the saucer.
@@ -875,7 +880,7 @@ const TamagotchiWidget: React.FC<Props> = ({
 
   const centerFrame = placement?.kind === 'center'
     ? centerLayout({
-        screenW: widgetW, screenH: widgetH, ufoHalf, moonX,
+        screenW: widgetW, screenH: widgetH, ufoHalf, moonLeft,
         bubbleW: bubbleW || placement.bubbleMaxW,
         bubbleH: bubbleH || naturalBubble?.h || 0,
       })
@@ -894,7 +899,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   }
 
   // The text bubble's place: above (tail down to the saucer) or centre stage
-  // (tail from its lower-right edge down to the stepped-back saucer).
+  // (an SVG tail from its rounded lower-right corner onto the saucer's dome).
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
   bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
@@ -902,12 +907,20 @@ const TamagotchiWidget: React.FC<Props> = ({
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
   } else if (placement?.kind === 'center' && centerFrame) {
     bubbleClass += ' tama-bubble--center';
-    bubbleStyle = {
-      x: '-50%', top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW,
-      '--tama-tail-right': `${centerFrame.tailRight}px`,
-    };
+    bubbleStyle = { x: 0, left: centerFrame.bubbleLeft, top: centerFrame.bubbleTop, maxWidth: placement.bubbleMaxW };
   }
   const ufoReceded = placement?.kind === 'center' && mode !== 'fly_to_moon';
+  // The centre-stage tail, drawn once the bubble's real size is known.
+  const tail = centerFrame && bubbleW > 0 ? centerFrame.tail : null;
+  // Reveal in step: the saucer glides first (RECEDE_GLIDE_S); the bubble
+  // starts a beat later and settles just after it; the tail joins last.
+  // Until a text bubble is placed it stays invisible (measured, not shown).
+  const bubbleReady = !inBubble || !!placement || widgetW === 0 || widgetH === 0;
+  const bubbleTransition = reduceMotion
+    ? { duration: 0 }
+    : placement?.kind === 'center'
+      ? { delay: RECEDE_GLIDE_S * 0.27, duration: RECEDE_GLIDE_S * 0.82, ease: GLIDE_EASE }
+      : { duration: 0.2 };
 
   // Scrollable bubbles glide to their end on their own (not under reduced
   // motion); the text bubble reports when it has been shown in full.
@@ -1091,8 +1104,9 @@ const TamagotchiWidget: React.FC<Props> = ({
             mode !== 'fly_to_moon'
               ? (reduceMotion
                   ? { duration: 0 }
-                  // a soft, slightly slow glide into / out of depth
-                  : { type: 'spring', stiffness: 70, damping: 19 })
+                  // one smooth glide into / out of depth; on the way back it
+                  // waits a beat for the bubble to close first
+                  : { duration: RECEDE_GLIDE_S, ease: GLIDE_EASE, delay: ufoReceded ? 0 : 0.1 })
               : flyPhase === 'orbit'
                 ? { duration: FLY_ORBIT_S, ease: 'easeInOut' }
                 : flyPhase === 'return'
@@ -1168,10 +1182,10 @@ const TamagotchiWidget: React.FC<Props> = ({
             ref={bubbleRef}
             className={bubbleClass}
             style={bubbleStyle}
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.88, y: 6 }}
-            transition={{ duration: 0.2 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.9, y: 6 }}
+            animate={bubbleReady ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.9, y: 6 }}
+            exit={{ opacity: 0, scale: 0.9, y: 6, transition: { duration: reduceMotion ? 0 : 0.2 } }}
+            transition={bubbleTransition}
           >
             <p className="tama-bubble-text" ref={bubbleTextRef}>{bubbleText}</p>
             {fromHook && onMessageAction && (
@@ -1186,6 +1200,37 @@ const TamagotchiWidget: React.FC<Props> = ({
             )}
             <button className="tama-bubble-close" onClick={dismissBubble} aria-label={t('companion.close')}>✕</button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Centre-stage tail: from the bubble's corner onto the saucer's dome ── */}
+      <AnimatePresence>
+        {inBubble && tail && (
+          <motion.svg
+            key="tama-tail"
+            className="tama-tail"
+            width={widgetW}
+            height={widgetH}
+            aria-hidden="true"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12 } }}
+            transition={reduceMotion ? { duration: 0 } : { delay: RECEDE_GLIDE_S * 0.9, duration: 0.2 }}
+          >
+            {(() => {
+              const { x1, y1, x2, y2, tx, ty } = tail;
+              // a gently tapering curve from each base point to the tip
+              const c1 = `${x1 + (tx - x1) * 0.55} ${y1 + (ty - y1) * 0.3}`;
+              const c2 = `${x2 + (tx - x2) * 0.25} ${y2 + (ty - y2) * 0.6}`;
+              const sides = `M ${x1} ${y1} Q ${c1} ${tx} ${ty} Q ${c2} ${x2} ${y2}`;
+              return (
+                <>
+                  <path d={`${sides} Z`} className="tama-tail-fill" />
+                  <path d={sides} className="tama-tail-edge" />
+                </>
+              );
+            })()}
+          </motion.svg>
         )}
       </AnimatePresence>
 
