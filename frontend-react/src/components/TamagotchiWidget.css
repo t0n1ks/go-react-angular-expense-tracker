@@ -44,30 +44,11 @@
   flex-direction: column;
   min-width: 0;
 }
-/* In a cell the screen fills the whole slot: the AI status moves into the
-   screen's bottom-right corner (above the glass) instead of under it. */
-.tama-device--cell .tama-service-status {
-  position: absolute;
-  right: 18px;
-  bottom: 14px;
-  margin: 0;
-  z-index: 31;
-  color: rgba(255, 255, 255, 0.6);
-  pointer-events: none;
-}
 .tama-device--cell .tama-screen {
   flex: 1 1 0;
   aspect-ratio: auto;
   min-height: 0;
   max-height: none;
-}
-/* The screen keeps its height here: long bubble text scrolls in the room
-   left above the UFO (--tama-bubble-max, measured by the widget). */
-.tama-device--cell .tama-bubble-text {
-  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
-}
-.tama-device--cell .tama-bubble--tour .tama-bubble-text {
-  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 4rem));
 }
 
 /* The screen: recessed into the card — a thin dark edge, a bezel ring, a
@@ -373,6 +354,10 @@
   .tama-health-fill { transition: none; }
   .tama-ufo-bob { animation: none; }
   .tama-space-cow { animation: none; }
+  .tama-crater-glow { animation: none; }
+  /* The ripple becomes one still ring that simply appears, then goes. */
+  .tama-moon-ripples span { animation: tama-moon-ripple-still 0.8s steps(1, end) forwards; }
+  .tama-moon-ripples span + span { display: none; }
   .tama-scene::before,
   .tama-scene::after { animation: none; }
   .tama-vote { transition: none; }
@@ -391,6 +376,72 @@
 .tama-moon svg {
   width: var(--tama-moon);
   height: var(--tama-moon);
+  display: block;
+}
+
+/* The moon is a button: tap / Enter / Space → ripple + the AI status line. */
+.tama-moon-btn {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  line-height: 0;
+}
+.tama-moon-btn:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+}
+
+/* Craters: shaded dents; their glow is the AI status — faint green
+   "radiation" when on duty, faint red "lava" when asleep, none while checking. */
+.tama-craters circle {
+  fill: #c9a800;
+  stroke: #a88c00;
+  stroke-width: 0.35;
+  opacity: 0.6;
+}
+.tama-moon--online  { --crater-glow: #5dff9a; --crater-halo: rgba(93, 255, 154, 0.32); --crater-ring: rgba(93, 255, 154, 0.45); }
+.tama-moon--offline { --crater-glow: #ff5b3d; --crater-halo: rgba(255, 91, 61, 0.32); --crater-ring: rgba(255, 91, 61, 0.45); }
+.tama-moon--checking { --crater-glow: transparent; --crater-halo: transparent; --crater-ring: rgba(255, 215, 0, 0.35); }
+.tama-crater-glow circle { fill: var(--crater-glow); }
+.tama-crater-glow {
+  opacity: 0.55;
+  animation: tama-crater-pulse 5s ease-in-out infinite;
+}
+@keyframes tama-crater-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.72; }
+}
+/* A barely-there halo in the same colour, so the state reads even at 20px. */
+.tama-moon-btn svg { filter: drop-shadow(0 0 3px var(--crater-halo)); }
+
+/* Sonar ripple: three soft rings expanding from the moon. */
+.tama-moon-ripples {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tama-moon-ripples span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--tama-moon);
+  height: var(--tama-moon);
+  margin: calc(var(--tama-moon) / -2) 0 0 calc(var(--tama-moon) / -2);
+  border-radius: 50%;
+  border: 1.5px solid var(--crater-ring);
+  opacity: 0;
+  animation: tama-moon-ripple 1.5s ease-out forwards;
+}
+.tama-moon-ripples span:nth-child(2) { animation-delay: 0.28s; }
+.tama-moon-ripples span:nth-child(3) { animation-delay: 0.56s; }
+@keyframes tama-moon-ripple {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(3.4); opacity: 0; }
 }
 
 /* ── UFO ────────────────────────────────────────────────────────────────────── */
@@ -431,7 +482,7 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   padding: 0.42rem 2rem 0.42rem 0.7rem;
   width: fit-content;
-  max-width: 88%;
+  max-width: min(320px, 88%); /* a tidy box, never edge to edge */
   z-index: 20;
   pointer-events: all;
 }
@@ -448,20 +499,18 @@
   border-top: 7px solid rgba(255, 215, 0, 0.4);
 }
 
-/* Beside the saucer: the tail points left, at the saucer's centre
-   (--tama-tail-y, set by the widget). Long text scrolls inside. */
+/* Beside the saucer (bubble left, saucer right): the tail points right, at
+   the saucer's centre (--tama-tail-y, set by the widget). */
 .tama-bubble--side::after {
   bottom: auto;
-  left: -8px;
+  left: auto;
+  right: -8px;
   top: var(--tama-tail-y, 50%);
   transform: translateY(-50%);
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-right: 8px solid rgba(255, 215, 0, 0.55);
-  border-left: 0;
-}
-.tama-bubble--side .tama-bubble-text {
-  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
+  border-left: 8px solid rgba(255, 215, 0, 0.55);
+  border-right: 0;
 }
 
 /* Tour variant: wider, no close button offset */
@@ -487,8 +536,8 @@
   overflow-wrap: break-word;
 }
 
-/* Readable size (≈13px); very long text scrolls instead of making the
-   screen tower (in a grid cell the cap is tighter — see .tama-device--cell). */
+/* Readable size (≈13px). Capped at 5 lines (7em) — or less where the widget
+   measured less room (--tama-bubble-max); longer text scrolls vertically. */
 .tama-bubble-text {
   font-size: 0.8rem;
   line-height: 1.4;
@@ -496,9 +545,17 @@
   margin: 0;
   font-family: inherit;
   overflow-wrap: break-word;
-  max-height: 9.8em;
+  max-height: min(7em, calc(var(--tama-bubble-max, 999px) - 2.4rem));
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.tama-bubble--tour .tama-bubble-text {
+  max-height: min(9.8em, calc(var(--tama-bubble-max, 999px) - 4rem));
+}
+/* Short lines (exit, greeting, moon status) have no vote row below. */
+.tama-bubble--line .tama-bubble-text {
+  max-height: min(7em, calc(var(--tama-bubble-max, 999px) - 1rem));
 }
 
 .tama-bubble-close {
@@ -924,30 +981,7 @@
 }
 
 
-/* ── AI service status indicator ─────────────────────────────────────────────── */
-
-.tama-service-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-  justify-content: flex-end;
-  padding-right: 2px;
-  opacity: 0.55;
-  font-size: 0.58rem;
-  font-family: 'Courier New', monospace;
-  color: var(--color-text-muted);
-  user-select: none;
+@keyframes tama-moon-ripple-still {
+  0%   { transform: scale(2); opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
 }
-
-.tama-service-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.tama-service-dot--on  { background: #10b981; box-shadow: 0 0 4px #10b981; }
-.tama-service-dot--off { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
-
-.tama-service-status--off { opacity: 0.75; }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -134,14 +134,30 @@ function parseDisplayName(raw: string | undefined | null): string {
 
 // ── SVG sprites ───────────────────────────────────────────────────────────────
 
-const PixelMoon: React.FC = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="10" cy="10" r="8.5" fill="#ffd700" opacity="0.9"/>
-    <circle cx="7"  cy="8"  r="2"   fill="#c9a800" opacity="0.55"/>
-    <circle cx="13" cy="13" r="1.5" fill="#c9a800" opacity="0.45"/>
-    <circle cx="6"  cy="13" r="1"   fill="#c9a800" opacity="0.35"/>
-  </svg>
-);
+// The moon with craters. Their faint glow tells the AI service's state —
+// green on duty, red asleep, none while still checking (colour comes from
+// .tama-moon--<status> in CSS; the button's label says it in words).
+const MOON_CRATERS: Array<[number, number, number]> = [[7, 8, 2], [13, 13, 1.5], [6, 13, 1], [12.6, 6.4, 1.1]];
+
+const CraterMoon: React.FC = () => {
+  const blurId = `moonglow${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  return (
+    <svg viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id={blurId} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="0.7" />
+        </filter>
+      </defs>
+      <circle cx="10" cy="10" r="8.5" fill="#ffd700" opacity="0.9" />
+      <g className="tama-craters">
+        {MOON_CRATERS.map(([cx, cy, r]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />)}
+      </g>
+      <g className="tama-crater-glow" filter={`url(#${blurId})`}>
+        {MOON_CRATERS.map(([cx, cy, r]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r * 0.8} />)}
+      </g>
+    </svg>
+  );
+};
 
 const PixelCalendar: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -262,6 +278,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   // A text bubble's height laid out above the saucer (its natural width),
   // measured once per text — the input that decides above vs beside.
   const [naturalBubble, setNaturalBubble] = useState<{ text: string; h: number } | null>(null);
+  // Short lines that always sit above the saucer (exit line, moon status).
+  const [aboveOnlyText, setAboveOnlyText] = useState<string | null>(null);
+  // Restarts the moon's ripple each time it is tapped.
+  const [moonRipple, setMoonRipple] = useState(0);
   const [ufoHalf,       setUfoHalf]       = useState(UFO_HALF_H);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
   const [rainbowStarIdx, setRainbowStarIdx] = useState<number | null>(null);
@@ -279,6 +299,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const messageRef     = useRef<string | null>(null);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flyTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const moonTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fly1Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fly2Ref        = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const msgShowRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -607,7 +628,9 @@ const TamagotchiWidget: React.FC<Props> = ({
     clearTimeout(autoDismissRef.current);
     const pooled = await fetchBrainContent(axiosInstance, 'exit', i18n.language, { aiServiceMode, timeoutMs: EXIT_LINE_WAIT_MS });
     if (modeRef.current !== 'idle' && modeRef.current !== 'choice') return; // something else took the stage
-    setBubbleText(pooled?.text ?? pickExitLine(t));
+    const line = pooled?.text ?? pickExitLine(t);
+    setBubbleText(line);
+    setAboveOnlyText(line);
     setFromHook(false);
     setMode('ai_bubble');
     flyTimerRef.current = setTimeout(() => {
@@ -725,6 +748,28 @@ const TamagotchiWidget: React.FC<Props> = ({
       .catch(() => { /* keep local fallback */ });
   }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction]);
 
+  // ── Moon tap: ripple, then the saucer tells the AI status ────────────────
+  // The moon is also the flight target. The two never meet: the flight runs
+  // on the saucer's own timers and positions, and a tap while the saucer is
+  // flying (or touring / asking) is ignored, so a status line can't cut in.
+  const moonStatus: 'online' | 'offline' | 'checking' =
+    aiServiceMode === 'online' ? 'online' : aiServiceMode === 'autonomous' ? 'offline' : 'checking';
+  const handleMoonTap = useCallback(() => {
+    const busy = () => ['fly_to_moon', 'tour', 'choice'].includes(modeRef.current);
+    if (busy()) return;
+    setMoonRipple(n => n + 1);
+    if (moonStatus === 'checking') return; // nothing to tell yet; the label says "checking"
+    clearTimeout(moonTimerRef.current);
+    moonTimerRef.current = setTimeout(() => {
+      if (busy()) return;
+      const line = t(moonStatus === 'online' ? 'companion.moon_online' : 'companion.moon_offline');
+      setBubbleText(line);
+      setAboveOnlyText(line);
+      setFromHook(false);
+      setMode('ai_bubble');
+    }, reduceMotion ? 150 : 700);
+  }, [moonStatus, t, reduceMotion]);
+
   // ── UFO click: open journal choice ───────────────────────────────────────
   const handleUfoClick = useCallback(() => {
     const cur = modeRef.current;
@@ -752,6 +797,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       clearTimeout(flyTimerRef.current);
       clearTimeout(fly1Ref.current);
       clearTimeout(fly2Ref.current);
+      clearTimeout(moonTimerRef.current);
       clearTimeout(msgShowRef.current);
       clearTimeout(autoDismissRef.current);
       clearTimeout(exitTimerRef.current);
@@ -766,8 +812,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const isCell = layout === 'cell';
   // Text bubbles keep the saucer steady (utils/bubbleLayout.ts): above it when
   // that costs at most a small sink, else beside it — saucer left, bubble right.
+  const aboveOnly = mode === 'greeting' || aboveOnlyText === bubbleText;
   const placement = inBubble && naturalBubble?.text === bubbleText && widgetW > 0 && widgetH > 0
-    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf })
+    ? placeBubble({ screenW: widgetW, screenH: widgetH, bubbleH: naturalBubble.h, ufoHalf, aboveOnly })
     : null;
   // The onboarding tour keeps the 2.23 behaviour: the stacked screen grows to
   // fit it; in a grid cell its text scrolls in the room above the saucer.
@@ -777,7 +824,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const tourMax = isCell && inTour && widgetH > 0
     ? Math.max(40, widgetH - (BUBBLE_TOP_PAD + UFO_GAP + ufoHalf * 2 + HEARTS_BOTTOM))
     : undefined;
-  const bubbleMax = placement?.kind === 'side' ? placement.bubbleMaxH : tourMax;
+  const bubbleMax = placement?.bubbleMaxH ?? tourMax;
 
   let ufoLeft = '50%';
   let ufoTop = '44%';
@@ -790,10 +837,11 @@ const TamagotchiWidget: React.FC<Props> = ({
     ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
   }
 
-  // The text bubble's place and tail: above (tail down, centred) or beside
-  // (tail left, aimed at the saucer's centre).
+  // The text bubble's place and tail: above (tail down, centred) or beside —
+  // to the saucer's left, tail pointing right at the saucer's centre.
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
+  if (aboveOnly) bubbleClass += ' tama-bubble--line';
   if (placement?.kind === 'above') {
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
   } else if (placement?.kind === 'side') {
@@ -801,7 +849,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     const top = sideBubbleTop(placement.ufoY, h, widgetH);
     const tailY = Math.max(14, Math.min(placement.ufoY - top, h - 14));
     bubbleClass += ' tama-bubble--side';
-    bubbleStyle = { x: 0, left: placement.bubbleLeft, top, maxWidth: placement.bubbleMaxW, '--tama-tail-y': `${tailY}px` };
+    bubbleStyle = { x: 0, left: 'auto', right: widgetW - placement.bubbleRight, top, maxWidth: placement.bubbleMaxW, '--tama-tail-y': `${tailY}px` };
   }
 
   const screenStyle: React.CSSProperties & Record<'--tama-bubble-max', string | undefined> = {
@@ -858,9 +906,22 @@ const TamagotchiWidget: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* ── Moon (always persistent — needed as fly_to_moon target) ── */}
-        <div className="tama-moon">
-          <PixelMoon />
+        {/* ── Moon (always persistent — the fly_to_moon target). Tapping it
+             sends a soft ripple and the saucer tells the AI's status. ── */}
+        <div className={`tama-moon tama-moon--${moonStatus}`}>
+          <button
+            type="button"
+            className="tama-moon-btn"
+            onClick={handleMoonTap}
+            aria-label={t(`companion.moon_aria_${moonStatus}`)}
+          >
+            <CraterMoon />
+          </button>
+          {moonRipple > 0 && (
+            <span key={moonRipple} className="tama-moon-ripples" aria-hidden="true">
+              <span /><span /><span />
+            </span>
+          )}
         </div>
 
         {/* ── Space cow ── */}
@@ -1095,14 +1156,6 @@ const TamagotchiWidget: React.FC<Props> = ({
 
     </div>
 
-    {aiServiceMode && aiServiceMode !== 'initializing' && (
-      <div className={`tama-service-status${aiServiceMode === 'autonomous' ? ' tama-service-status--off' : ''}`}>
-        <span className={`tama-service-dot${aiServiceMode === 'online' ? ' tama-service-dot--on' : ' tama-service-dot--off'}`} />
-        <span className="tama-service-label">
-          {aiServiceMode === 'online' ? t('ai.status_online') : t('ai.status_autonomous')}
-        </span>
-      </div>
-    )}
     </div>
 
     <TamagotchiJournalModal
