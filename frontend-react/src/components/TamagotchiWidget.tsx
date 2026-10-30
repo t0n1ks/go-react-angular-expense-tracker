@@ -23,7 +23,9 @@ import {
   type ContentKind,
   type SavedItem,
 } from '../data/tamaContent';
-import cowSpriteUrl from '../assets/pixelcow.png';
+import calendarPngUrl from '../assets/companion/calendar.png';
+import CompanionCow from './CompanionCow';
+import { CALENDAR_ART } from '../utils/companionArt';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -147,6 +149,13 @@ const PixelCalendar: React.FC = () => (
     <rect x="8"   y="12"  width="2"   height="2"  fill="#7dd3fc"/>
   </svg>
 );
+
+// The calendar's look, picked by CALENDAR_ART (utils/companionArt.ts): the PNG
+// (512 px source drawn at 18 px — crisp on any density) or the pixel SVG above.
+const CalendarArt: React.FC = () =>
+  CALENDAR_ART === 'png'
+    ? <img src={calendarPngUrl} width="18" height="18" alt="" draggable={false} style={{ display: 'block' }} />
+    : <PixelCalendar />;
 
 // ── Cycle-week countdown helpers ──────────────────────────────────────────────
 
@@ -840,13 +849,7 @@ const TamagotchiWidget: React.FC<Props> = ({
                 if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleCowClick(); }
               }}
             >
-              <img
-                src={cowSpriteUrl}
-                width="24"
-                height="24"
-                alt=""
-                style={{ imageRendering: 'pixelated', display: 'block' }}
-              />
+              <CompanionCow />
             </motion.div>
           )}
         </AnimatePresence>
@@ -869,7 +872,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               role="button"
               aria-label="Cycle calendar"
             >
-              <PixelCalendar />
+              <CalendarArt />
             </motion.div>
           )}
         </AnimatePresence>

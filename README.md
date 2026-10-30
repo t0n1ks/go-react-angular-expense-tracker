@@ -34,7 +34,7 @@ The UFO (a 3D Lottie saucer, constant — it is never recoloured by mood) has **
 - **Lite and goal-less users** get the same UFO with engagement-only health.
 - **Content pool (AI service):** jokes (the cow, 2 a day), facts (the star, 2 a day), a tip at most once a day, ✕ exit lines and every message's wording come from the AI service's pool in all four languages, with no repeats for ~90 days; past the daily cap the cow / star say "more tomorrow" — the caps reset at your local midnight (your timezone, the same one the cycle uses). In the first week of a period messages may say the UFO is still learning your pace. Offline, the app falls back to its own smaller built-in set.
 - **Storage:** one `companion_states` row per user (~0.5 KB), created automatically by the server's migration — no event log.
-- **Accessibility:** health is an ARIA meter with text; 👍 / 👎 / ✕ are labelled buttons; the shining star and the cow are keyboard-catchable and stay still under reduced motion; the UFO animation shows a still frame.
+- **Accessibility:** health is an ARIA meter with text; 👍 / 👎 / ✕ are labelled buttons; the shining star and the cow are keyboard-catchable and stay still under reduced motion; the UFO and cow animations show a still frame. The cow (Lottie) and the cycle calendar (PNG) art are each picked by one switch in `frontend-react/src/utils/companionArt.ts`; the previous pixel cow and pixel calendar stay in the code for a one-line revert.
 - **Bundle:** the UFO plays through `lottie-web`'s light SVG build, loaded lazily with the animation (≈48 KB + 3 KB gzipped, outside the main bundle); a static saucer shows until it arrives.
 
 ### UFO Tamagotchi Widget

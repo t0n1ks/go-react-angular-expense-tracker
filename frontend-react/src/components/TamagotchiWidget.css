@@ -232,6 +232,7 @@
   .tama-star--rainbow { animation: none; background: #ffd700; transform: scale(1.6); }
   .tama-health-fill { transition: none; }
   .tama-ufo-bob { animation: none; }
+  .tama-space-cow { animation: none; }
   .tama-vote { transition: none; }
 }
 
@@ -611,14 +612,25 @@
 }
 .tama-vote:hover { background: rgba(255, 215, 0, 0.16); }
 
-/* ── Lottie UFO (44 px box; the static saucer shows while it loads) ─────── */
+/* ── Lottie art (UFO, cow): the SVG fills its box; a fallback shows while it loads ── */
+.tama-lottie-art { position: relative; }
 .tama-ufo-art {
-  position: relative;
   width: 44px;
   height: 44px;
 }
-.tama-ufo-lottie,
-.tama-ufo-lottie > svg {
+/* The cow animation is cropped to a tall box (see COW_VIEWBOX), about the
+   old 24 px sprite's height; the sprite stands in, centred, while it loads. */
+.tama-cow-art {
+  width: 16px;
+  height: 28px;
+}
+.tama-cow-fallback {
+  position: absolute;
+  left: -4px;
+  top: 2px;
+}
+.tama-lottie-player,
+.tama-lottie-player > svg {
   position: absolute;
   inset: 0;
   width: 100% !important;

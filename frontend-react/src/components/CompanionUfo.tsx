@@ -1,58 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
-import { ufoPlayerOptions, UFO_VIEWBOX } from '../utils/companionUfo';
+import React from 'react';
+import LottieArt from './LottieArt';
+import { UFO_STILL_FRAME, UFO_VIEWBOX } from '../utils/companionUfo';
 
 // The companion's look: one constant Lottie animation (never recoloured by
-// mood — mood lives in the health bar). The player (lottie-web's light SVG
-// build, ES-module flavour — its UMD file trips Rollup's tree-shaker) and the
-// animation are loaded lazily in their own chunk, so the main
-// bundle does not grow; until they arrive — or if they fail — a small static
-// saucer is shown. Under reduced motion the animation is a still frame.
+// mood — mood lives in the health bar), lazily loaded; a small static saucer
+// stands in while it loads or if it fails. Still frame under reduced motion.
 
-type Player = { destroy: () => void };
+const loadUfo = () => import('../assets/companion/ufo-3d.json');
 
-const CompanionUfo: React.FC = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const reduceMotion = !!useReducedMotion();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let player: Player | undefined;
-    let cancelled = false;
-    Promise.all([
-      import('lottie-web/build/player/esm/lottie_light.min.js'),
-      import('../assets/companion/ufo-3d.json'),
-    ])
-      .then(([lottie, data]) => {
-        if (cancelled || !ref.current) return;
-        const opts = ufoPlayerOptions(reduceMotion);
-        const anim = lottie.default.loadAnimation({
-          container: ref.current,
-          renderer: 'svg',
-          loop: opts.loop,
-          autoplay: opts.autoplay,
-          animationData: data.default,
-          rendererSettings: { viewBoxSize: UFO_VIEWBOX, preserveAspectRatio: 'xMidYMid meet' },
-        });
-        if (opts.stillFrame !== null) anim.goToAndStop(opts.stillFrame, true);
-        player = anim;
-        setReady(true);
-      })
-      .catch(() => { /* keep the static saucer */ });
-    return () => {
-      cancelled = true;
-      player?.destroy();
-      setReady(false);
-    };
-  }, [reduceMotion]);
-
-  return (
-    <div className="tama-ufo-art" aria-hidden="true">
-      <div ref={ref} className="tama-ufo-lottie" />
-      {!ready && <StaticSaucer />}
-    </div>
-  );
-};
+const CompanionUfo: React.FC = () => (
+  <LottieArt
+    load={loadUfo}
+    viewBox={UFO_VIEWBOX}
+    stillFrame={UFO_STILL_FRAME}
+    className="tama-ufo-art"
+    fallback={<StaticSaucer />}
+  />
+);
 
 // Placeholder while the animation loads or if it fails: a flat drawing of the
 // same saucer (grey belly, cyan rim, pale dome) in the same footprint.

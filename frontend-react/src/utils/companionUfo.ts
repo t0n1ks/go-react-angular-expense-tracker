@@ -12,9 +12,14 @@ export const UFO_VIEWBOX = '-24 -38 1060 1060';
 /** Still frame shown when the user prefers reduced motion (level, mid-size). */
 export const UFO_STILL_FRAME = 0;
 
-/** Loop normally; under reduced motion show one still frame instead. */
-export function ufoPlayerOptions(reduceMotion: boolean): { loop: boolean; autoplay: boolean; stillFrame: number | null } {
+/** Any companion Lottie: loop normally; under reduced motion one still frame. */
+export function lottiePlayerOptions(reduceMotion: boolean, stillFrame: number): { loop: boolean; autoplay: boolean; stillFrame: number | null } {
   return reduceMotion
-    ? { loop: false, autoplay: false, stillFrame: UFO_STILL_FRAME }
+    ? { loop: false, autoplay: false, stillFrame }
     : { loop: true, autoplay: true, stillFrame: null };
+}
+
+/** The UFO's player options. */
+export function ufoPlayerOptions(reduceMotion: boolean): { loop: boolean; autoplay: boolean; stillFrame: number | null } {
+  return lottiePlayerOptions(reduceMotion, UFO_STILL_FRAME);
 }

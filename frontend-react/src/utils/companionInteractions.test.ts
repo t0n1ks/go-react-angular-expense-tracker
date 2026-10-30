@@ -3,7 +3,8 @@ import i18n from 'i18next';
 import en from '../i18n/locales/en.json';
 import ru from '../i18n/locales/ru.json';
 import { countsForQuest, messageActionEffect, pickExitLine, type CompanionInteraction } from './companion';
-import { ufoPlayerOptions, UFO_VIEWBOX } from './companionUfo';
+import { lottiePlayerOptions, ufoPlayerOptions, UFO_VIEWBOX } from './companionUfo';
+import { CALENDAR_ART, COW_ART, COW_STILL_FRAME, COW_VIEWBOX } from './companionArt';
 
 beforeAll(async () => {
   await i18n.init({ resources: { en: { translation: en }, ru: { translation: ru } }, lng: 'ru', fallbackLng: 'en' });
@@ -50,5 +51,25 @@ describe('Lottie UFO', () => {
     expect(y).toBeLessThanOrEqual(173);
     expect(x + w).toBeGreaterThanOrEqual(1020);
     expect(y + h).toBeGreaterThanOrEqual(812);
+  });
+});
+
+describe('cow and calendar art', () => {
+  it('uses the new cow Lottie and calendar PNG (one-line switches back)', () => {
+    expect(COW_ART).toBe('lottie');
+    expect(CALENDAR_ART).toBe('png');
+  });
+
+  it('crops the cow canvas around the whole cow over the loop', () => {
+    const [x, y, w, h] = COW_VIEWBOX.split(' ').map(Number);
+    expect(x).toBeLessThanOrEqual(746);
+    expect(y).toBeLessThanOrEqual(66);
+    expect(x + w).toBeGreaterThanOrEqual(1176);
+    expect(y + h).toBeGreaterThanOrEqual(874);
+  });
+
+  it('shows the cow as a still frame under reduced motion', () => {
+    expect(lottiePlayerOptions(true, COW_STILL_FRAME)).toEqual({ loop: false, autoplay: false, stillFrame: COW_STILL_FRAME });
+    expect(lottiePlayerOptions(false, COW_STILL_FRAME).loop).toBe(true);
   });
 });
