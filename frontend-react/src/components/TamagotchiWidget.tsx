@@ -25,7 +25,8 @@ import {
 } from '../data/tamaContent';
 import calendarPngUrl from '../assets/companion/calendar.png';
 import CompanionCow from './CompanionCow';
-import { placeBubble, sideBubbleTop } from '../utils/bubbleLayout';
+import { centerBubbleTop, placeBubble, RECEDE_OPACITY, RECEDE_SCALE } from '../utils/bubbleLayout';
+import { useAutoScroll } from '../hooks/useAutoScroll';
 import { CALENDAR_ART } from '../utils/companionArt';
 import './TamagotchiWidget.css';
 
@@ -35,6 +36,10 @@ const GREETED_KEY     = 'tama_greeted';
 const TOUR_DONE_KEY   = 'tour_v1_done';
 const HIGHLIGHT_CLASS = 'tour-highlight-active';
 const AUTO_DISMISS_MS = 15_000;
+// After an exit line has been shown in full, the saucer leaves: a short read
+// pause for a line that fit, a shorter one after it scrolled to its end.
+const EXIT_READ_MS = 1500;
+const EXIT_AFTER_SCROLL_MS = 1200;
 const EXIT_LINE_WAIT_MS = 600; // pool exit line, else the built-in one
 // Bubble width by amount of text: up to this many characters (≈12–15 words)
 // a line gets the wider, balanced 1–2 row box; longer text the narrow one
@@ -286,6 +291,13 @@ const TamagotchiWidget: React.FC<Props> = ({
   const [aboveOnlyText, setAboveOnlyText] = useState<string | null>(null);
   // Restarts the moon's ripple each time it is tapped.
   const [moonRipple, setMoonRipple] = useState(0);
+  // The bubble text that has been shown in full (fit, or autoscrolled to its
+  // end) — exit flights and auto-dismiss wait for it.
+  const [readDone, setReadDone] = useState<{ text: string; scrolled: boolean } | null>(null);
+  const bubbleTextRef = useRef<HTMLParagraphElement>(null);
+  const tourTextRef = useRef<HTMLParagraphElement>(null);
+  // The exit line whose end launches the flight round the moon.
+  const pendingFlightRef = useRef<string | null>(null);
   const [ufoHalf,       setUfoHalf]       = useState(UFO_HALF_H);
   const [flyPhase,      setFlyPhase]      = useState<'approach' | 'orbit' | 'return' | null>(null);
   const [rainbowStarIdx, setRainbowStarIdx] = useState<number | null>(null);
@@ -364,16 +376,19 @@ const TamagotchiWidget: React.FC<Props> = ({
   }, [user?.id]);
 
   // ── Auto-dismiss non-hook bubbles ─────────────────────────────────────────
+  // (a joke or fact that scrolls is dismissed only once it has been shown to
+  // its end; an exit line leaves with the flight instead)
   useEffect(() => {
-    if (mode !== 'ai_bubble' || fromHook) {
+    if (mode !== 'ai_bubble' || fromHook || pendingFlightRef.current === bubbleText) {
       clearTimeout(autoDismissRef.current);
       return;
     }
+    if (readDone?.text !== bubbleText) return;
     clearTimeout(autoDismissRef.current);
     const delay = AUTO_DISMISS_MS + Math.random() * 5_000;
     autoDismissRef.current = setTimeout(() => setMode('idle'), delay);
     return () => clearTimeout(autoDismissRef.current);
-  }, [mode, fromHook]);
+  }, [mode, fromHook, readDone, bubbleText]);
 
   // ── Immediate message display ─────────────────────────────────────────────
   useEffect(() => {
@@ -637,21 +652,42 @@ const TamagotchiWidget: React.FC<Props> = ({
     setAboveOnlyText(line);
     setFromHook(false);
     setMode('ai_bubble');
-    flyTimerRef.current = setTimeout(() => {
-      setFlyPhase('approach');
-      setMode('fly_to_moon');
-      fly1Ref.current = setTimeout(() => {
-        setFlyPhase('orbit');
-        fly2Ref.current = setTimeout(() => {
-          setFlyPhase('return');
-          flyTimerRef.current = setTimeout(() => {
-            setFlyPhase(null);
-            setMode('idle');
-          }, FLY_RETURN_S * 1000);
-        }, FLY_ORBIT_S * 1000);
-      }, FLY_APPROACH_S * 1000);
-    }, 1500);
+    pendingFlightRef.current = line; // flies once the line has been shown in full
   }, [t, axiosInstance, i18n.language, aiServiceMode]);
+
+  const startFlight = useCallback(() => {
+    pendingFlightRef.current = null;
+    clearTimeout(flyTimerRef.current);
+    setFlyPhase('approach');
+    setMode('fly_to_moon');
+    fly1Ref.current = setTimeout(() => {
+      setFlyPhase('orbit');
+      fly2Ref.current = setTimeout(() => {
+        setFlyPhase('return');
+        flyTimerRef.current = setTimeout(() => {
+          setFlyPhase(null);
+          setMode('idle');
+        }, FLY_RETURN_S * 1000);
+      }, FLY_ORBIT_S * 1000);
+    }, FLY_APPROACH_S * 1000);
+  }, []);
+
+  // The exit line leaves with the saucer only after it has been shown in full
+  // (fit → a short read; scrolled → once the autoscroll reached the end). If
+  // the user closes it first, the saucer leaves right away.
+  useEffect(() => {
+    const line = pendingFlightRef.current;
+    if (line === null) return;
+    if (mode === 'ai_bubble' && bubbleText === line) {
+      if (readDone?.text !== line) return;
+      clearTimeout(flyTimerRef.current);
+      flyTimerRef.current = setTimeout(startFlight, readDone.scrolled ? EXIT_AFTER_SCROLL_MS : EXIT_READ_MS);
+    } else if (mode === 'idle') {
+      startFlight();
+    } else {
+      pendingFlightRef.current = null; // something else took the stage
+    }
+  }, [mode, bubbleText, readDone, startFlight]);
 
   // ── Dismiss bubble (✕) — never a vote, never a health effect ─────────────
   const dismissBubble = () => {
@@ -841,20 +877,24 @@ const TamagotchiWidget: React.FC<Props> = ({
     ufoTop = `${Math.min((ufoCenter / screenH) * 100, 90)}%`;
   }
 
-  // The text bubble's place and tail: above (tail down, centred) or beside —
-  // to the saucer's left, tail pointing right at the saucer's centre.
+  // The text bubble's place: above (tail down to the saucer) or centre stage
+  // (no tail — the saucer has stepped back into the background).
   let bubbleClass = 'tama-bubble';
   let bubbleStyle: Record<string, string | number> = { x: '-50%' };
   bubbleClass += aboveOnly || bubbleText.length <= SHORT_BUBBLE_CHARS ? ' tama-bubble--short' : ' tama-bubble--long';
   if (placement?.kind === 'above') {
     bubbleStyle = { x: '-50%', top: placement.bubbleTop };
-  } else if (placement?.kind === 'side') {
-    const h = bubbleH || naturalBubble?.h || 0;
-    const top = sideBubbleTop(placement.ufoY, h, widgetH);
-    const tailY = Math.max(14, Math.min(placement.ufoY - top, h - 14));
-    bubbleClass += ' tama-bubble--side';
-    bubbleStyle = { x: 0, left: 'auto', right: widgetW - placement.bubbleRight, top, maxWidth: placement.bubbleMaxW, '--tama-tail-y': `${tailY}px` };
+  } else if (placement?.kind === 'center') {
+    bubbleClass += ' tama-bubble--center';
+    bubbleStyle = { x: '-50%', top: centerBubbleTop(bubbleH || naturalBubble?.h || 0, widgetH) };
   }
+  const ufoReceded = placement?.kind === 'center' && mode !== 'fly_to_moon';
+
+  // Scrollable bubbles glide to their end on their own (not under reduced
+  // motion); the text bubble reports when it has been shown in full.
+  const onBubbleRead = useCallback((text: string, scrolled: boolean) => setReadDone({ text, scrolled }), []);
+  useAutoScroll(bubbleTextRef, inBubble ? bubbleText : null, !!reduceMotion, onBubbleRead);
+  useAutoScroll(tourTextRef, inTour ? `tour-${tourStep}` : null, !!reduceMotion);
 
   const screenStyle: React.CSSProperties & Record<'--tama-bubble-max', string | undefined> = {
     minHeight: screenMinH ? `${screenMinH}px` : undefined,
@@ -1016,21 +1056,24 @@ const TamagotchiWidget: React.FC<Props> = ({
 
         {/* ── UFO ── */}
         <motion.div
-          className="tama-ufo"
+          className={`tama-ufo${ufoReceded ? ' tama-ufo--receded' : ''}`}
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
           initial={{ left: '50%', top: '44%' }}
           animate={
             mode !== 'fly_to_moon'
-              ? { left: ufoLeft, top: ufoTop, scale: 1 }
+              ? { left: ufoLeft, top: ufoTop, scale: ufoReceded ? RECEDE_SCALE : 1, opacity: ufoReceded ? RECEDE_OPACITY : 1 }
               : flyPhase === 'orbit'
-                ? { left: '88%', top: '8%', scale: 0.14 }
+                ? { left: '88%', top: '8%', scale: 0.14, opacity: 1 }
                 : flyPhase === 'return'
-                  ? { left: '50%', top: '44%', scale: 1 }
-                  : { left: '82%', top: '13%', scale: 0.18 }
+                  ? { left: '50%', top: '44%', scale: 1, opacity: 1 }
+                  : { left: '82%', top: '13%', scale: 0.18, opacity: 1 }
           }
           transition={
             mode !== 'fly_to_moon'
-              ? { type: 'spring', stiffness: 80, damping: 18 }
+              ? (reduceMotion
+                  ? { duration: 0 }
+                  // a soft, slightly slow glide into / out of depth
+                  : { type: 'spring', stiffness: 70, damping: 19, opacity: { duration: 0.6, ease: 'easeInOut' } })
               : flyPhase === 'orbit'
                 ? { duration: FLY_ORBIT_S, ease: 'easeInOut' }
                 : flyPhase === 'return'
@@ -1106,12 +1149,12 @@ const TamagotchiWidget: React.FC<Props> = ({
             ref={bubbleRef}
             className={bubbleClass}
             style={bubbleStyle}
-            initial={{ opacity: 0, scale: 0.88, y: 6 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
-            <p className="tama-bubble-text">{bubbleText}</p>
+            <p className="tama-bubble-text" ref={bubbleTextRef}>{bubbleText}</p>
             {fromHook && onMessageAction && (
               <div className="tama-bubble-votes">
                 <button type="button" className="tama-vote" onClick={() => voteOnMessage('like')} aria-label={t('companion.vote_like')} title={t('companion.vote_like')}>
@@ -1134,13 +1177,13 @@ const TamagotchiWidget: React.FC<Props> = ({
             ref={bubbleRef}
             className="tama-bubble tama-bubble--tour"
             style={{ x: '-50%' }}
-            initial={{ opacity: 0, scale: 0.88, y: 6 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.88, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.88, y: 6 }}
             transition={{ duration: 0.2 }}
           >
             <p className="tama-bubble-title">{t(STEPS[tourStep].title)}</p>
-            <p className="tama-bubble-text">{t(STEPS[tourStep].text)}</p>
+            <p className="tama-bubble-text" ref={tourTextRef}>{t(STEPS[tourStep].text)}</p>
             <div className="tama-tour-footer">
               <span className="tama-tour-dots">
                 {STEPS.map((_, i) => (
