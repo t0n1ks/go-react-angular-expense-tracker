@@ -268,7 +268,7 @@ func ExportTransactionsPDF(c *gin.Context) {
 	}
 
 	var txs []models.Transaction
-	if err := database.DB.Preload("Category").
+	if err := database.DB.Preload("Category").Scopes(activeModeScope(user)).
 		Where("user_id = ?", uid).
 		Order("date desc").
 		Find(&txs).Error; err != nil {

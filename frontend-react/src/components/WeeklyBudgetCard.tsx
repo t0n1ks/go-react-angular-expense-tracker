@@ -43,7 +43,7 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   const { t } = useTranslation();
   const {
     paydayMode, fixedPayday, manualNextPayday, settings, saveSettings,
-    currentCycle, cycleStats, budgetWindow, paydayStatus,
+    currentCycle, cycleStats, budgetWindow, paydayStatus, liteMode,
   } = useSettings();
   const [budgetInput, setBudgetInput] = useState('');
   const [savingBudget, setSavingBudget] = useState(false);
@@ -66,7 +66,8 @@ const WeeklyBudgetCard: React.FC<Props> = ({ transactions, monthlyBudget, format
   // hasCycle: a SalaryCycle is active and the server returned its stats. In that
   // case ALL numbers come from cycleStats (server-authoritative — no client date
   // math). The legacy path below only runs for users without a SalaryCycle.
-  const hasCycle = !!(currentCycle && cycleStats);
+  // Lite keeps its own entries and figures, so it never reads cycle stats.
+  const hasCycle = !liteMode && !!(currentCycle && cycleStats);
   const fixedExpCatID = Number(currentCycle?.fixed_exp_category_id ?? 0);
 
   // ── Next-payday date for display ──────────────────────────────────────────

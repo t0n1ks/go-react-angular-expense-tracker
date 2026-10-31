@@ -205,6 +205,7 @@ func GetProfile(c *gin.Context) {
 		"manual_next_payday":   user.ManualNextPayday,
 		"reputation_score":     user.ReputationScore,
 		"lite_mode":            user.LiteMode,
+		"lite_started_at":      user.LiteStartedAt,
 		"display_name":         user.DisplayName,
 		"avatar":               user.Avatar,
 	})
@@ -258,6 +259,18 @@ func UpdateProfile(c *gin.Context) {
 		"fixed_payday":         req.FixedPayday,
 		"manual_next_payday":   req.ManualNextPayday,
 		"lite_mode":            req.LiteMode,
+	}
+	// Switching Lite on starts a new Lite period: its list and figures begin
+	// empty and cover only entries made in it. Switching off keeps the period
+	// number (its rows stay stored, just hidden from extended mode).
+	var current models.User
+	if err := database.DB.Select("id", "lite_mode", "lite_period").First(&current, userID.(uint)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	if req.LiteMode && !current.LiteMode {
+		updates["lite_period"] = current.LitePeriod + 1
+		updates["lite_started_at"] = time.Now()
 	}
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})

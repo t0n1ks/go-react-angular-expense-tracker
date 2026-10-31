@@ -185,10 +185,10 @@ func computeCycleStatsAt(uid uint, cycle models.SalaryCycle, all []models.Salary
 
 	// Previous savings = net all-time minus net this cycle.
 	var allIncome, allExpense float64
-	database.DB.Model(&models.Transaction{}).
+	database.DB.Model(&models.Transaction{}).Scopes(extendedOnly).
 		Where("user_id = ? AND type IN ('income', 'savings_deposit')", uid).
 		Select("COALESCE(SUM(amount), 0)").Scan(&allIncome)
-	database.DB.Model(&models.Transaction{}).
+	database.DB.Model(&models.Transaction{}).Scopes(extendedOnly).
 		Where("user_id = ? AND type IN ('expense', 'savings_withdrawal')", uid).
 		Select("COALESCE(SUM(amount), 0)").Scan(&allExpense)
 	previousSavings := (allIncome - allExpense) - (income - expenses)
@@ -1374,7 +1374,7 @@ func GetSavingsHistory(c *gin.Context) {
 	}
 
 	var txs []models.Transaction
-	database.DB.Preload("Category").
+	database.DB.Preload("Category").Scopes(extendedOnly).
 		Where("user_id = ? AND category_id = ?", uid, cycle.SavedMoneyCategoryID).
 		Order("created_at DESC").
 		Find(&txs)
@@ -1446,14 +1446,14 @@ func DeleteSalaryCycle(c *gin.Context) {
 	winEnd := cycle.CycleStartAt.Add(60 * time.Second)
 
 	// Soft-delete the auto-generated Salary income transaction.
-	database.DB.Where(
+	database.DB.Scopes(extendedOnly).Where(
 		"user_id = ? AND created_at >= ? AND created_at <= ? AND type = 'income' AND description = 'Salary'",
 		uid, cycle.CycleStartAt, winEnd,
 	).Delete(&models.Transaction{})
 
 	// Soft-delete auto-generated fixed-expense transactions.
 	if cycle.FixedExpCategoryID > 0 {
-		database.DB.Where(
+		database.DB.Scopes(extendedOnly).Where(
 			"user_id = ? AND created_at >= ? AND created_at <= ? AND category_id = ?",
 			uid, cycle.CycleStartAt, winEnd, cycle.FixedExpCategoryID,
 		).Delete(&models.Transaction{})
@@ -1461,7 +1461,7 @@ func DeleteSalaryCycle(c *gin.Context) {
 
 	// Soft-delete auto-generated savings-transfer transactions.
 	if cycle.SavedMoneyCategoryID > 0 {
-		database.DB.Where(
+		database.DB.Scopes(extendedOnly).Where(
 			"user_id = ? AND created_at >= ? AND created_at <= ? AND category_id = ?",
 			uid, cycle.CycleStartAt, winEnd, cycle.SavedMoneyCategoryID,
 		).Delete(&models.Transaction{})

@@ -159,7 +159,7 @@ func runReactions(user models.User, k cycleClock, sig financeSignals, st *models
 		primeReactionMemory(user.ID, sig, st)
 	}
 	since := k.Now.AddDate(0, 0, -baselineWindowDays)
-	txs := loadWindowTransactions(user.ID, cycleWindow{Start: since}, k)
+	txs := loadActiveWindowTransactions(user, cycleWindow{Start: since}, k)
 
 	var newTxs, history []windowTx
 	maxID := st.LastTxID

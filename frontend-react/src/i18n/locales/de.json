@@ -175,6 +175,8 @@
   },
   "transactions": {
     "title": "Transaktionen",
+    "lite_badge": "Lite",
+    "lite_badge_hint": "Lite-Modus: nur Einträge dieses Lite-Zeitraums",
     "new_record": "Neuer Eintrag",
     "history": "Transaktionsverlauf",
     "amount": "Betrag",

@@ -380,7 +380,7 @@ func AnalyzeBehavior(c *gin.Context) {
 	// always within this window for any sane pay frequency.
 	since := time.Now().AddDate(0, 0, -90)
 	var txs []models.Transaction
-	if err := database.DB.Preload("Category").
+	if err := database.DB.Preload("Category").Scopes(extendedOnly).
 		Where("user_id = ? AND date >= ?", uid, since).
 		Find(&txs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})

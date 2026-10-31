@@ -20,6 +20,11 @@ type Transaction struct {
 	// Source marks entries the app creates on the user's behalf from an
 	// action ("carry_over_to_savings"); "" = ordinary entry.
 	Source    string    `json:"source,omitempty" gorm:"type:varchar(30);not null;default:''"`
+	// Mode is the app mode the entry was made in: "extended" (full mode,
+	// every row from before Lite separation) or "lite". LitePeriod is the
+	// user's Lite period it belongs to (0 for extended rows).
+	Mode       string `json:"mode"        gorm:"type:varchar(10);not null;default:'extended'"`
+	LitePeriod uint   `json:"lite_period" gorm:"not null;default:0"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	// Soft-delete: GORM v2 automatically filters deleted_at IS NULL on all queries.
@@ -28,3 +33,9 @@ type Transaction struct {
 	// windows (computed per request in the user's timezone, never stored).
 	EffectiveAt *time.Time `json:"effective_at,omitempty" gorm:"-"`
 }
+
+// Transaction modes (see Transaction.Mode).
+const (
+	TxModeExtended = "extended"
+	TxModeLite     = "lite"
+)

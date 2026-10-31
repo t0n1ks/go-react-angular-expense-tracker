@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
@@ -93,6 +94,10 @@ func runStartupMaintenance() {
 	// Backfill saved_money_category_id for cycles that pre-date the savings pool
 	// feature, or that were just reset to 0 by the heal step above.
 	backfillSavedMoneyCategory()
+
+	// Lite separation: tag pre-existing rows and open a Lite period for users
+	// already in Lite. Only the new columns are written.
+	backfillTransactionMode()
 
 	// Visible in the deploy log: proves this non-deleting startup is live.
 	log.Println("Startup maintenance completed (non-destructive: no cycles or transactions deleted)")
@@ -205,5 +210,25 @@ func healCrossUserCategoryRefs() {
 		log.Printf("healCrossUserCategoryRefs: saved_money reset failed: %v", res.Error)
 	} else if res.RowsAffected > 0 {
 		log.Printf("healCrossUserCategoryRefs: reset %d cycle(s) with wrong saved_money_category_id", res.RowsAffected)
+	}
+}
+
+// backfillTransactionMode sets the new mode tag on rows that pre-date it
+// (all of them are extended-mode entries) and gives users who were already in
+// Lite mode their first Lite period, starting now. It writes ONLY the new
+// columns (transactions.mode, users.lite_period / lite_started_at); no amount,
+// date, category or other content changes. Idempotent.
+func backfillTransactionMode() {
+	if res := DB.Exec("UPDATE transactions SET mode = ? WHERE mode IS NULL OR mode = ''", models.TxModeExtended); res.Error != nil {
+		log.Printf("Warning: transaction mode backfill failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("Transaction mode backfill: %d row(s) tagged extended", res.RowsAffected)
+	}
+	if res := DB.Model(&models.User{}).
+		Where("lite_mode = ? AND (lite_period IS NULL OR lite_period = 0)", true).
+		Updates(map[string]any{"lite_period": 1, "lite_started_at": time.Now()}); res.Error != nil {
+		log.Printf("Warning: Lite period backfill failed: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		log.Printf("Lite period backfill: %d Lite user(s) given a first period", res.RowsAffected)
 	}
 }

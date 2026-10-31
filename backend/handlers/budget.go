@@ -73,6 +73,38 @@ func startOfWeekMonday(t time.Time) time.Time {
 func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 	loc := now.Location()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+
+	// Variable spend this month. No salary cycle ⇒ no fixed/savings categories,
+	// so every live expense counts. Membership uses the same event instant as
+	// the cycle engine (see cycle_window.go), so backdated entries land on
+	// their own date here too.
+	k := newCycleClock(now, loc)
+	nextMonth := monthStart.AddDate(0, 1, 0)
+	txs := loadWindowTransactions(uid, cycleWindow{Start: monthStart, End: &nextMonth}, k)
+	return budgetWindowOver(goal, now, monthStart, txs)
+}
+
+// computeLiteBudgetWindow is the Lite-mode budget: the same monthly goal and
+// allowance rule, but spend counts only the current Lite period's own entries
+// dated on/after the day Lite began (from zero) — never extended/cycle rows,
+// earlier Lite periods or previous months.
+func computeLiteBudgetWindow(user models.User, now time.Time) BudgetWindow {
+	loc := now.Location()
+	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	if day := liteStartDay(user, loc); day.After(start) {
+		start = day
+	}
+	k := newCycleClock(now, loc)
+	nextMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, 1, 0)
+	txs := loadLiteWindowTransactions(user.ID, user.LitePeriod, cycleWindow{Start: start, End: &nextMonth}, k)
+	return budgetWindowOver(user.MonthlySpendingGoal, now, start, txs)
+}
+
+// budgetWindowOver is the monthly budget view over txs, counted from
+// windowStart (the month start, or a later Lite start) to the month's end.
+func budgetWindowOver(goal float64, now time.Time, windowStart time.Time, txs []windowTx) BudgetWindow {
+	loc := now.Location()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	// Last instant of the month = start of next month minus 1ns.
 	monthEnd := monthStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
 
@@ -83,17 +115,9 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 		daysRemaining = 1
 	}
 
-	// Variable spend this month. No salary cycle ⇒ no fixed/savings categories,
-	// so every live expense counts. Membership uses the same event instant as
-	// the cycle engine (see cycle_window.go), so backdated entries land on
-	// their own date here too.
-	k := newCycleClock(now, loc)
-	nextMonth := monthStart.AddDate(0, 1, 0)
-	txs := loadWindowTransactions(uid, cycleWindow{Start: monthStart, End: &nextMonth}, k)
-
 	weekStart := startOfWeekMonday(now)
-	if weekStart.Before(monthStart) {
-		weekStart = monthStart
+	if weekStart.Before(windowStart) {
+		weekStart = windowStart
 	}
 
 	var spent, weekSpent float64
@@ -121,7 +145,7 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 		HasGoal:              goal > 0,
 		DefaultGoal:          DefaultMonthlyBudget,
 		MonthlyBudget:        round2(goal),
-		WindowStart:          monthStart,
+		WindowStart:          windowStart,
 		WindowEnd:            monthEnd,
 		SpentThisWindow:      round2(spent),
 		Remaining:            round2(remaining),
@@ -152,5 +176,10 @@ func GetCurrentBudget(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, computeBudgetWindow(uid, user.MonthlySpendingGoal, requestClock(c, uid).Now))
+	now := requestClock(c, uid).Now
+	if user.LiteMode {
+		c.JSON(http.StatusOK, computeLiteBudgetWindow(user, now))
+		return
+	}
+	c.JSON(http.StatusOK, computeBudgetWindow(uid, user.MonthlySpendingGoal, now))
 }

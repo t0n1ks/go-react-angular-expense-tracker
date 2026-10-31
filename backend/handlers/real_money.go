@@ -373,7 +373,7 @@ func loadLedger(uid uint, k cycleClock) (ledger, bool) {
 		return ledger{}, false
 	}
 	var rows []models.Transaction
-	database.DB.Where("user_id = ?", uid).Find(&rows)
+	database.DB.Scopes(extendedOnly).Where("user_id = ?", uid).Find(&rows)
 	txs := make([]windowTx, len(rows))
 	for i, r := range rows {
 		txs[i] = windowTx{Transaction: r, At: k.txEventAt(r)}

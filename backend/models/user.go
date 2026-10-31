@@ -1,6 +1,10 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type User struct {
 	gorm.Model
@@ -21,6 +25,11 @@ type User struct {
 	// LiteMode: opt-in "track-only" mode. Hides salary-cycle/analytics UI and
 	// suppresses Python analytics/forecast calls. Advisor (joke/fact) stays on.
 	LiteMode bool `gorm:"default:false" json:"lite_mode"`
+	// LitePeriod numbers the user's Lite periods (each switch to Lite starts
+	// the next one); LiteStartedAt is when the current one began. Lite lists
+	// and figures cover only the current period's own entries.
+	LitePeriod    uint       `gorm:"not null;default:0" json:"lite_period"`
+	LiteStartedAt *time.Time `json:"lite_started_at"`
 	// Timezone is the IANA zone last reported by the user's device
 	// (X-User-Timezone). Cycle boundaries are evaluated in it; "" = UTC.
 	Timezone string `gorm:"type:varchar(64);default:''" json:"timezone"`

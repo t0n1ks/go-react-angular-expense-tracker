@@ -175,6 +175,8 @@
   },
   "transactions": {
     "title": "Транзакції",
+    "lite_badge": "Lite",
+    "lite_badge_hint": "Режим Lite: лише записи поточного Lite-періоду",
     "new_record": "Новий запис",
     "history": "Історія операцій",
     "amount": "Сума",

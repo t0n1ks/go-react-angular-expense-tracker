@@ -140,7 +140,7 @@ func loadSavingsPool(uid, savedMoneyCatID uint) []models.Transaction {
 	if savedMoneyCatID == 0 {
 		return pool
 	}
-	database.DB.
+	database.DB.Scopes(extendedOnly).
 		Where("user_id = ? AND category_id = ?", uid, savedMoneyCatID).
 		Order("created_at DESC").
 		Find(&pool)

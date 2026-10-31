@@ -62,7 +62,7 @@ const TxTime: React.FC<{ tx: Transaction; className: string }> = ({ tx, classNam
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, refreshCycle, hasActiveCycle, cycleWindow } = useSettings();
+  const { formatAmount, refreshCycle, hasActiveCycle, cycleWindow, liteMode } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -407,7 +407,17 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="transactions-wrapper">
-      <h1 className="transactions-title">{t('transactions.title')}</h1>
+      {/* In Lite the list holds only this Lite period's own entries (the
+          server filters by mode) — the badge says so. */}
+      <div className="transactions-head">
+        <h1 className="transactions-title">{t('transactions.title')}</h1>
+        {liteMode && (
+          <span className="transactions-lite-badge" title={t('transactions.lite_badge_hint')}>
+            {t('transactions.lite_badge')}
+            <span className="sr-only"> — {t('transactions.lite_badge_hint')}</span>
+          </span>
+        )}
+      </div>
 
       {formError && <div className="error-alert">{formError}</div>}
 

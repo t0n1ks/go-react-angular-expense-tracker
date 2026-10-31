@@ -383,10 +383,11 @@ type windowTx struct {
 const dateSlack = 48 * time.Hour
 
 // loadWindowTransactions returns the user's live transactions whose event
-// instant (txEventAt) lies in w.
+// instant (txEventAt) lies in w. Extended-mode rows only: Lite entries never
+// count toward cycles, savings or the no-cycle monthly budget.
 func loadWindowTransactions(uid uint, w cycleWindow, k cycleClock) []windowTx {
 	lo := w.Start.Add(-dateSlack)
-	q := database.DB.Where("user_id = ?", uid).Where("(created_at >= ? OR date >= ?)", lo, lo)
+	q := database.DB.Scopes(extendedOnly).Where("user_id = ?", uid).Where("(created_at >= ? OR date >= ?)", lo, lo)
 	if w.End != nil {
 		hi := w.End.Add(dateSlack)
 		q = q.Where("(created_at < ? OR date < ?)", hi, hi)

@@ -280,7 +280,12 @@ func TestLiteAndNoCycleUnaffected(t *testing.T) {
 			t.Fatalf("lite=%v create tx: %d", lite, w.Code)
 		}
 
+		// A Lite user's entry is a Lite record: it counts in the Lite budget
+		// (and never in the extended one, see tx_mode_test.go).
 		bw := computeBudgetWindow(u.ID, u.MonthlySpendingGoal, time.Now().UTC())
+		if lite {
+			bw = computeLiteBudgetWindow(u, time.Now().UTC())
+		}
 		approx(t, "spent_this_window", bw.SpentThisWindow, 12.80) // exact cents, not floored
 		approx(t, "remaining", bw.Remaining, 487.20)
 

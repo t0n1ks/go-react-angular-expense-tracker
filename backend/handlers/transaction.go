@@ -67,6 +67,9 @@ func CreateTransaction(c *gin.Context) {
 		incomeType = input.IncomeType
 	}
 
+	// The entry belongs to the mode the user is in now (server-side, so every
+	// device tags alike).
+	mode := loadModeUser(userID.(uint))
 	transaction := models.Transaction{
 		UserID:      userID.(uint),
 		CategoryID:  input.CategoryID,
@@ -75,8 +78,13 @@ func CreateTransaction(c *gin.Context) {
 		Date:        parsedDate,
 		Type:        input.Type,
 		IncomeType:  incomeType,
+		Mode:        models.TxModeExtended,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+	}
+	if mode.LiteMode {
+		transaction.Mode = models.TxModeLite
+		transaction.LitePeriod = mode.LitePeriod
 	}
 
 	if err := database.DB.Create(&transaction).Error; err != nil {
@@ -84,7 +92,7 @@ func CreateTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
 		return
 	}
-	if transaction.Type == "income" {
+	if transaction.Type == "income" && transaction.Mode == models.TxModeExtended {
 		topUpSavingsAllocation(userID.(uint), requestClock(c, userID.(uint)))
 	}
 	InvalidateCycleCache(userID.(uint))
@@ -100,7 +108,9 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
-	query := database.DB.Where("user_id = ?", userID)
+	// Only the active mode's entries: extended hides Lite rows; Lite shows its
+	// current period's own rows.
+	query := database.DB.Scopes(activeModeScope(loadModeUser(userID.(uint)))).Where("user_id = ?", userID)
 
 	if categoryIDStr := c.Query("category_id"); categoryIDStr != "" {
 		categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
@@ -382,6 +392,7 @@ func GetDailySummary(c *gin.Context) {
 	result := database.DB.Table("transactions").
 		Select("transactions.category_id AS category_id, SUM(transactions.amount) AS total_amount, categories.name AS category_name").
 		Joins("LEFT JOIN categories ON transactions.category_id = categories.id").
+		Scopes(activeModeScope(loadModeUser(userID.(uint)))).
 		Where("transactions.user_id = ? AND transactions.date >= ? AND transactions.date <= ?", userID, startOfDay, endOfDay).
 		Group("transactions.category_id, categories.id, categories.name").
 		Order("total_amount DESC").
@@ -436,6 +447,7 @@ func GetPeriodSummary(c *gin.Context) {
 	result := database.DB.Table("transactions").
 		Select("transactions.category_id AS category_id, SUM(transactions.amount) AS total_amount, categories.name AS category_name").
 		Joins("LEFT JOIN categories ON transactions.category_id = categories.id").
+		Scopes(activeModeScope(loadModeUser(userID.(uint)))).
 		Where("transactions.user_id = ? AND transactions.date >= ? AND transactions.date <= ?", userID, parsedBeginDate, parsedEndDate).
 		Group("transactions.category_id, categories.id, categories.name").
 		Order("total_amount DESC").
