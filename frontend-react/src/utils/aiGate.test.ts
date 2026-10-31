@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isRadioSilence, companionMessageVisible, ambientTypes } from './aiGate';
+import { isRadioSilence, companionMessageVisible, ambientTypes, cycleHintVisible } from './aiGate';
 
 const ext = (aiAdviceEnabled: boolean, aiHumorEnabled = true) => ({ liteMode: false, aiAdviceEnabled, aiHumorEnabled });
 const lite = (aiAdviceEnabled: boolean, aiHumorEnabled = true) => ({ liteMode: true, aiAdviceEnabled, aiHumorEnabled });
@@ -11,7 +11,17 @@ describe('radio silence', () => {
       expect(companionMessageVisible('pace_warn', s)).toBe(false);
       expect(companionMessageVisible('quest_ask', s)).toBe(false);
       expect(ambientTypes(s)).toBeNull();
+      expect(cycleHintVisible(s)).toBe(false);
     }
+  });
+});
+
+describe('self-appearing cycle-week prompt', () => {
+  it('never in Lite; in extended as before (whatever the finance toggle)', () => {
+    expect(cycleHintVisible(lite(true))).toBe(false);
+    expect(cycleHintVisible(lite(false))).toBe(false);
+    expect(cycleHintVisible(ext(true))).toBe(true);
+    expect(cycleHintVisible(ext(false))).toBe(true);
   });
 });
 

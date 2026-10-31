@@ -31,6 +31,17 @@ export function companionMessageVisible(type: string, s: AIGateSettings): boolea
   return s.aiAdviceEnabled;
 }
 
+/**
+ * Whether the widget's own self-appearing cycle-week prompt (shown when the
+ * calendar drifts in) may pop up.
+ * - Radio silence: never.
+ * - Lite: never (Lite is cycle-free, even when the account has a cycle).
+ * - Extended: as before.
+ */
+export function cycleHintVisible(s: AIGateSettings): boolean {
+  return !isRadioSilence(s) && !s.liteMode;
+}
+
 const AMBIENT_ALL = new Set(['GREETING', 'TIP', 'ENCOURAGEMENT']);
 const AMBIENT_NO_FINANCE = new Set(['GREETING', 'ENCOURAGEMENT']);
 

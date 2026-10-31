@@ -34,6 +34,7 @@ const GLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 import { useAutoScroll } from '../hooks/useAutoScroll';
 import { CALENDAR_ART } from '../utils/companionArt';
 import { LITE_TIME_KEYS, pickLiteTimeLine } from '../utils/liteCalendar';
+import { cycleHintVisible } from '../utils/aiGate';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -308,7 +309,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const reduceMotion = useReducedMotion();
   const { t, i18n } = useTranslation();
   const { user, axiosInstance } = useAuth();
-  const { currentCycle, cycleStats, liteMode } = useSettings();
+  const { currentCycle, cycleStats, liteMode, aiAdviceEnabled } = useSettings();
   const [mode,          setMode]          = useState<WidgetMode>('idle');
   const [bubbleText,    setBubbleText]    = useState('');
   const [fromHook,      setFromHook]      = useState(false);
@@ -577,7 +578,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Proactive cycle-week countdown hint (rare, cooldowned) ────────────────
   // Defined fresh each render so it closes over the latest cycle data/translator.
   const maybeProactiveCycleHint = () => {
-    if (silenceRef.current) return; // radio silence: nothing on its own
+    // Output gate only (utils/aiGate): never in Lite (cycle-free) or under
+    // radio silence; extended unchanged.
+    if (!cycleHintVisible({ liteMode, aiAdviceEnabled, aiHumorEnabled: !silenceRef.current })) return;
     if (modeRef.current !== 'idle' || msgsSinceHintRef.current < 2) return;
     const uid = user?.id ?? 'anon';
     const key = `tama_cycle_proactive_${uid}`;
