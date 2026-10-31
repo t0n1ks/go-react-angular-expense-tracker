@@ -12,18 +12,23 @@ interface Props {
   mood: CompanionMood;
   reason: string;
   onExplain: () => void;
+  // Purely cosmetic value drawn in the bar for a moment (the welcome-back
+  // "glitch"); the accessible value always stays the true health.
+  displayHealth?: number;
 }
 
-const CompanionHealthMeter: React.FC<Props> = ({ health, mood, reason, onExplain }) => {
+const CompanionHealthMeter: React.FC<Props> = ({ health, mood, reason, onExplain, displayHealth }) => {
   const { t } = useTranslation();
   const reasonId = useId();
   const value = Math.max(0, Math.min(100, Math.round(health)));
+  const glitching = displayHealth !== undefined;
+  const shown = glitching ? Math.max(0, Math.min(100, Math.round(displayHealth))) : value;
   const moodLabel = t(`companion.mood.${mood}`);
 
   return (
     <div className="tama-health">
       <div
-        className={`tama-health-track tama-health-track--${mood}`}
+        className={`tama-health-track tama-health-track--${mood}${glitching ? ' tama-health-track--glitch' : ''}`}
         role="meter"
         aria-label={t('companion.health_label')}
         aria-valuemin={0}
@@ -32,8 +37,8 @@ const CompanionHealthMeter: React.FC<Props> = ({ health, mood, reason, onExplain
         aria-valuetext={t('companion.health_valuetext', { value, mood: moodLabel })}
         aria-describedby={reasonId}
       >
-        <span className="tama-health-fill" style={{ width: `${value}%` }} />
-        <span className="tama-health-value" aria-hidden="true">{value}%</span>
+        <span className="tama-health-fill" style={{ width: `${shown}%` }} />
+        <span className="tama-health-value" aria-hidden="true">{shown}%</span>
       </div>
       {/* Covers the bar: tap or Enter explains why. */}
       <button

@@ -32,6 +32,9 @@ export interface CompanionState {
   basis: CompanionBasis;
   quest: { open: boolean };
   message: CompanionMessage | null;
+  // Once, right after a radio silence of a day or more: cue for the cosmetic
+  // "glitch" welcome-back (no health was lost).
+  glitch?: boolean;
 }
 
 export type CatchKind = 'star' | 'cow';

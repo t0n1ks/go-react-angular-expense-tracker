@@ -131,7 +131,8 @@ const Dashboard: React.FC = () => {
       const raw = localStorage.getItem(key);
       previous = raw === null ? null : Number(raw);
     } catch { /* storage unavailable — no note */ }
-    if (previous !== null && Number.isFinite(previous) && companionHealth < previous - 0.5) {
+    // Back from radio silence: the cosmetic glitch beat speaks instead.
+    if (!companion.state?.glitch && previous !== null && Number.isFinite(previous) && companionHealth < previous - 0.5) {
       setHealthNote(healthChangeText(companionHealth, previous, companionReason, t));
     }
     try { localStorage.setItem(key, String(companionHealth)); } catch { /* ignore */ }
@@ -179,6 +180,7 @@ const Dashboard: React.FC = () => {
       onCatch={companion.catchEntity}
       layout={cosmosInGrid ? 'cell' : 'stack'}
       radioSilence={radioSilence}
+      glitchBack={companion.state?.glitch ?? false}
     />
   );
 

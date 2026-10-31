@@ -33,6 +33,7 @@ const RECEDE_GLIDE_S = 0.55;
 const GLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 import { useAutoScroll } from '../hooks/useAutoScroll';
 import { CALENDAR_ART } from '../utils/companionArt';
+import { LITE_TIME_KEYS, pickLiteTimeLine } from '../utils/liteCalendar';
 import './TamagotchiWidget.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -280,6 +281,11 @@ interface Props {
   // no catch reported) and the health bar is hidden. Output gate only — see
   // utils/aiGate.
   radioSilence?: boolean;
+  // Interaction just came back after a silent day or more (server cue): the
+  // bar dips for a moment, then glides back to the true value with a playful
+  // "readings glitched" line. Cosmetic only: no health was lost, and the
+  // stored value is what the bar always returns to.
+  glitchBack?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -297,11 +303,12 @@ const TamagotchiWidget: React.FC<Props> = ({
   onCatch,
   layout = 'stack',
   radioSilence = false,
+  glitchBack = false,
 }) => {
   const reduceMotion = useReducedMotion();
   const { t, i18n } = useTranslation();
   const { user, axiosInstance } = useAuth();
-  const { currentCycle, cycleStats } = useSettings();
+  const { currentCycle, cycleStats, liteMode } = useSettings();
   const [mode,          setMode]          = useState<WidgetMode>('idle');
   const [bubbleText,    setBubbleText]    = useState('');
   const [fromHook,      setFromHook]      = useState(false);
@@ -360,6 +367,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   const pendingQuotaRef    = useRef<string | null>(null);
   const starCooldownRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calTickRef         = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const liteTimeLastRef    = useRef<number | null>(null);
   // ── Global entity spawner: one drifting entity (cow OR calendar) at a time ──
   const entityActiveRef    = useRef(false);
   const spawnTimerRef      = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -534,6 +542,32 @@ const TamagotchiWidget: React.FC<Props> = ({
     return () => clearTimeout(id);
   }, [healthNote, showNote]);
 
+  // Back from radio silence: a playful, purely cosmetic "glitch". The bar
+  // dips for a couple of seconds, then glides back to the TRUE stored value
+  // with a light line. Only local display state: leaving mid-beat loses
+  // nothing (the stored value never changed). Reduced motion: the line only.
+  const [glitchDip, setGlitchDip] = useState<number | undefined>(undefined);
+  const glitchPlayedRef = useRef(false);
+  const glitchTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    if (!glitchBack) { glitchPlayedRef.current = false; return; }
+    if (glitchPlayedRef.current || radioSilence || health === undefined) return;
+    glitchPlayedRef.current = true;
+    const timers = glitchTimersRef.current;
+    const say = () => showNote(t('companion.glitch_back'));
+    if (reduceMotion) {
+      timers.push(setTimeout(say, 1_500));
+      return;
+    }
+    const dip = Math.max(5, Math.round(health) - 35);
+    timers.push(setTimeout(() => setGlitchDip(dip), 600));
+    timers.push(setTimeout(() => { setGlitchDip(undefined); say(); }, 3_000));
+  }, [glitchBack, radioSilence, health, reduceMotion, showNote, t]);
+  useEffect(() => {
+    const timers = glitchTimersRef.current;
+    return () => { timers.forEach(clearTimeout); };
+  }, []);
+
   const explainHealth = useCallback(() => {
     if (health !== undefined && reasonText) {
       showNote(t('companion.health_now', { value: Math.round(health), reason: reasonText }));
@@ -623,10 +657,16 @@ const TamagotchiWidget: React.FC<Props> = ({
     if (modeRef.current !== 'idle') return; // don't stack over an open dialog/tour
     clearTimeout(autoDismissRef.current);
 
+    // Lite: now and then a gentle "time doesn't matter here" line joins
+    // whatever the calendar says (never under radio silence).
+    const lineIdx = pickLiteTimeLine({ liteMode, radioSilence: silenceRef.current, last: liteTimeLastRef.current });
+    if (lineIdx !== null) liteTimeLastRef.current = lineIdx;
+    const whimsy = lineIdx === null ? '' : ` ${t(LITE_TIME_KEYS[lineIdx])}`;
+
     const cycleStart = currentCycle?.cycle_start_at;
     const weekIdx = cycleStats?.current_week_index;
     if (!cycleStart || weekIdx == null) {
-      setBubbleText(t('dashboard.tama_cal_no_cycle'));
+      setBubbleText(t('dashboard.tama_cal_no_cycle') + whimsy);
       setFromHook(false);
       setMode('ai_bubble');
       return;
@@ -634,14 +674,14 @@ const TamagotchiWidget: React.FC<Props> = ({
     const target = getNextCycleWeekStart(cycleStart, weekIdx);
     if (!target) return;
 
-    const tick = () => setBubbleText(formatCycleCountdown(target, new Date(), t));
+    const tick = () => setBubbleText(formatCycleCountdown(target, new Date(), t) + whimsy);
     tick();
     setFromHook(false);
     setMode('ai_bubble');
     // Live HH:MM:SS under 24h; harmless 1s refresh when showing "N days" too.
     clearInterval(calTickRef.current);
     calTickRef.current = setInterval(tick, 1000);
-  }, [currentCycle, cycleStats, t, endEntity]);
+  }, [currentCycle, cycleStats, liteMode, t, endEntity]);
 
   // ── Tour ──────────────────────────────────────────────────────────────────
   const startTour = () => {
@@ -1202,7 +1242,7 @@ const TamagotchiWidget: React.FC<Props> = ({
 
         {/* ── Health: bar + % + mood in words; tap explains why ── */}
         {health !== undefined && mood && !radioSilence && (
-          <CompanionHealthMeter health={health} mood={mood} reason={reasonText ?? ''} onExplain={explainHealth} />
+          <CompanionHealthMeter health={health} mood={mood} reason={reasonText ?? ''} onExplain={explainHealth} displayHealth={glitchDip} />
         )}
 
         {/* ── SVG thought bubble + choice zones ── */}

@@ -814,6 +814,11 @@
     "avatar_alien": "Alien"
   },
   "companion": {
+    "glitch_back": "Whoa, looks like the readings glitched for a sec… all stable now :)",
+    "lite_time_1": "What is time, anyway? In this mode it doesn't matter.",
+    "lite_time_2": "Days are like autumn petals — who's counting…",
+    "lite_time_3": "The calendar turns its own pages; I'm just here watching the stars.",
+    "lite_time_4": "No deadlines out here — just you, the moon and a little stardust.",
     "radio_silence": "Radio silence is on… Turn on interaction in Settings.",
     "health_label": "UFO health",
     "health_valuetext": "{{value}}% — {{mood}}",

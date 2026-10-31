@@ -265,7 +265,7 @@ func UpdateProfile(c *gin.Context) {
 	// on new Lite entries (lists and figures no longer filter by it); all Lite
 	// entries stay visible in Lite, grouped by month.
 	var current models.User
-	if err := database.DB.Select("id", "lite_mode", "lite_period").First(&current, userID.(uint)).Error; err != nil {
+	if err := database.DB.Select("id", "lite_mode", "lite_period", "ai_humor_enabled").First(&current, userID.(uint)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -276,6 +276,11 @@ func UpdateProfile(c *gin.Context) {
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
+	}
+	// Humour & interaction just went off: radio silence starts now (the
+	// companion's health pause counts from here).
+	if !req.AIHumorEnabled && current.AIHumorEnabled {
+		markCompanionSilent(userID.(uint), time.Now())
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated"})

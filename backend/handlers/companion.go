@@ -40,6 +40,10 @@ type companionView struct {
 	Basis   string            `json:"basis"`
 	Quest   companionQuest    `json:"quest"`
 	Message *companionMessage `json:"message"`
+	// Set once, on the first check after a radio silence of a day or more:
+	// the client may play its purely cosmetic "glitch" welcome-back. No health
+	// was lost — this is only a cue for the joke.
+	Glitch bool `json:"glitch,omitempty"`
 }
 
 type companionQuest struct {
@@ -116,13 +120,22 @@ func companionCheck(user models.User, k cycleClock, lang string, deliver bool) c
 	}
 
 	var current float64
+	glitch := false
 	if silenced {
 		// Health paused: the stored value is kept as is (never reset) and the
 		// silent days are skipped, so turning interaction back on resumes from
 		// here instead of catching up on them.
+		if st.SilentSince == nil {
+			now := k.Now
+			st.SilentSince = &now
+		}
+		catchUpToSilence(&st, k, targetOn)
 		current = st.BaseHealth
 		st.BaseDay = localDayKey(today.AddDate(0, 0, -1), k)
 	} else {
+		if st.SilentSince != nil {
+			glitch = resumeFromSilence(&st, today, k, targetOn)
+		}
 		baseDay, err := time.ParseInLocation("2006-01-02", st.BaseDay, k.Loc)
 		if err != nil {
 			baseDay = today.AddDate(0, 0, -1)
@@ -150,7 +163,60 @@ func companionCheck(user models.User, k cycleClock, lang string, deliver bool) c
 		Basis:   sig.Basis,
 		Quest:   companionQuest{Open: questOpen(st.QuestAskedAt, st.LastCatchAt)},
 		Message: msg,
+		Glitch:  glitch,
 	}
+}
+
+// markCompanionSilent records when radio silence began (the humour toggle
+// went off), so the pause starts that day even if the dashboard is not opened
+// during the silence. A user without a companion row yet has nothing to pause.
+func markCompanionSilent(uid uint, now time.Time) {
+	if err := database.DB.Model(&models.CompanionState{}).
+		Where("user_id = ? AND silent_since IS NULL", uid).
+		Update("silent_since", now).Error; err != nil {
+		log.Printf("companion: mark silent user=%d: %v", uid, err)
+	}
+}
+
+// catchUpToSilence rolls the stored health over the days before the silence
+// began that nobody looked at, so only the silent days themselves are skipped.
+func catchUpToSilence(st *models.CompanionState, k cycleClock, targetOn func(day time.Time) float64) {
+	silentDay := k.dayStart(*st.SilentSince)
+	baseDay, err := time.ParseInLocation("2006-01-02", st.BaseDay, k.Loc)
+	if err != nil || !baseDay.Before(silentDay.AddDate(0, 0, -1)) {
+		return
+	}
+	base, newBaseDay, _ := rollHealth(st.BaseHealth, baseDay, silentDay, k, targetOn)
+	st.BaseHealth, st.BaseDay = base, localDayKey(newBaseDay, k)
+}
+
+// resumeFromSilence ends a radio silence: health resumes from the kept value
+// (the silent days are skipped) and an open quest's clock moves on by the
+// silent days, so its penalty never grows for them — no HP is lost for the
+// silence. Nothing else changes. Reports whether the silence lasted a day or
+// more (the cue for the client's cosmetic welcome-back).
+func resumeFromSilence(st *models.CompanionState, today time.Time, k cycleClock, targetOn func(day time.Time) float64) bool {
+	catchUpToSilence(st, k, targetOn)
+	silentDay := k.dayStart(*st.SilentSince)
+	if yesterday := localDayKey(today.AddDate(0, 0, -1), k); yesterday > st.BaseDay {
+		st.BaseDay = yesterday
+	}
+	if questOpen(st.QuestAskedAt, st.LastCatchAt) {
+		from := silentDay
+		if asked := k.dayStart(*st.QuestAskedAt); asked.After(from) {
+			from = asked
+		}
+		if n := localDaysBetween(from, today, k); n > 0 {
+			moved := st.QuestAskedAt.AddDate(0, 0, n)
+			if moved.After(k.Now) {
+				moved = k.Now // never "asked" in the future: a catch now still answers it
+			}
+			st.QuestAskedAt = &moved
+		}
+	}
+	stretch := localDaysBetween(silentDay, today, k) >= 1
+	st.SilentSince = nil
+	return stretch
 }
 
 // pacedBand is the pace band to remember: judged only when there is a budget,

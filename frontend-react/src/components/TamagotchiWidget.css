@@ -367,6 +367,7 @@
   /* The catchable star stays visible and still (gold, enlarged). */
   .tama-star--rainbow { animation: none; background: #ffd700; transform: scale(1.6); }
   .tama-health-fill { transition: none; }
+  .tama-health-track--glitch { animation: none; }
   .tama-ufo-bob { animation: none; }
   .tama-space-cow { animation: none; }
   .tama-crater-glow { animation: none; }
@@ -898,6 +899,13 @@
 .tama-health-track--worried   .tama-health-fill { background: #d97706; }
 .tama-health-track--stressed  .tama-health-fill { background: #ea580c; }
 .tama-health-track--exhausted .tama-health-fill { background: #dc2626; }
+/* Welcome-back "glitch" (cosmetic only): a brief flicker while the bar dips. */
+.tama-health-track--glitch { animation: tama-health-glitch 0.9s steps(1, end); }
+.tama-health-track--glitch .tama-health-fill { background: #ea580c; }
+@keyframes tama-health-glitch {
+  0%, 30%, 60% { opacity: 1; }
+  15%, 45%     { opacity: 0.35; }
+}
 
 .tama-health-value {
   position: absolute;

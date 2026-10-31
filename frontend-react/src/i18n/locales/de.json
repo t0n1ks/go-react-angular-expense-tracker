@@ -764,6 +764,11 @@
     "avatar_alien": "Alien"
   },
   "companion": {
+    "glitch_back": "Huch, da haben die Werte wohl kurz gesponnen … jetzt ist alles stabil :)",
+    "lite_time_1": "Was ist schon Zeit? In diesem Modus spielt sie keine Rolle.",
+    "lite_time_2": "Die Tage sind wie Blätter im Herbst – wer zählt sie schon …",
+    "lite_time_3": "Der Kalender blättert von selbst um – ich schaue einfach den Sternen zu.",
+    "lite_time_4": "Hier gibt es keine Fristen – nur dich, den Mond und ein wenig Sternenstaub.",
     "radio_silence": "Funkstille ist aktiv … Schalte die Interaktion in den Einstellungen ein.",
     "health_label": "UFO-Gesundheit",
     "health_valuetext": "{{value}}% — {{mood}}",

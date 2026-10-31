@@ -114,6 +114,15 @@ func GetAIServiceStatus(c *gin.Context) {
 	}
 }
 
+// isLiteUser reports whether the user is in Lite mode (false when unknown).
+func isLiteUser(uid uint) bool {
+	var u models.User
+	if err := database.DB.Select("id", "lite_mode").First(&u, uid).Error; err != nil {
+		return false
+	}
+	return u.LiteMode
+}
+
 func normalizeLangForBrain(lang string) string {
 	lang = strings.ToLower(strings.TrimSpace(lang))
 	if lang == "" {
@@ -140,6 +149,12 @@ func GetNextAction(c *gin.Context) {
 		getBrainBaseURL(), userID.(uint), lang, k.localDate(), k.localHour())
 	if health := companionContext(userID.(uint)); health != "" {
 		url += "&context=" + health
+	}
+	// Lite hides tips (utils/aiGate), so ask the brain not to serve one: the
+	// day's tip stays unspent instead of being used up unseen. Lite only —
+	// extended mode and every other quota path are unchanged.
+	if isLiteUser(userID.(uint)) {
+		url += "&skip_tip=1"
 	}
 
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)

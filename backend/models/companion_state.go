@@ -17,6 +17,11 @@ type CompanionState struct {
 	LastCatchAt  *time.Time `json:"-"`
 	QuestAskedAt *time.Time `json:"-"`
 
+	// Start of the current radio silence (humour & interaction OFF), nil
+	// otherwise. While set, health is paused; when interaction comes back the
+	// silent days are skipped and an open quest's clock moves on by them.
+	SilentSince *time.Time `json:"-"`
+
 	// Reaction engine memory.
 	Band      string     `gorm:"size:8" json:"-"`    // last pace band (hysteresis)
 	Overspent bool       `json:"-"`                  // budget was overspent at the last check
