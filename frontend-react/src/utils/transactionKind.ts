@@ -47,3 +47,17 @@ export const flowLabelKey = (flow: TxFlow): string =>
 /** System categories that ordinary entries can't be filed under (pickers hide them). */
 export const isPickableCategory = (c: { translation_key?: string | null }): boolean =>
   c.translation_key !== VARIABLE_BUDGET_KEY;
+
+/**
+ * The category the new-entry form should hold: the current choice while it is
+ * still a pickable category, else the first pickable one ('' when none). The
+ * form can then never hold an id the picker doesn't show (a system category).
+ */
+export const formCategoryId = (
+  categories: { id: number; translation_key?: string | null }[],
+  current: string,
+): string => {
+  const pickable = categories.filter(isPickableCategory);
+  if (pickable.some(c => String(c.id) === current)) return current;
+  return pickable.length > 0 ? String(pickable[0].id) : '';
+};

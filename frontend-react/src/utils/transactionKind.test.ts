@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { txFlow, flowSign, flowClass, flowLabelKey, isPickableCategory, VARIABLE_BUDGET_KEY } from './transactionKind';
+import { txFlow, flowSign, flowClass, flowLabelKey, isPickableCategory, formCategoryId, VARIABLE_BUDGET_KEY } from './transactionKind';
 
 describe('txFlow', () => {
   it.each([
@@ -27,5 +27,27 @@ describe('isPickableCategory', () => {
     expect(isPickableCategory({ translation_key: VARIABLE_BUDGET_KEY })).toBe(false);
     expect(isPickableCategory({ translation_key: 'category.food' })).toBe(true);
     expect(isPickableCategory({ translation_key: null })).toBe(true);
+  });
+});
+
+describe('formCategoryId', () => {
+  const system = { id: 1, translation_key: VARIABLE_BUDGET_KEY };
+  const food = { id: 2, translation_key: 'category.food' };
+  const mine = { id: 3, translation_key: null };
+
+  it('never defaults to a system category, even when it comes first', () => {
+    expect(formCategoryId([system, food, mine], '')).toBe('2');
+  });
+  it('replaces a held system category with the first pickable one', () => {
+    expect(formCategoryId([system, food, mine], '1')).toBe('2');
+  });
+  it('keeps a valid choice', () => {
+    expect(formCategoryId([system, food, mine], '3')).toBe('3');
+  });
+  it('drops a choice that no longer exists', () => {
+    expect(formCategoryId([system, food], '9')).toBe('2');
+  });
+  it('is empty when only system categories exist', () => {
+    expect(formCategoryId([system], '')).toBe('');
   });
 });

@@ -9,7 +9,7 @@ import TransactionDetailModal from '../components/TransactionDetailModal';
 import ReturnToBudget from '../components/ReturnToBudget';
 import MoveToSavings from '../components/MoveToSavings';
 import {
-  txFlow, flowSign, flowClass, flowLabelKey, isBudgetRow, isSavingsToBudgetTransfer, isPickableCategory,
+  txFlow, flowSign, flowClass, flowLabelKey, isBudgetRow, isSavingsToBudgetTransfer, isPickableCategory, formCategoryId,
 } from '../utils/transactionKind';
 import { inCurrentCycle } from '../utils/categoryWindow';
 import TransactionFilterBar from '../components/TransactionFilterBar';
@@ -165,15 +165,18 @@ const Transactions: React.FC = () => {
       setTransactions(transRes.data.transactions || []);
       const cats = catsRes.data.categories || [];
       setCategories(cats);
-      if (cats.length > 0 && !formState.category_id) {
-        setFormState(prev => ({ ...prev, category_id: cats[0].id.toString() }));
-      }
+      // Default to the first category the picker shows — never a system one
+      // ("Переменный бюджет" can be first in the list but isn't offered).
+      setFormState(prev => {
+        const category_id = formCategoryId(cats, prev.category_id);
+        return category_id === prev.category_id ? prev : { ...prev, category_id };
+      });
     } catch {
       // silent — error_load shown via formError state if needed
     } finally {
       setLoading(false);
     }
-  }, [axiosInstance, formState.category_id]);
+  }, [axiosInstance]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -251,7 +254,8 @@ const Transactions: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formState.category_id) {
+    // Only a category the picker offers can be submitted.
+    if (!formState.category_id || formCategoryId(categories, formState.category_id) !== formState.category_id) {
       setFormError(t('transactions.error_no_cat'));
       return;
     }
