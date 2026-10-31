@@ -43,4 +43,7 @@ type User struct {
 	// Avatar is one of the fixed avatar ids (see handlers.validAvatars);
 	// "" = the first-letter circle.
 	Avatar string `gorm:"type:varchar(32);default:''" json:"avatar"`
+	// ShowOtherMode: the Transactions list also shows the other mode's
+	// entries, dimmed and view-only. Display only — no figure reads it.
+	ShowOtherMode bool `gorm:"not null;default:false" json:"show_other_mode"`
 }

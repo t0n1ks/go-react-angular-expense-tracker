@@ -245,7 +245,14 @@
     "filter_reset_aria": "Alle Filter zurücksetzen und alle Transaktionen anzeigen",
     "filter_results": "Gefunden: {{count}}",
     "filter_no_results": "Nichts gefunden",
-    "filter_no_results_hint": "Versuche eine andere Suche oder setze die Filter zurück."
+    "filter_no_results_hint": "Versuche eine andere Suche oder setze die Filter zurück.",
+    "show_other_extended": "Einträge aus dem erweiterten Modus anzeigen",
+    "show_other_lite": "Einträge aus Lite anzeigen",
+    "show_other_hint": "Nur zur Ansicht – in Summen und Statistik nicht mitgezählt",
+    "cross_from_lite": "aus Lite",
+    "cross_from_extended": "aus erweitert",
+    "cross_not_counted": "nicht gezählt",
+    "cross_sr": "Eintrag {{source}} – nur zur Ansicht, in keiner Berechnung gezählt"
   },
   "categories": {
     "title": "Kategorien verwalten",

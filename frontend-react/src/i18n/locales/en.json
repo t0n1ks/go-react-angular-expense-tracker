@@ -245,7 +245,14 @@
     "filter_reset_aria": "Clear all filters and show every transaction",
     "filter_results": "Found: {{count}}",
     "filter_no_results": "Nothing found",
-    "filter_no_results_hint": "Try a different search, or clear the filters."
+    "filter_no_results_hint": "Try a different search, or clear the filters.",
+    "show_other_extended": "Show entries from extended mode",
+    "show_other_lite": "Show entries from Lite",
+    "show_other_hint": "View only — not counted in any totals or stats",
+    "cross_from_lite": "from Lite",
+    "cross_from_extended": "from extended",
+    "cross_not_counted": "not counted",
+    "cross_sr": "Entry {{source}} — view only, not counted in any figures"
   },
   "categories": {
     "title": "Manage Categories",

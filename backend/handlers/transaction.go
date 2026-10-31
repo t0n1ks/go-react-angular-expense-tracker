@@ -109,8 +109,14 @@ func GetTransactions(c *gin.Context) {
 	}
 
 	// Only the active mode's entries: extended hides Lite rows; Lite shows its
-	// current period's own rows.
-	query := database.DB.Scopes(activeModeScope(loadModeUser(userID.(uint)))).Where("user_id = ?", userID)
+	// own rows. ?other_mode=1 (additive, display only) returns instead the
+	// OTHER mode's rows, each tagged by its own `mode`, for the list's opt-in
+	// view-only section — never mixed into the default response.
+	scope := activeModeScope
+	if c.Query("other_mode") == "1" {
+		scope = otherModeScope
+	}
+	query := database.DB.Scopes(scope(loadModeUser(userID.(uint)))).Where("user_id = ?", userID)
 
 	if categoryIDStr := c.Query("category_id"); categoryIDStr != "" {
 		categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)

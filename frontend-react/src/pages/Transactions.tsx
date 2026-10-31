@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown } from 'lucide-react';
+import { Plus, Trash2, ReceiptText, Pencil, X, Check, ChevronDown, FileDown, Layers } from 'lucide-react';
 import DeleteSnackbar from '../components/DeleteSnackbar';
 import TransactionDetailModal from '../components/TransactionDetailModal';
 import ReturnToBudget from '../components/ReturnToBudget';
@@ -18,6 +18,7 @@ import {
   currentMonthKey,
   formatMonthLabel,
 } from '../utils/groupTransactionsByMonth';
+import { withCrossModeRows } from '../utils/crossModeList';
 import { categoryLabel } from '../utils/categoryLabel';
 import { savingsMoveError } from '../utils/savingsMoveError';
 import { compareByTimeThenAmount, entryTime, formatEntryTime, formatTxDate } from '../utils/transactionTime';
@@ -51,6 +52,8 @@ interface Transaction {
   income_type?: string;
   /** Set on rows the app created from an action (e.g. "savings_to_budget"). */
   source?: string;
+  /** The mode the entry was made in ("lite" | "extended"). */
+  mode?: string;
   category: Category;
 }
 
@@ -62,9 +65,12 @@ const TxTime: React.FC<{ tx: Transaction; className: string }> = ({ tx, classNam
 
 const Transactions: React.FC = () => {
   const { axiosInstance } = useAuth();
-  const { formatAmount, refreshCycle, hasActiveCycle, cycleWindow } = useSettings();
+  const { formatAmount, refreshCycle, hasActiveCycle, cycleWindow, liteMode, showOtherMode, setShowOtherMode } = useSettings();
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // The other mode's entries (opt-in, view-only). Kept apart from
+  // `transactions`: nothing that counts reads this list.
+  const [otherTransactions, setOtherTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPDFLoading, setIsPDFLoading] = useState(false);
@@ -180,6 +186,17 @@ const Transactions: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Opt-in: load the other mode's entries for display (refetched when the
+  // mode changes; cleared when the switch is off).
+  useEffect(() => {
+    if (!showOtherMode) { setOtherTransactions([]); return; }
+    let cancelled = false;
+    axiosInstance.get('/transactions?other_mode=1')
+      .then((res: { data: { transactions?: Transaction[] } }) => { if (!cancelled) setOtherTransactions(res.data.transactions || []); })
+      .catch(() => { /* the list just shows own entries */ });
+    return () => { cancelled = true; };
+  }, [showOtherMode, liteMode, axiosInstance]);
+
   // When an edit begins, ensure the month containing that transaction is expanded
   // so the inline edit form is always visible.
   useEffect(() => {
@@ -250,6 +267,26 @@ const Transactions: React.FC = () => {
   const groups = useMemo(
     () => groupTransactionsByMonth(filteredTransactions),
     [filteredTransactions],
+  );
+
+  // The other mode's entries, sorted and filtered alike, slotted into the
+  // months for DISPLAY only: each group's `transactions` (its count and
+  // totals) stay the current mode's own; `rows` adds the dimmed others.
+  const sortedOther = useMemo(
+    () => [...otherTransactions].sort(compareByTimeThenAmount),
+    [otherTransactions],
+  );
+  const otherIndex = useMemo(
+    () => buildSearchIndex(sortedOther, tx => categoryLabel(tx.category, t, '')),
+    [sortedOther, t],
+  );
+  const filteredOther = useMemo(
+    () => (showOtherMode ? filterTransactions(sortedOther, appliedFilters, otherIndex) : []),
+    [showOtherMode, sortedOther, appliedFilters, otherIndex],
+  );
+  const listGroups = useMemo(
+    () => withCrossModeRows(groups, filteredOther, compareByTimeThenAmount),
+    [groups, filteredOther],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -371,6 +408,10 @@ const Transactions: React.FC = () => {
     isSavingsToBudgetTransfer(tr)
       ? t('transactions.transfer_savings_to_budget')
       : categoryLabel(tr.category, t, t('transactions.no_category'));
+
+  // Rows from the other mode: badge, and a screen-reader note (not colour alone).
+  const crossBadge = liteMode ? t('transactions.cross_from_extended') : t('transactions.cross_from_lite');
+  const crossSr = t('transactions.cross_sr', { source: crossBadge });
 
   // Category pickers leave out system categories ("Переменный бюджет").
   const pickableCategories = useMemo(() => categories.filter(isPickableCategory), [categories]);
@@ -509,6 +550,25 @@ const Transactions: React.FC = () => {
           </button>
         </div>
 
+        {/* Opt-in: show the other mode's entries (view-only, never counted). */}
+        <label className="tx-other-toggle">
+          <input
+            type="checkbox"
+            role="switch"
+            className="tx-other-input"
+            checked={showOtherMode}
+            onChange={e => setShowOtherMode(e.target.checked)}
+            aria-describedby="tx-other-hint"
+          />
+          <span className="tx-other-track" aria-hidden="true" />
+          <span className="tx-other-text">
+            <span className="tx-other-label">
+              {liteMode ? t('transactions.show_other_extended') : t('transactions.show_other_lite')}
+            </span>
+            <span id="tx-other-hint" className="tx-other-hint">{t('transactions.show_other_hint')}</span>
+          </span>
+        </label>
+
         <TransactionFilterBar
           filters={filters}
           onChange={handleFiltersChange}
@@ -532,7 +592,7 @@ const Transactions: React.FC = () => {
               </tr>
             </thead>
 
-            {groups.length === 0 ? (
+            {listGroups.length === 0 ? (
               <tbody>
                 <tr>
                   <td colSpan={6} className="tx-empty-cell">
@@ -548,7 +608,7 @@ const Transactions: React.FC = () => {
                 </tr>
               </tbody>
             ) : (
-              groups.map(group => {
+              listGroups.map(group => {
                 const isExpanded = isMonthExpanded(group.key);
                 const monthIncome = group.transactions
                   .filter(t => t.type === 'income')
@@ -580,7 +640,7 @@ const Transactions: React.FC = () => {
                               className={`month-chevron${isExpanded ? ' month-chevron--open' : ''}`}
                             />
                             <span className="month-header-label">{label}</span>
-                            <span className="month-header-count">{group.transactions.length}</span>
+                            {group.transactions.length > 0 && <span className="month-header-count">{group.transactions.length}</span>}
                             <span className="month-header-amounts">
                               {monthIncome > 0 && (
                                 <span className="month-header-income">+{formatAmount(monthIncome)}</span>
@@ -596,7 +656,33 @@ const Transactions: React.FC = () => {
 
                     {/* Transaction rows — hidden when collapsed */}
                     <tbody className={`month-txns-tbody${isExpanded ? '' : ' month-txns-tbody--hidden'}`}>
-                      {group.transactions.map(tr => (
+                      {group.rows.map(({ tx: tr, cross }) => cross ? (
+                        // Other mode: view-only (no detail, edit or delete
+                        // here — its own mode owns it), not counted.
+                        <tr key={`x${tr.id}`} className="tx-row-cross">
+                          <td>
+                            {formatTxDate(tr.date)}
+                            <TxTime tx={tr} className="tx-time" />
+                            <span className="sr-only">{crossSr}</span>
+                          </td>
+                          <td><span className="category-tag">{rowCategory(tr)}</span></td>
+                          <td>{tr.description || '—'}</td>
+                          <td>
+                            <span className={`type-badge type-${flowClass(txFlow(tr))}`}>
+                              {t(flowLabelKey(txFlow(tr)))}
+                            </span>
+                          </td>
+                          <td className="tx-cross-amount">
+                            {flowSign(txFlow(tr))}{formatAmount(tr.amount)}
+                          </td>
+                          <td className="tx-cross-mark" aria-hidden="true">
+                            <div className="tx-cross-mark-inner">
+                              <span className="tx-cross-badge"><Layers size={11} />{crossBadge}</span>
+                              <span className="tx-cross-note">{t('transactions.cross_not_counted')}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
                         editingId === tr.id ? (
                           <tr key={tr.id} className="edit-row edit-row--form">
                             {/* Break out of the rigid 6-column grid: a single
@@ -736,7 +822,7 @@ const Transactions: React.FC = () => {
 
         {/* ── Mobile accordion list ───────────────────────────────────────── */}
         <div className="tx-cards-mobile">
-          {groups.length === 0 ? (
+          {listGroups.length === 0 ? (
             isFiltering ? (
               <div className="tx-cards-empty">
                 <span className="tx-empty-title">{t('transactions.filter_no_results')}</span>
@@ -746,7 +832,7 @@ const Transactions: React.FC = () => {
               <p className="tx-cards-empty">{t('transactions.no_transactions')}</p>
             )
           ) : (
-            groups.map(group => {
+            listGroups.map(group => {
               const isExpanded = isMonthExpanded(group.key);
               const monthIncomeM = group.transactions
                 .filter(t => t.type === 'income')
@@ -772,7 +858,7 @@ const Transactions: React.FC = () => {
                       <span className="month-accordion-label">{label}</span>
                     </div>
                     <div className="month-accordion-right">
-                      <span className="month-accordion-count">{group.transactions.length}</span>
+                      {group.transactions.length > 0 && <span className="month-accordion-count">{group.transactions.length}</span>}
                       <span className="month-accordion-amounts">
                         {monthIncomeM > 0 && (
                           <span className="month-accordion-income">+{formatAmount(monthIncomeM)}</span>
@@ -803,7 +889,29 @@ const Transactions: React.FC = () => {
                         style={{ overflow: 'hidden' }}
                       >
                         <div className="month-accordion-body">
-                          {group.transactions.map(tr => (
+                          {group.rows.map(({ tx: tr, cross }) => cross ? (
+                            // Other mode: view-only, not counted.
+                            <div key={`x${tr.id}`} className="tx-card-item tx-card-item--cross">
+                              <span className="sr-only">{crossSr}</span>
+                              <div className="tx-card-top">
+                                <span className="tx-card-category">{rowCategory(tr)}</span>
+                                <span className="tx-card-amount tx-cross-amount">
+                                  {flowSign(txFlow(tr))}{formatAmount(tr.amount)}
+                                </span>
+                              </div>
+                              <div className="tx-card-meta">
+                                <span className="tx-card-date">
+                                  {formatTxDate(tr.date)}
+                                  <TxTime tx={tr} className="tx-card-time" />
+                                </span>
+                                {tr.description && <span className="tx-card-desc">{tr.description}</span>}
+                              </div>
+                              <div className="tx-card-cross-foot" aria-hidden="true">
+                                <span className="tx-cross-badge"><Layers size={11} />{crossBadge}</span>
+                                <span className="tx-cross-note">{t('transactions.cross_not_counted')}</span>
+                              </div>
+                            </div>
+                          ) : (
                             <div
                               key={tr.id}
                               className="tx-card-item"

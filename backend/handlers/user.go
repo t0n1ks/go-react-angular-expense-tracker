@@ -216,6 +216,7 @@ func GetProfile(c *gin.Context) {
 		"lite_limit":           user.LiteLimit,
 		"display_name":         user.DisplayName,
 		"avatar":               user.Avatar,
+		"show_other_mode":      user.ShowOtherMode,
 	})
 }
 
@@ -331,8 +332,9 @@ func UpdateProfileIdentity(c *gin.Context) {
 	}
 
 	var req struct {
-		DisplayName *string `json:"display_name"`
-		Avatar      *string `json:"avatar"`
+		DisplayName   *string `json:"display_name"`
+		Avatar        *string `json:"avatar"`
+		ShowOtherMode *bool   `json:"show_other_mode"` // list display preference
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -360,6 +362,9 @@ func UpdateProfileIdentity(c *gin.Context) {
 		}
 		updates["avatar"] = avatar
 	}
+	if req.ShowOtherMode != nil {
+		updates["show_other_mode"] = *req.ShowOtherMode
+	}
 	if len(updates) > 0 {
 		if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).Updates(updates).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
@@ -368,11 +373,11 @@ func UpdateProfileIdentity(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := database.DB.Select("display_name", "avatar").First(&user, userID.(uint)).Error; err != nil {
+	if err := database.DB.Select("display_name", "avatar", "show_other_mode").First(&user, userID.(uint)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"display_name": user.DisplayName, "avatar": user.Avatar})
+	c.JSON(http.StatusOK, gin.H{"display_name": user.DisplayName, "avatar": user.Avatar, "show_other_mode": user.ShowOtherMode})
 }
 
 func DeleteAccount(c *gin.Context) {

@@ -150,6 +150,10 @@ interface SettingsContextType extends UserSettings {
   refreshCycle: () => Promise<void>;
   budgetWindow: BudgetWindow | null;
   refreshBudget: () => Promise<void>;
+  /** Transactions list also shows the other mode's entries (view-only,
+   *  dimmed, never counted). Synced via PATCH /profile; default off. */
+  showOtherMode: boolean;
+  setShowOtherMode: (on: boolean) => void;
 }
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -160,6 +164,14 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
 
 const SETTINGS_KEY = 'user_settings';
 const CYCLE_KEY = 'current_salary_cycle';
+const SHOW_OTHER_KEY = 'show_other_mode';
+
+const loadShowOther = (): boolean => {
+  try { return localStorage.getItem(SHOW_OTHER_KEY) === '1'; } catch { return false; }
+};
+const storeShowOther = (on: boolean) => {
+  try { localStorage.setItem(SHOW_OTHER_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+};
 
 const DEFAULT_SETTINGS: UserSettings = {
   currency: 'USD',
@@ -211,6 +223,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [cycleWindow, setCycleWindow] = useState<CycleWindow | null>(null);
   const [paydayStatus, setPaydayStatus] = useState<PaydayStatus>('none');
   const [budgetWindow, setBudgetWindow] = useState<BudgetWindow | null>(null);
+  const [showOtherMode, setShowOtherModeState] = useState<boolean>(loadShowOther);
+
+  // Display preference: applied at once, cached on this device, saved to the
+  // profile so other devices follow (a failed save keeps the local choice).
+  const setShowOtherMode = useCallback((on: boolean) => {
+    setShowOtherModeState(on);
+    storeShowOther(on);
+    axiosInstance.patch('/profile', { show_other_mode: on }).catch(() => { /* kept locally */ });
+  }, [axiosInstance]);
 
   // Fetches the server budget window (no-salary path). Safe to call anytime;
   // callers gate it on there being no active cycle.
@@ -256,6 +277,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     if (!isAuthenticated) {
       setSettings(DEFAULT_SETTINGS);
+      setShowOtherModeState(false);
+      try { localStorage.removeItem(SHOW_OTHER_KEY); } catch { /* ignore */ }
       setCurrentCycle(null);
       setCycleStats(null);
       setResumableCycle(null);
@@ -289,6 +312,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         };
         setSettings(fetched);
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(fetched));
+        const showOther = d.show_other_mode === true;
+        setShowOtherModeState(showOther);
+        storeShowOther(showOther);
         // The display name + avatar from the server — keeps every device in sync.
         updateIdentity({ displayName: d.display_name ?? '', avatar: d.avatar ?? '' });
 
@@ -348,6 +374,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     refreshCycle,
     budgetWindow,
     refreshBudget,
+    showOtherMode,
+    setShowOtherMode,
   };
 
   return (

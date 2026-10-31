@@ -34,6 +34,16 @@ func activeModeScope(user models.User) func(*gorm.DB) *gorm.DB {
 	return extendedOnly
 }
 
+// otherModeScope is the scope for the mode the user is NOT in: the list's
+// opt-in, view-only "other mode" rows (GET /transactions?other_mode=1). No
+// figure, budget or stats path uses it.
+func otherModeScope(user models.User) func(*gorm.DB) *gorm.DB {
+	if user.LiteMode {
+		return extendedOnly
+	}
+	return liteOnly
+}
+
 // loadModeUser reads only the fields the mode scope needs.
 func loadModeUser(uid uint) models.User {
 	var u models.User
