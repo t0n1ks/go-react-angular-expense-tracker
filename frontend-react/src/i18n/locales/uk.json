@@ -732,9 +732,9 @@
     "save": "Зберегти",
     "cancel": "Скасувати",
     "limit_placeholder": "Наприклад, 300",
-    "spent": "Витрачено цього місяця",
-    "can_spend": "Можна витратити",
-    "progress": "Витрачено {{percent}}% ліміту",
+    "spent": "Витрачено",
+    "spent_aria": "Витрачено {{amount}}",
+    "spent_aria_limit": "Витрачено {{amount}}, {{percent}}% від ліміту",
     "error_save": "Не вдалося зберегти ліміт. Спробуйте ще раз."
   },
   "profile": {

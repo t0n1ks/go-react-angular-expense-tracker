@@ -732,9 +732,9 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "limit_placeholder": "z. B. 300",
-    "spent": "Diesen Monat ausgegeben",
-    "can_spend": "Noch verfügbar",
-    "progress": "{{percent}} % des Limits ausgegeben",
+    "spent": "Ausgegeben",
+    "spent_aria": "Ausgegeben: {{amount}}",
+    "spent_aria_limit": "Ausgegeben: {{amount}}, {{percent}} % des Limits",
     "error_save": "Limit konnte nicht gespeichert werden. Bitte erneut versuchen."
   },
   "profile": {

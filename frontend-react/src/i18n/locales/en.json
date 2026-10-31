@@ -782,9 +782,9 @@
     "save": "Save",
     "cancel": "Cancel",
     "limit_placeholder": "e.g. 300",
-    "spent": "Spent this month",
-    "can_spend": "Left to spend",
-    "progress": "{{percent}}% of the limit spent",
+    "spent": "Spent",
+    "spent_aria": "Spent {{amount}}",
+    "spent_aria_limit": "Spent {{amount}}, {{percent}}% of the limit",
     "error_save": "Couldn't save the limit. Try again."
   },
   "profile": {

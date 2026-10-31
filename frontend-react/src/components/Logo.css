@@ -45,12 +45,8 @@
   opacity: 0.85;
 }
 
-/* Sidebar context — sky-blue wordmark works on both dark and white sidebar */
-.sidebar .logo-wordmark {
-  color: var(--color-logo);
-}
-
-/* Mobile header context — matches header text color */
-.mobile-header .logo-wordmark {
+/* One adaptive wordmark everywhere (sidebar = mobile/tablet header): the
+   heading colour, dark in light theme and light in dark theme. */
+.logo-wordmark {
   color: var(--color-text-heading);
 }

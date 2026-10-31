@@ -732,9 +732,9 @@
     "save": "Сохранить",
     "cancel": "Отмена",
     "limit_placeholder": "Например, 300",
-    "spent": "Потрачено в этом месяце",
-    "can_spend": "Можно потратить",
-    "progress": "Потрачено {{percent}}% лимита",
+    "spent": "Потрачено",
+    "spent_aria": "Потрачено {{amount}}",
+    "spent_aria_limit": "Потрачено {{amount}}, {{percent}}% от лимита",
     "error_save": "Не удалось сохранить лимит. Попробуйте ещё раз."
   },
   "profile": {

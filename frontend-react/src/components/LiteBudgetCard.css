@@ -1,11 +1,12 @@
 /* ── Lite budget card (Lite mode only) ───────────────────────────────────────
-   Shares the weekly card's look (weekly-budget-* classes); adds the optional
-   limit placeholder and the colour bands by % of the limit spent. The bands
-   are darker on the light theme so the figure stays readable. */
+   Shares the weekly card's look (weekly-budget-* classes): «Потрачено» on
+   top, coloured by % of the optional limit; the limit (or its playful
+   placeholder) below. Bands are darker on the light theme so the figure
+   stays readable (≥ 3:1 for this large bold text, most well above). */
 
 .lite-budget-card {
   --lite-green: #059669;
-  --lite-yellow: #b7860b;
+  --lite-yellow: #a16207;
   --lite-orange: #ea580c;
   --lite-red: #dc2626;
 }
@@ -38,28 +39,21 @@
   color: var(--coral);
 }
 
-.lite-can-spend {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
 .lite-tier--green  { --lite-tier: var(--lite-green); }
 .lite-tier--yellow { --lite-tier: var(--lite-yellow); }
 .lite-tier--orange { --lite-tier: var(--lite-orange); }
 .lite-tier--red    { --lite-tier: var(--lite-red); }
 
-.lite-can-spend { color: var(--lite-tier); }
-.lite-arrow { color: var(--lite-tier); flex-shrink: 0; }
+/* «Потрачено» figure carries the colour band (limit set only). */
+.lite-budget-card .weekly-budget-stat-value.lite-spent { color: var(--lite-tier); }
 
-.lite-budget-bar-fill {
-  height: 100%;
-  border-radius: 9999px;
-  background: var(--lite-tier);
-  transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
+/* Stacked: «Потрачено» on top, the limit below. */
+.lite-budget-body {
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lite-budget-bar-fill,
   .lite-budget-card .weekly-budget-stat-value { transition: none; }
 }

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Wallet, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
+import { Wallet, Pencil } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { litePercent, liteTier, liteRemaining, liteOverspent } from '../utils/liteBudget';
+import { litePercent, liteTier } from '../utils/liteBudget';
 import './LiteBudgetCard.css';
 
 // The Lite-mode budget card (Home, Lite only — extended keeps WeeklyBudgetCard).
@@ -24,7 +24,6 @@ const LiteBudgetCard: React.FC = () => {
   const spent = budgetWindow?.spent_this_window ?? 0;
   const percent = litePercent(spent, limit);
   const tier = liteTier(percent);
-  const over = liteOverspent(spent, limit);
 
   const saveLimit = async (value: number | null) => {
     if (saving) return;
@@ -58,7 +57,22 @@ const LiteBudgetCard: React.FC = () => {
         <h2 id="lite-budget-title" className="weekly-budget-title lite-budget-title">{t('lite_budget.title')}</h2>
       </div>
 
-      <div className="weekly-budget-body">
+      <div className="weekly-budget-body lite-budget-body">
+        {/* Spent this month — coloured by % of the limit when one is set,
+            neutral without; the label carries the % so colour isn't the only
+            signal. */}
+        <div className="weekly-budget-stat">
+          <span className="weekly-budget-stat-label" aria-hidden="true">{t('lite_budget.spent')}</span>
+          <span className={`weekly-budget-stat-value${hasLimit ? ` lite-spent lite-tier--${tier}` : ''}`}>
+            <span aria-hidden="true">{formatAmount(spent)}</span>
+            <span className="sr-only">
+              {hasLimit
+                ? t('lite_budget.spent_aria_limit', { amount: formatAmount(spent), percent: Math.round(percent) })
+                : t('lite_budget.spent_aria', { amount: formatAmount(spent) })}
+            </span>
+          </span>
+        </div>
+
         {/* Limit (optional) */}
         <div className="weekly-budget-stat">
           <span className="weekly-budget-stat-label" id="lite-limit-label">{t('lite_budget.limit')}</span>
@@ -126,38 +140,7 @@ const LiteBudgetCard: React.FC = () => {
           {error && <span className="lite-budget-error" role="alert">{error}</span>}
         </div>
 
-        {/* Spent this month — always neutral */}
-        <div className="weekly-budget-stat">
-          <span className="weekly-budget-stat-label">{t('lite_budget.spent')}</span>
-          <span className="weekly-budget-stat-value">{formatAmount(spent)}</span>
-        </div>
-
-        {/* Left to spend — only with a limit; coloured by % spent */}
-        {hasLimit && (
-          <div className="weekly-budget-stat">
-            <span className="weekly-budget-stat-label">{t('lite_budget.can_spend')}</span>
-            <span className={`weekly-budget-stat-value lite-can-spend lite-tier--${tier}`}>
-              {formatAmount(liteRemaining(spent, limit))}
-              {over
-                ? <TrendingDown size={16} className="lite-arrow" aria-hidden="true" />
-                : <TrendingUp size={16} className="lite-arrow" aria-hidden="true" />}
-            </span>
-          </div>
-        )}
       </div>
-
-      {hasLimit && (
-        <div
-          className="weekly-budget-bar-track"
-          role="progressbar"
-          aria-label={t('lite_budget.progress', { percent: Math.round(percent) })}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.min(100, Math.round(percent))}
-        >
-          <div className={`lite-budget-bar-fill lite-tier--${tier}`} style={{ width: `${Math.min(percent, 100)}%` }} />
-        </div>
-      )}
     </section>
   );
 };
