@@ -99,6 +99,10 @@ func runStartupMaintenance() {
 	// already in Lite. Only the new columns are written.
 	backfillTransactionMode()
 
+	// One-time, reversible: bring pre-update entries of pure-Lite users (in
+	// Lite, never a cycle) back into Lite. Tag columns only; ids backed up.
+	retagPreUpdateLiteEntries()
+
 	// Visible in the deploy log: proves this non-deleting startup is live.
 	log.Println("Startup maintenance completed (non-destructive: no cycles or transactions deleted)")
 }

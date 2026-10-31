@@ -52,7 +52,8 @@ func loadModeTestUser(uid uint) models.User {
 }
 
 // Extended → Lite → extended → Lite again: each mode sees only its own
-// entries, Lite counts from its start, and extended figures never move.
+// entries; Lite lists every Lite entry (all periods) and its budget counts
+// the current calendar month; extended figures never move.
 func TestLiteSeparation(t *testing.T) {
 	setupFlowDB(t)
 	u := models.User{Username: "sep", Password: "x", MonthlySpendingGoal: 500}
@@ -60,36 +61,43 @@ func TestLiteSeparation(t *testing.T) {
 	cat := models.Category{UserID: u.ID, Name: "Food"}
 	database.DB.Create(&cat)
 
-	// Extended entries (today and yesterday).
-	addModeExpense(t, u.ID, cat.ID, 40, udate(0))
-	addModeExpense(t, u.ID, cat.ID, 10, udate(-1))
+	now := time.Now().UTC()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	today := now.Format("2006-01-02")
+	firstOfMonth := monthStart.Format("2006-01-02")
+	lastMonth := monthStart.AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Extended entries.
+	addModeExpense(t, u.ID, cat.ID, 40, today)
+	addModeExpense(t, u.ID, cat.ID, 10, firstOfMonth)
 	if n := countTx(u.ID, "mode = ?", models.TxModeExtended); n != 2 {
 		t.Fatalf("extended rows tagged extended: got %d", n)
 	}
-	now := time.Now().UTC()
 	before := computeBudgetWindow(u.ID, 500, now)
 	listBefore := listTxAmounts(t, u.ID)
 
-	// Lite on: a new period, an empty list.
+	// Lite on: no Lite entries yet → an empty list.
 	setLite(t, u.ID, true)
 	lu := loadModeTestUser(u.ID)
 	if lu.LitePeriod != 1 || lu.LiteStartedAt == nil {
 		t.Fatalf("lite period not opened: %+v", lu)
 	}
 	if got := listTxAmounts(t, u.ID); len(got) != 0 {
-		t.Fatalf("Lite list must start empty, got %v", got)
+		t.Fatalf("Lite list must hold no extended rows, got %v", got)
 	}
-	addModeExpense(t, u.ID, cat.ID, 7, udate(0))
-	addModeExpense(t, u.ID, cat.ID, 3, udate(-1)) // dated before Lite began
-	if got := listTxAmounts(t, u.ID); len(got) != 2 {
-		t.Fatalf("Lite list shows its own rows only, got %v", got)
+	addModeExpense(t, u.ID, cat.ID, 7, today)
+	addModeExpense(t, u.ID, cat.ID, 2, firstOfMonth) // this month, before Lite began
+	addModeExpense(t, u.ID, cat.ID, 3, lastMonth)    // a past month
+	if got := listTxAmounts(t, u.ID); len(got) != 3 {
+		t.Fatalf("Lite list shows all its own rows, got %v", got)
 	}
-	if n := countTx(u.ID, "mode = ? AND lite_period = ?", models.TxModeLite, 1); n != 2 {
-		t.Fatalf("Lite rows tagged: got %d", n)
-	}
+	// «Потрачено»: the current calendar month only (past months excluded).
 	lite := computeLiteBudgetWindow(lu, now)
-	approx(t, "lite spent (from start only)", lite.SpentThisWindow, 7)
-	approx(t, "lite remaining", lite.Remaining, 493)
+	approx(t, "lite spent (current month)", lite.SpentThisWindow, 9)
+	approx(t, "lite remaining", lite.Remaining, 491)
+	if !lite.WindowStart.Equal(monthStart) {
+		t.Fatalf("lite window starts %v, want %v", lite.WindowStart, monthStart)
+	}
 
 	// Extended figures are untouched while Lite has entries.
 	if got := computeBudgetWindow(u.ID, 500, now); got != before {
@@ -104,25 +112,20 @@ func TestLiteSeparation(t *testing.T) {
 	if got := computeBudgetWindow(u.ID, 500, now); got != before {
 		t.Fatalf("extended budget changed after Lite:\n got  %+v\n want %+v", got, before)
 	}
-	addModeExpense(t, u.ID, cat.ID, 5, udate(0))
+	addModeExpense(t, u.ID, cat.ID, 5, today)
 	if n := countTx(u.ID, "mode = ?", models.TxModeExtended); n != 3 {
 		t.Fatalf("new extended entry tagged extended: got %d", n)
 	}
 
-	// Lite again: period 2 starts empty; period 1 rows stay stored.
+	// Lite again: every earlier Lite entry is still listed; the figure is
+	// still this month's Lite spend.
 	setLite(t, u.ID, true)
-	if lu := loadModeTestUser(u.ID); lu.LitePeriod != 2 {
+	lu = loadModeTestUser(u.ID)
+	if lu.LitePeriod != 2 {
 		t.Fatalf("second Lite period: got %d", lu.LitePeriod)
 	}
-	if got := listTxAmounts(t, u.ID); len(got) != 0 {
-		t.Fatalf("new Lite period must start empty, got %v", got)
+	if got := listTxAmounts(t, u.ID); len(got) != 3 {
+		t.Fatalf("Lite entries must survive Lite off/on, got %v", got)
 	}
-	if n := countTx(u.ID, "mode = ?", models.TxModeLite); n != 2 {
-		t.Fatalf("earlier Lite rows must be kept, got %d", n)
-	}
-	// Saving settings while already in Lite keeps the same period.
-	setLite(t, u.ID, true)
-	if lu := loadModeTestUser(u.ID); lu.LitePeriod != 2 {
-		t.Fatalf("re-saving Lite must not open a period: got %d", lu.LitePeriod)
-	}
+	approx(t, "lite spent after off/on", computeLiteBudgetWindow(lu, now).SpentThisWindow, 9)
 }

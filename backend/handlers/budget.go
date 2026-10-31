@@ -85,19 +85,16 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 }
 
 // computeLiteBudgetWindow is the Lite-mode budget: the same monthly goal and
-// allowance rule, but spend counts only the current Lite period's own entries
-// dated on/after the day Lite began (from zero) — never extended/cycle rows,
-// earlier Lite periods or previous months.
+// allowance rule over the user's Lite entries of the current calendar month
+// only — never extended/cycle rows or previous months (those stay visible,
+// with their totals, in the month-grouped Lite list).
 func computeLiteBudgetWindow(user models.User, now time.Time) BudgetWindow {
 	loc := now.Location()
-	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
-	if day := liteStartDay(user, loc); day.After(start) {
-		start = day
-	}
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	k := newCycleClock(now, loc)
-	nextMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc).AddDate(0, 1, 0)
-	txs := loadLiteWindowTransactions(user.ID, user.LitePeriod, cycleWindow{Start: start, End: &nextMonth}, k)
-	return budgetWindowOver(user.MonthlySpendingGoal, now, start, txs)
+	nextMonth := monthStart.AddDate(0, 1, 0)
+	txs := loadLiteWindowTransactions(user.ID, cycleWindow{Start: monthStart, End: &nextMonth}, k)
+	return budgetWindowOver(user.MonthlySpendingGoal, now, monthStart, txs)
 }
 
 // budgetWindowOver is the monthly budget view over txs, counted from

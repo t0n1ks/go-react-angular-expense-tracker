@@ -559,6 +559,27 @@
     transform: rotate(180deg);
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .month-chevron { transition: none; }
+}
+
+/* Desktop month header: a real button that looks exactly like the old row. */
+.month-header-btn {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.month-header-btn:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 4px;
+    border-radius: 6px;
+}
+
 /* ── Desktop month accordion ──────────────────────────────────────────────── */
 .month-header-tbody .month-header-row {
     cursor: pointer;

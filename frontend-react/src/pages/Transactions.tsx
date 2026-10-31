@@ -411,8 +411,8 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="transactions-wrapper">
-      {/* In Lite the list holds only this Lite period's own entries (the
-          server filters by mode) — the badge says so. */}
+      {/* In Lite the list holds only Lite entries (the server filters by
+          mode), grouped by month like extended — the badge says so. */}
       <div className="transactions-head">
         <h1 className="transactions-title">{t('transactions.title')}</h1>
         {liteMode && (
@@ -570,10 +570,16 @@ const Transactions: React.FC = () => {
                       <tr
                         className="month-header-row"
                         onClick={() => toggleMonth(group.key)}
-                        aria-expanded={isExpanded}
                       >
                         <td colSpan={6}>
-                          <div className="month-header-inner">
+                          {/* A real button (keyboard + screen readers); the
+                              row stays clickable as before. */}
+                          <button
+                            type="button"
+                            className="month-header-inner month-header-btn"
+                            aria-expanded={isExpanded}
+                            onClick={e => { e.stopPropagation(); toggleMonth(group.key); }}
+                          >
                             <ChevronDown
                               size={15}
                               className={`month-chevron${isExpanded ? ' month-chevron--open' : ''}`}
@@ -588,7 +594,7 @@ const Transactions: React.FC = () => {
                                 <span className="month-header-expense">−{formatAmount(monthExpense)}</span>
                               )}
                             </span>
-                          </div>
+                          </button>
                         </td>
                       </tr>
                     </tbody>

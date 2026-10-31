@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 
 	"github.com/t0n1ks/go-react-angular-expense-tracker/backend/database"
@@ -11,8 +9,9 @@ import (
 
 // Every transaction carries the mode it was entered in. Extended (full) mode
 // and Lite mode keep separate sets: extended reads never see Lite rows, and
-// Lite reads see only the rows of the user's current Lite period. Rows are
-// never moved between modes or rewritten.
+// Lite reads see all of the user's Lite rows (the list groups them by month;
+// the Lite budget counts the current calendar month). The Lite period number
+// is still stored on each Lite row but no read filters by it any more.
 
 // extendedOnly hides Lite rows. All rows from before the mode tag existed
 // are "extended" (startup backfill), so for extended-only data every query
@@ -21,18 +20,16 @@ func extendedOnly(db *gorm.DB) *gorm.DB {
 	return db.Where("COALESCE(transactions.mode, '') <> ?", models.TxModeLite)
 }
 
-// litePeriodOnly keeps only the rows of one Lite period.
-func litePeriodOnly(period uint) func(*gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("transactions.mode = ? AND transactions.lite_period = ?", models.TxModeLite, period)
-	}
+// liteOnly keeps only Lite rows (every Lite period).
+func liteOnly(db *gorm.DB) *gorm.DB {
+	return db.Where("transactions.mode = ?", models.TxModeLite)
 }
 
 // activeModeScope is the scope for the mode the user is in right now (lists,
 // exports, per-mode summaries).
 func activeModeScope(user models.User) func(*gorm.DB) *gorm.DB {
 	if user.LiteMode {
-		return litePeriodOnly(user.LitePeriod)
+		return liteOnly
 	}
 	return extendedOnly
 }
@@ -44,11 +41,11 @@ func loadModeUser(uid uint) models.User {
 	return u
 }
 
-// loadLiteWindowTransactions is loadWindowTransactions over one Lite period's
+// loadLiteWindowTransactions is loadWindowTransactions over the user's Lite
 // rows (the extended loader never returns them).
-func loadLiteWindowTransactions(uid, period uint, w cycleWindow, k cycleClock) []windowTx {
+func loadLiteWindowTransactions(uid uint, w cycleWindow, k cycleClock) []windowTx {
 	lo := w.Start.Add(-dateSlack)
-	q := database.DB.Scopes(litePeriodOnly(period)).
+	q := database.DB.Scopes(liteOnly).
 		Where("user_id = ?", uid).Where("(created_at >= ? OR date >= ?)", lo, lo)
 	if w.End != nil {
 		hi := w.End.Add(dateSlack)
@@ -69,17 +66,7 @@ func loadLiteWindowTransactions(uid, period uint, w cycleWindow, k cycleClock) [
 // loadActiveWindowTransactions loads w's rows for the mode the user is in.
 func loadActiveWindowTransactions(user models.User, w cycleWindow, k cycleClock) []windowTx {
 	if user.LiteMode {
-		return loadLiteWindowTransactions(user.ID, user.LitePeriod, w, k)
+		return loadLiteWindowTransactions(user.ID, w, k)
 	}
 	return loadWindowTransactions(user.ID, w, k)
-}
-
-// liteStartDay is local midnight of the day the current Lite period began
-// (Lite counts expenses dated on/after it); zero when unknown.
-func liteStartDay(user models.User, loc *time.Location) time.Time {
-	if user.LiteStartedAt == nil {
-		return time.Time{}
-	}
-	s := user.LiteStartedAt.In(loc)
-	return time.Date(s.Year(), s.Month(), s.Day(), 0, 0, 0, 0, loc)
 }

@@ -260,9 +260,9 @@ func UpdateProfile(c *gin.Context) {
 		"manual_next_payday":   req.ManualNextPayday,
 		"lite_mode":            req.LiteMode,
 	}
-	// Switching Lite on starts a new Lite period: its list and figures begin
-	// empty and cover only entries made in it. Switching off keeps the period
-	// number (its rows stay stored, just hidden from extended mode).
+	// Switching Lite on starts a new Lite period. The number is only recorded
+	// on new Lite entries (lists and figures no longer filter by it); all Lite
+	// entries stay visible in Lite, grouped by month.
 	var current models.User
 	if err := database.DB.Select("id", "lite_mode", "lite_period").First(&current, userID.(uint)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
