@@ -270,6 +270,10 @@ func TestLiteAndNoCycleUnaffected(t *testing.T) {
 			name = "litecycle"
 		}
 		u := models.User{Username: name, Password: "x", LiteMode: lite, MonthlySpendingGoal: 500}
+		if lite {
+			limit := 500.0
+			u.LiteLimit = &limit // Lite uses its own limit, not the monthly goal
+		}
 		database.DB.Create(&u)
 		cat := models.Category{UserID: u.ID, Name: "Food"}
 		database.DB.Create(&cat)

@@ -56,6 +56,14 @@
   display: block;
 }
 
+/* Lite mode indicator: a soft blue-cyan neon ring (~45% opacity) with a
+   faint static glow — no animation. Absent when Lite is off. */
+.upc-wrapper--lite .upc-avatar {
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.45),
+    0 0 8px 1px rgba(34, 211, 238, 0.35);
+}
+
 /* Username in chip */
 .upc-username {
   color: var(--color-nav-user-text);

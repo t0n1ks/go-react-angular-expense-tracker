@@ -30,6 +30,10 @@ type User struct {
 	// and figures cover only the current period's own entries.
 	LitePeriod    uint       `gorm:"not null;default:0" json:"lite_period"`
 	LiteStartedAt *time.Time `json:"lite_started_at"`
+	// LiteLimit is the optional monthly limit of the Lite budget card. nil =
+	// no limit. It is Lite's own: extended mode never reads it (it keeps
+	// MonthlySpendingGoal).
+	LiteLimit *float64 `gorm:"type:numeric(12,2)" json:"lite_limit"`
 	// Timezone is the IANA zone last reported by the user's device
 	// (X-User-Timezone). Cycle boundaries are evaluated in it; "" = UTC.
 	Timezone string `gorm:"type:varchar(64);default:''" json:"timezone"`

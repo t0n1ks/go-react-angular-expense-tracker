@@ -92,6 +92,10 @@ func TestLiteSeparation(t *testing.T) {
 		t.Fatalf("Lite list shows all its own rows, got %v", got)
 	}
 	// «Потрачено»: the current calendar month only (past months excluded).
+	if w := callHandler(u.ID, map[string]any{"limit": 500}, SetLiteLimit); w.Code != http.StatusOK {
+		t.Fatalf("set lite limit: %d", w.Code)
+	}
+	lu = loadModeTestUser(u.ID)
 	lite := computeLiteBudgetWindow(lu, now)
 	approx(t, "lite spent (current month)", lite.SpentThisWindow, 9)
 	approx(t, "lite remaining", lite.Remaining, 491)
@@ -128,4 +132,55 @@ func TestLiteSeparation(t *testing.T) {
 		t.Fatalf("Lite entries must survive Lite off/on, got %v", got)
 	}
 	approx(t, "lite spent after off/on", computeLiteBudgetWindow(lu, now).SpentThisWindow, 9)
+}
+
+// The Lite limit is optional (NULL = none), Lite's own, and never moves the
+// extended monthly goal or extended figures.
+func TestLiteLimit(t *testing.T) {
+	setupFlowDB(t)
+	u := models.User{Username: "lim", Password: "x", MonthlySpendingGoal: 800, LiteMode: true}
+	database.DB.Create(&u)
+	now := time.Now().UTC()
+	extBefore := computeBudgetWindow(u.ID, 800, now)
+
+	// No limit yet: no goal, zero budget (spent still counted).
+	if bw := computeLiteBudgetWindow(loadModeTestUser(u.ID), now); bw.HasGoal || bw.MonthlyBudget != 0 {
+		t.Fatalf("no limit must mean no goal: %+v", bw)
+	}
+
+	if w := callHandler(u.ID, map[string]any{"limit": 300}, SetLiteLimit); w.Code != http.StatusOK {
+		t.Fatalf("set: %d", w.Code)
+	}
+	lu := loadModeTestUser(u.ID)
+	if lu.LiteLimit == nil || *lu.LiteLimit != 300 || lu.MonthlySpendingGoal != 800 {
+		t.Fatalf("set limit: %+v", lu)
+	}
+	if bw := computeLiteBudgetWindow(lu, now); !bw.HasGoal || bw.MonthlyBudget != 300 {
+		t.Fatalf("lite window must use the Lite limit: %+v", bw)
+	}
+
+	for _, bad := range []any{0, -5, "x"} {
+		if w := callHandler(u.ID, map[string]any{"limit": bad}, SetLiteLimit); w.Code != http.StatusBadRequest {
+			t.Fatalf("limit %v: got %d, want 400", bad, w.Code)
+		}
+	}
+
+	// Clearing stores NULL (not 0).
+	if w := callHandler(u.ID, map[string]any{"limit": nil}, SetLiteLimit); w.Code != http.StatusOK {
+		t.Fatalf("clear: %d", w.Code)
+	}
+	var nulls int64
+	database.DB.Model(&models.User{}).Where("id = ? AND lite_limit IS NULL", u.ID).Count(&nulls)
+	if nulls != 1 {
+		t.Fatalf("cleared limit must be NULL")
+	}
+
+	// Extended untouched throughout.
+	lu = loadModeTestUser(u.ID)
+	if lu.MonthlySpendingGoal != 800 {
+		t.Fatalf("extended goal changed: %v", lu.MonthlySpendingGoal)
+	}
+	if got := computeBudgetWindow(u.ID, lu.MonthlySpendingGoal, now); got != extBefore {
+		t.Fatalf("extended budget changed:\n got  %+v\n want %+v", got, extBefore)
+	}
 }

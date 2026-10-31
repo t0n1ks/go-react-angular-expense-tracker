@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { avatarSrc, shownName } from '../utils/avatars';
 import ProfileDialog from './ProfileDialog';
 import './UserProfileChip.css';
@@ -14,6 +15,7 @@ interface Props {
 // the profile dialog; focus comes back here when that closes.
 const UserProfileChip: React.FC<Props> = ({ variant }) => {
   const { user } = useAuth();
+  const { liteMode } = useSettings();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const chipRef = useRef<HTMLButtonElement>(null);
@@ -28,7 +30,8 @@ const UserProfileChip: React.FC<Props> = ({ variant }) => {
   }, []);
 
   return (
-    <div className={`upc-wrapper upc-wrapper--${variant}`}>
+    // Lite on → a soft neon ring around the avatar (CSS: .upc-wrapper--lite).
+    <div className={`upc-wrapper upc-wrapper--${variant}${liteMode ? ' upc-wrapper--lite' : ''}`}>
       <button
         ref={chipRef}
         className="upc-chip"

@@ -772,6 +772,21 @@
     "skip": "Skip",
     "done": "Got it!"
   },
+  "lite_budget": {
+    "title": "Budget",
+    "limit": "Limit (optional)",
+    "no_limit": "Whatever feels right",
+    "set_limit": "Set a limit",
+    "edit_limit": "Change the limit",
+    "remove": "Remove limit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit_placeholder": "e.g. 300",
+    "spent": "Spent this month",
+    "can_spend": "Left to spend",
+    "progress": "{{percent}}% of the limit spent",
+    "error_save": "Couldn't save the limit. Try again."
+  },
   "profile": {
     "title": "Profile",
     "open": "Open profile",

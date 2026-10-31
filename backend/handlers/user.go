@@ -206,6 +206,7 @@ func GetProfile(c *gin.Context) {
 		"reputation_score":     user.ReputationScore,
 		"lite_mode":            user.LiteMode,
 		"lite_started_at":      user.LiteStartedAt,
+		"lite_limit":           user.LiteLimit,
 		"display_name":         user.DisplayName,
 		"avatar":               user.Avatar,
 	})

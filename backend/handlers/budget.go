@@ -84,17 +84,59 @@ func computeBudgetWindow(uid uint, goal float64, now time.Time) BudgetWindow {
 	return budgetWindowOver(goal, now, monthStart, txs)
 }
 
-// computeLiteBudgetWindow is the Lite-mode budget: the same monthly goal and
-// allowance rule over the user's Lite entries of the current calendar month
-// only — never extended/cycle rows or previous months (those stay visible,
-// with their totals, in the month-grouped Lite list).
+// computeLiteBudgetWindow is the Lite-mode budget: the user's own optional
+// Lite limit (never the extended monthly goal) over their Lite entries of the
+// current calendar month only — never extended/cycle rows or previous months
+// (those stay visible, with their totals, in the month-grouped Lite list).
+// No limit → has_goal false and a zero budget; spent is still counted.
 func computeLiteBudgetWindow(user models.User, now time.Time) BudgetWindow {
 	loc := now.Location()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	k := newCycleClock(now, loc)
 	nextMonth := monthStart.AddDate(0, 1, 0)
 	txs := loadLiteWindowTransactions(user.ID, cycleWindow{Start: monthStart, End: &nextMonth}, k)
-	return budgetWindowOver(user.MonthlySpendingGoal, now, monthStart, txs)
+	var limit float64
+	if user.LiteLimit != nil {
+		limit = *user.LiteLimit
+	}
+	return budgetWindowOver(limit, now, monthStart, txs)
+}
+
+// maxLiteLimit caps the Lite limit (the column is numeric(12,2)).
+const maxLiteLimit = 1e9
+
+// SetLiteLimit → PUT /api/lite/limit  {"limit": 300} or {"limit": null}
+// Sets or clears the Lite budget card's optional limit. Lite-only: it never
+// touches the extended monthly goal or any other setting.
+func SetLiteLimit(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	var req struct {
+		Limit *float64 `json:"limit"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var value any // nil → SQL NULL (no limit)
+	if req.Limit != nil {
+		v := round2(*req.Limit)
+		if !(v > 0) || v > maxLiteLimit || math.IsNaN(v) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Limit must be a positive amount", "code": "limit_invalid"})
+			return
+		}
+		value = v
+	}
+	if err := database.DB.Model(&models.User{}).Where("id = ?", userID.(uint)).
+		Update("lite_limit", value).Error; err != nil {
+		log.Printf("set lite limit: user=%v err=%v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save limit"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"lite_limit": value})
 }
 
 // budgetWindowOver is the monthly budget view over txs, counted from

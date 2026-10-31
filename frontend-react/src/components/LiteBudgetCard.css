@@ -1,0 +1,65 @@
+/* ── Lite budget card (Lite mode only) ───────────────────────────────────────
+   Shares the weekly card's look (weekly-budget-* classes); adds the optional
+   limit placeholder and the colour bands by % of the limit spent. The bands
+   are darker on the light theme so the figure stays readable. */
+
+.lite-budget-card {
+  --lite-green: #059669;
+  --lite-yellow: #b7860b;
+  --lite-orange: #ea580c;
+  --lite-red: #dc2626;
+}
+.dark .lite-budget-card {
+  --lite-green: #34d399;
+  --lite-yellow: #facc15;
+  --lite-orange: #fb923c;
+  --lite-red: #f87171;
+}
+
+.lite-budget-title { margin: 0; }
+
+.lite-no-limit {
+  font-size: 1rem;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.lite-limit-edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lite-budget-error {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--coral);
+}
+
+.lite-can-spend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.lite-tier--green  { --lite-tier: var(--lite-green); }
+.lite-tier--yellow { --lite-tier: var(--lite-yellow); }
+.lite-tier--orange { --lite-tier: var(--lite-orange); }
+.lite-tier--red    { --lite-tier: var(--lite-red); }
+
+.lite-can-spend { color: var(--lite-tier); }
+.lite-arrow { color: var(--lite-tier); flex-shrink: 0; }
+
+.lite-budget-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--lite-tier);
+  transition: width 0.5s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lite-budget-bar-fill,
+  .lite-budget-card .weekly-budget-stat-value { transition: none; }
+}

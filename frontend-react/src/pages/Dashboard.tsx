@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Target } from 'lucide-react';
 import TamagotchiWidget from '../components/TamagotchiWidget';
 import WeeklyBudgetCard from '../components/WeeklyBudgetCard';
+import LiteBudgetCard from '../components/LiteBudgetCard';
 import SalaryCycleCard from '../components/SalaryCycleCard';
 import { SummaryCard, SummaryModals } from '../components/summary/SummaryCards';
 import { SUMMARY_KINDS, useSummaryModel, type SummaryTransaction } from '../components/summary/useSummaryModel';
@@ -217,11 +218,17 @@ const Dashboard: React.FC = () => {
       {/* Savings Forecast relocated to the Statistics/Analytics section to
           de-duplicate the dashboard (see Statistics.tsx → savings-forecast-card). */}
 
-      <WeeklyBudgetCard
-        transactions={transactions}
-        monthlyBudget={monthlySpendingGoal}
-        formatAmount={formatAmount}
-      />
+      {/* Lite has its own budget card (optional Lite limit, this month's Lite
+          spend); extended keeps the weekly card unchanged. */}
+      {liteMode ? (
+        <LiteBudgetCard />
+      ) : (
+        <WeeklyBudgetCard
+          transactions={transactions}
+          monthlyBudget={monthlySpendingGoal}
+          formatAmount={formatAmount}
+        />
+      )}
 
       <SummaryModals model={summary} />
 
