@@ -103,6 +103,10 @@ func runStartupMaintenance() {
 	// Lite, never a cycle) back into Lite. Tag columns only; ids backed up.
 	retagPreUpdateLiteEntries()
 
+	// One-time, reversible: accounts in Lite with a salary cycle current at the
+	// same time leave Lite (an active cycle implies Lite off). Flag only.
+	reconcileLiteWithActiveCycle()
+
 	// Visible in the deploy log: proves this non-deleting startup is live.
 	log.Println("Startup maintenance completed (non-destructive: no cycles or transactions deleted)")
 }

@@ -17,6 +17,10 @@ body {
    into env(safe-area-inset-top), and the status bar's theme-color). */
 html {
   background-color: var(--color-bg-sidebar);
+  /* No rubber-band on the page itself: on iOS the bounce drags the fixed
+     header along with the content — and a page exactly one screen tall
+     (Phase 2.34) turns every drag into a bounce. Inner scrollers keep theirs. */
+  overscroll-behavior-y: none;
 }
 /* Short pages that fit their content (Lite / phone-tablet Home) fill the
    rest of the screen with the page colour, as before. */

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Settings as SettingsIcon, Check, LogOut, Trash2, Info, X } from 'lucide-react';
 import { useSettings, type Currency, type UserSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { liteToggleLocked } from '../utils/liteToggle';
 import './Settings.css';
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
@@ -100,6 +101,9 @@ const Settings: React.FC = () => {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [showLiteModal]);
+
+  // A salary cycle only blocks switching Lite ON, never OFF (liteToggle.ts).
+  const liteLocked = liteToggleLocked(hasActiveCycle, liteMode);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -244,7 +248,7 @@ const Settings: React.FC = () => {
           )}
         </div>
 
-        <div className={`settings-toggle-row${hasActiveCycle ? ' settings-toggle-row--disabled' : ''}`}>
+        <div className={`settings-toggle-row${liteLocked ? ' settings-toggle-row--disabled' : ''}`}>
           <div className="settings-toggle-text">
             <p className="toggle-label">{t('settings.lite_label')}</p>
             <p className="toggle-desc">{t('settings.lite_desc')}</p>
@@ -253,14 +257,14 @@ const Settings: React.FC = () => {
             <input
               type="checkbox"
               checked={local.liteMode}
-              disabled={hasActiveCycle}
+              disabled={liteLocked}
               onChange={e => setLocal(prev => ({ ...prev, liteMode: e.target.checked }))}
             />
             <span className="toggle-slider" />
           </label>
         </div>
 
-        {hasActiveCycle && (
+        {liteLocked && (
           <p className="settings-lite-locked-hint">{t('settings.lite_locked_hint')}</p>
         )}
       </div>

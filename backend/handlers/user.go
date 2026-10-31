@@ -187,6 +187,13 @@ func GetProfile(c *gin.Context) {
 		return
 	}
 
+	// Lite on beside a current cycle can't stand: the cycle wins (Lite off).
+	if user.LiteMode {
+		if cur := currentCycleOf(user.ID, requestClock(c, user.ID)); cur != nil && leaveLiteForCycle(user.ID, cur.ID, "profile") {
+			user.LiteMode = false
+		}
+	}
+
 	currency := user.Currency
 	if currency == "" {
 		currency = "USD"
@@ -268,6 +275,23 @@ func UpdateProfile(c *gin.Context) {
 	if err := database.DB.Select("id", "lite_mode", "lite_period", "ai_humor_enabled").First(&current, userID.(uint)).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
+	}
+	// Lite and a current salary cycle are mutually exclusive. Switching Lite
+	// OFF is never refused; switching it ON waits until the cycle is stopped.
+	if req.LiteMode {
+		if cur := currentCycleOf(current.ID, requestClock(c, current.ID)); cur != nil {
+			if !current.LiteMode {
+				c.JSON(http.StatusConflict, gin.H{
+					"error": "Stop the salary cycle to turn Lite mode on", "code": "LITE_BLOCKED_BY_CYCLE",
+				})
+				return
+			}
+			// Already both (legacy state): the cycle wins — Lite off, recorded.
+			if leaveLiteForCycle(current.ID, cur.ID, "save") {
+				req.LiteMode = false
+				updates["lite_mode"] = false
+			}
+		}
 	}
 	if req.LiteMode && !current.LiteMode {
 		updates["lite_period"] = current.LitePeriod + 1

@@ -1230,6 +1230,12 @@ func ResumeSalaryCycle(c *gin.Context) {
 		return
 	}
 	InvalidateCycleCache(uid)
+	// A current cycle and Lite are mutually exclusive: resuming, like
+	// starting, switches Lite off (no data changes).
+	if err := database.DB.Model(&models.User{}).Where("id = ? AND lite_mode = ?", uid, true).
+		Update("lite_mode", false).Error; err != nil {
+		log.Printf("resume cycle: lite off user=%v err=%v", uid, err)
+	}
 	log.Printf("resume cycle: user=%v resumed cycle id=%v (start=%v)",
 		uid, target.ID, target.CycleStartAt.Format(time.RFC3339))
 
