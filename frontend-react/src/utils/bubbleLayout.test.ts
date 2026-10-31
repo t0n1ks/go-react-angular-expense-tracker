@@ -1,9 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { CENTER_MAX_W, CENTER_MIN_W, centerLayout, DOME_ABOVE, domeGap, HEALTH_ROOM, IDLE_Y, maxSink, placeBubble, RECEDE_SCALE, saucerReach, TAIL_OUT } from './bubbleLayout';
+import { CENTER_MAX_W, CENTER_MIN_W, centerLayout, DOME_ABOVE, domeGap, HEALTH_ROOM, IDLE_Y, idleRatio, maxSink, placeBubble, RECEDE_SCALE, saucerReach, TAIL_OUT } from './bubbleLayout';
 import { readingMs } from '../hooks/useAutoScroll';
 
 const PHONE = { screenW: 332, screenH: 200, ufoHalf: 22 };
 const TABLET = { screenW: 700, screenH: 300, ufoHalf: 28 };
+
+describe('the saucer\'s resting place', () => {
+  it('stays at IDLE_Y on regular screens and sits dead centre on grown ones', () => {
+    for (const h of [170, 200, 300, 320]) expect(idleRatio(h)).toBe(IDLE_Y);
+    for (const h of [360, 375, 690, 900]) expect(idleRatio(h)).toBe(0.5);
+    expect(idleRatio(340)).toBeGreaterThan(IDLE_Y);
+    expect(idleRatio(340)).toBeLessThan(0.5);
+  });
+
+  it('a grown screen: the bubble sits above the centred saucer, tail down', () => {
+    const tall = { screenW: 358, screenH: 375, ufoHalf: 22 };
+    const p = placeBubble({ ...tall, bubbleH: 60 });
+    if (p.kind !== 'above') throw new Error('expected above');
+    expect(p.ufoY).toBe(tall.screenH / 2);
+    expect(p.bubbleTop + 60 + 8 + tall.ufoHalf).toBeLessThanOrEqual(p.ufoY);
+    // A long text still takes centre stage with the stepped-back saucer.
+    expect(placeBubble({ ...tall, bubbleH: 260 }).kind).toBe('center');
+  });
+});
 
 describe('speech bubble placement', () => {
   it('keeps the saucer where it rests when the bubble fits above', () => {

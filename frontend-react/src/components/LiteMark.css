@@ -1,11 +1,8 @@
-/* ── Engraved «lite» (Lite mode only) ─────────────────────────────────────────
-   Thin lowercase letters cut into the header surface, lit softly from inside
-   in the cyan of the Lite avatar ring (rgba(56,189,248,…)).
-   - The "inner glow": the letters are filled with a vertical gradient whose
-     bright cyan core sits mid-height, fading to a deeper cut colour at the
-     top and bottom edges — light seems to come from within the groove.
-   - The "engraving": a hairline shadow on the upper edge (the cut's wall)
-     and a faint highlight on the lower edge (its lip), plus a small cyan halo.
+/* ── «lite» (Lite mode only) ─────────────────────────────────────────────────
+   A quiet, thin lowercase word in the cyan of the Lite avatar ring
+   (#38bdf8 / rgba(56,189,248,…)): Inter Light, airy tracking, and only a
+   whisper of the ring's glow — the same soft light, never a label or a badge.
+   Light theme: one shade deeper (sky-600) so it stays legible on white.
    Static: nothing animates, so reduced motion needs nothing extra. */
 
 .lite-mark {
@@ -18,48 +15,19 @@
 }
 
 .lite-mark-word {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 300;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   /* the tracking would leave space after the last letter: trim it */
-  margin-right: -0.14em;
+  margin-right: -0.16em;
   text-transform: lowercase;
-  /* Fallback (no text clipping): a plain soft cyan. */
-  color: rgba(14, 165, 233, 0.85);
+  color: #0284c7;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.22);
 }
 
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .lite-mark-word {
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    -webkit-background-clip: text;
-    background-clip: text;
-    /* Light theme: a darker cut with a cyan core. */
-    background-image: linear-gradient(
-      180deg,
-      rgba(7, 89, 133, 0.95) 0%,
-      rgba(14, 165, 233, 0.95) 52%,
-      rgba(7, 89, 133, 0.95) 100%
-    );
-    filter:
-      drop-shadow(0 -1px 0 rgba(15, 23, 42, 0.22))
-      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.95))
-      drop-shadow(0 0 3px rgba(56, 189, 248, 0.35));
-  }
-
-  /* Dark theme: a recessed letterpress edge and a brighter glow inside. */
-  .dark .lite-mark-word {
-    background-image: linear-gradient(
-      180deg,
-      rgba(14, 116, 144, 0.9) 0%,
-      rgba(125, 231, 252, 1) 52%,
-      rgba(14, 116, 144, 0.9) 100%
-    );
-    filter:
-      drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.65))
-      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.07))
-      drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));
-  }
+.dark .lite-mark-word {
+  color: #7dd3fc;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
 }
 
 /* Phone / tablet: truly centred in the header bar, whatever the logo and
@@ -76,13 +44,13 @@
 @media (max-width: 360px) {
   .lite-mark--bar .lite-mark-word {
     font-size: 0.82rem;
-    letter-spacing: 0.1em;
-    margin-right: -0.1em;
+    letter-spacing: 0.12em;
+    margin-right: -0.12em;
   }
 }
 
 /* Desktop: right after «Financer», sitting on its baseline. */
 .lite-mark--sidebar {
-  margin-left: 0.4rem;
+  margin-left: 0.45rem;
   transform: translateY(1px);
 }

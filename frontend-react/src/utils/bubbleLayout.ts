@@ -1,6 +1,8 @@
 // Where the companion's speech bubble goes, keeping the saucer steady.
 //
-// The saucer rests at IDLE_Y of the screen. The decision is by HEIGHT: a
+// The saucer rests at idleRatio() of the screen height: IDLE_Y on a regular
+// screen, easing to dead centre once the screen has grown to fill a short
+// page (Phase 2.34). The decision is by HEIGHT: a
 // bubble whose rendered height fits above the resting saucer (or makes it
 // sink only a little) sits above, tail down. A taller one takes the centre of
 // the screen (always centred, compact, scrolling) and the saucer steps back
@@ -11,7 +13,18 @@
 // the screen; the bubble's width and text height are capped in CSS
 // (.tama-bubble max-width, .tama-bubble-text max-height) and the text scrolls.
 
-export const IDLE_Y = 0.44;            // the saucer's resting centre (share of screen height)
+export const IDLE_Y = 0.44;            // the saucer's resting centre on a regular screen (share of height)
+export const IDLE_Y_TALL = 0.5;        // …and on a grown one: the centre of the area
+// Regular screens are at most 320px tall (CSS .tama-screen max-height); a
+// grown one eases from IDLE_Y at 320px to the centre at 360px and beyond.
+export const IDLE_GROW_FROM = 320;
+export const IDLE_GROW_TO = 360;
+
+/** The saucer's resting centre as a share of the screen height. */
+export function idleRatio(screenH: number): number {
+  const t = Math.min(1, Math.max(0, (screenH - IDLE_GROW_FROM) / (IDLE_GROW_TO - IDLE_GROW_FROM)));
+  return IDLE_Y + (IDLE_Y_TALL - IDLE_Y) * t;
+}
 export const BUBBLE_TOP_MIN = 24;      // the bubble never rises above this
 export const BUBBLE_GAP = 8;           // bubble ↔ saucer (above)
 export const RECEDE_SCALE = 0.8;       // a receded saucer: a step back, not a fade
@@ -47,7 +60,7 @@ export interface BubbleLayoutInput {
 }
 
 export function placeBubble({ screenW, screenH, bubbleH, ufoHalf, aboveOnly = false, moonLeft }: BubbleLayoutInput): BubblePlacement {
-  const idleY = screenH * IDLE_Y;
+  const idleY = screenH * idleRatio(screenH);
   const freeTop = idleY - ufoHalf - BUBBLE_GAP - bubbleH; // bubble top if the saucer stays put
   const sink = Math.max(0, BUBBLE_TOP_MIN - freeTop);
   const lowest = screenH - ufoHalf - HEALTH_ROOM;         // the saucer never sits on the health bar

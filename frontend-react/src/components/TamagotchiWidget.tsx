@@ -25,7 +25,7 @@ import {
 } from '../data/tamaContent';
 import calendarPngUrl from '../assets/companion/calendar.png';
 import CompanionCow from './CompanionCow';
-import { centerLayout, placeBubble, RECEDE_SCALE } from '../utils/bubbleLayout';
+import { centerLayout, idleRatio, placeBubble, RECEDE_SCALE } from '../utils/bubbleLayout';
 
 // The saucer's glide into / out of centre-stage depth (the bubble and its tail
 // are timed off it so the saucer always leads).
@@ -990,8 +990,10 @@ const TamagotchiWidget: React.FC<Props> = ({
       })
     : null;
 
+  // Resting place: 44% on a regular screen, the centre of a grown one.
+  const idleTop = `${(widgetH > 0 ? idleRatio(widgetH) : 0.44) * 100}%`;
   let ufoLeft = '50%';
-  let ufoTop = '44%';
+  let ufoTop = idleTop;
   const ufoAt = placement?.kind === 'above' ? placement : centerFrame;
   if (ufoAt) {
     ufoLeft = `${(ufoAt.ufoX / widgetW) * 100}%`;
@@ -1060,9 +1062,10 @@ const TamagotchiWidget: React.FC<Props> = ({
   useAutoScroll(bubbleTextRef, inBubble ? bubbleText : null, !!reduceMotion, onBubbleRead);
   useAutoScroll(tourTextRef, inTour ? `tour-${tourStep}` : null, !!reduceMotion);
 
-  const screenStyle: React.CSSProperties & Record<'--tama-bubble-max', string | undefined> = {
+  const screenStyle: React.CSSProperties & Record<'--tama-bubble-max' | '--tama-idle-y', string | undefined> = {
     minHeight: screenMinH ? `${screenMinH}px` : undefined,
     '--tama-bubble-max': bubbleMax ? `${bubbleMax}px` : undefined,
+    '--tama-idle-y': idleTop, // the journal's thought bubble sits above the resting saucer
   };
 
   return (
@@ -1222,14 +1225,14 @@ const TamagotchiWidget: React.FC<Props> = ({
         <motion.div
           className={`tama-ufo${ufoReceded ? ' tama-ufo--receded' : ''}`}
           style={{ x: '-50%', y: '-50%', cursor: mode === 'fly_to_moon' ? 'default' : 'pointer' }}
-          initial={{ left: '50%', top: '44%' }}
+          initial={{ left: '50%', top: idleTop }}
           animate={
             mode !== 'fly_to_moon'
               ? { left: ufoLeft, top: ufoTop, scale: ufoReceded ? RECEDE_SCALE : 1, opacity: 1 }
               : flyPhase === 'orbit'
                 ? { left: '88%', top: '8%', scale: 0.14, opacity: 1 }
                 : flyPhase === 'return'
-                  ? { left: '50%', top: '44%', scale: 1, opacity: 1 }
+                  ? { left: '50%', top: idleTop, scale: 1, opacity: 1 }
                   : { left: '82%', top: '13%', scale: 0.18, opacity: 1 }
           }
           transition={

@@ -782,10 +782,11 @@
 
 /* ── SVG thought bubble (choice mode) ───────────────────────────────────────── */
 
-/* Sits just above the UFO (centred at 44% from the top), whatever its size. */
+/* Sits just above the resting UFO (--tama-idle-y from the top: 44%, or the
+   centre of a grown screen), whatever its size. */
 .tama-thought-bubble {
   position: absolute;
-  bottom: calc(56% + var(--tama-ufo, 44px) / 2 + 8px);
+  bottom: calc(100% - var(--tama-idle-y, 44%) + var(--tama-ufo, 44px) / 2 + 8px);
   left: 50%;
   z-index: 20;
   pointer-events: none;
