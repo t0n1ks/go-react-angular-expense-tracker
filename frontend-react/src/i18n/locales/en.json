@@ -815,6 +815,8 @@
   },
   "companion": {
     "glitch_back": "Whoa, looks like the readings glitched for a sec… all stable now :)",
+    "lite_calendar": "Lite mode: no countdowns, just today 🗓️",
+    "lite_calendar_label": "Calendar — just today, no countdowns",
     "lite_time_1": "What is time, anyway? In this mode it doesn't matter.",
     "lite_time_2": "Days are like autumn petals — who's counting…",
     "lite_time_3": "The calendar turns its own pages; I'm just here watching the stars.",

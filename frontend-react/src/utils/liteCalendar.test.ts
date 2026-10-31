@@ -35,6 +35,12 @@ describe('Lite calendar whimsy', () => {
         expect(text.length).toBeGreaterThan(0);
       }
       expect(companion.glitch_back).toBeTruthy();
+      // The Lite base line and label never mention the cycle / payday.
+      for (const k of ['lite_calendar', 'lite_calendar_label']) {
+        const text = companion[k] as string;
+        expect(text).toBeTruthy();
+        expect(text).not.toMatch(/cycle|payday|Zyklus|Zahltag|цикл|зарплат|цикл|зарплат/i);
+      }
     }
   });
 });

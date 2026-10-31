@@ -663,6 +663,15 @@ const TamagotchiWidget: React.FC<Props> = ({
     if (lineIdx !== null) liteTimeLastRef.current = lineIdx;
     const whimsy = lineIdx === null ? '' : ` ${t(LITE_TIME_KEYS[lineIdx])}`;
 
+    // Lite has no cycle to count: a calm steady line instead of the cycle
+    // setup / countdown (extended keeps those exactly as they are).
+    if (liteMode) {
+      setBubbleText(t('companion.lite_calendar') + whimsy);
+      setFromHook(false);
+      setMode('ai_bubble');
+      return;
+    }
+
     const cycleStart = currentCycle?.cycle_start_at;
     const weekIdx = cycleStats?.current_week_index;
     if (!cycleStart || weekIdx == null) {
@@ -1196,7 +1205,7 @@ const TamagotchiWidget: React.FC<Props> = ({
               onClick={handleCalendarClick}
               role="button"
               tabIndex={0}
-              aria-label={t('dashboard.tama_cal_label')}
+              aria-label={t(liteMode ? 'companion.lite_calendar_label' : 'dashboard.tama_cal_label')}
               onKeyDown={ev => {
                 if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleCalendarClick(); }
               }}

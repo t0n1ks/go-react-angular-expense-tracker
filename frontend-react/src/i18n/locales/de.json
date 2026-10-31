@@ -765,6 +765,8 @@
   },
   "companion": {
     "glitch_back": "Huch, da haben die Werte wohl kurz gesponnen … jetzt ist alles stabil :)",
+    "lite_calendar": "Lite-Modus: kein Countdown, einfach heute 🗓️",
+    "lite_calendar_label": "Kalender – einfach heute, kein Countdown",
     "lite_time_1": "Was ist schon Zeit? In diesem Modus spielt sie keine Rolle.",
     "lite_time_2": "Die Tage sind wie Blätter im Herbst – wer zählt sie schon …",
     "lite_time_3": "Der Kalender blättert von selbst um – ich schaue einfach den Sternen zu.",
