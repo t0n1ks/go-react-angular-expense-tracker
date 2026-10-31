@@ -120,7 +120,14 @@
 }
 
 /* ── Main content area ───────────────────────────────────────────────────── */
+/* The page shell is exactly one screen tall when the content is short and
+   grows with it otherwise. border-box: the fixed header / bottom-nav
+   clearance (padding, phone & tablet) is INSIDE that screen — as content-box
+   it came on top of it, so every short page scrolled into an empty band. */
 .main-content {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     margin-left: 260px;
     flex-grow: 1;
     min-height: 100dvh;
@@ -130,6 +137,38 @@
     /* The deep gradient behind all content (its end colour as the base). */
     background: var(--bg);
     background-color: var(--color-bg-main);
+}
+
+/* ── Page rhythm (all sections, both modes) ─────────────────────────────── */
+/* The routed page (App.tsx) fills the shell and owns the two outer gaps:
+   header → title and last block → bottom nav (desktop: the screen's edge),
+   both var(--page-gap), and one side gutter, var(--page-gutter). Pages keep
+   their inner layout; only their outer spacing comes from this one rhythm. */
+.app-page {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--page-gap);
+    padding-bottom: calc(var(--page-gap) + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 1024px) {
+    /* The bottom nav already pads into the safe area. */
+    .app-page { padding-bottom: var(--page-gap); }
+}
+.main-content .app-page > * {
+    box-sizing: border-box;
+    width: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: calc(var(--page-gutter) + env(safe-area-inset-left, 0px));
+    padding-right: calc(var(--page-gutter) + env(safe-area-inset-right, 0px));
+}
+/* Titles start right at the gap; the last block ends right at it. */
+.main-content .app-page :is(.dashboard-title, .statistics-title, .transactions-title, .categories-title, .settings-title) {
+    margin-top: 0;
+}
+.main-content .app-page > * > :last-child {
+    margin-bottom: 0;
 }
 
 /* ── Mobile / tablet top header ─────────────────────────────────────────── */
@@ -191,7 +230,7 @@
         max-width: 100vw;
         overflow-x: hidden;
         padding-top: var(--header-total-height);
-        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 1.25rem);
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
     }
 
     .bottom-nav {

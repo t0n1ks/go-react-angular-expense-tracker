@@ -246,7 +246,7 @@ const Statistics: React.FC = () => {
     return <div className="statistics-wrapper">{t("statistics.loading")}</div>;
 
   return (
-    <div className="statistics-wrapper">
+    <div className={`statistics-wrapper${liteMode ? " statistics-wrapper--lite" : ""}`}>
       <h1 className="statistics-title">{t("statistics.title")}</h1>
 
       {/* Lite hides these cards on Home too, so no tiles there. */}

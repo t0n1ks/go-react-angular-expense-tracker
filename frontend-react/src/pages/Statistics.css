@@ -26,6 +26,30 @@
     grid-template-columns: minmax(0, 560px);
 }
 
+/* Lite on phone / tablet: the one chart card is the page — full width,
+   growing into the spare height (up to a cap) with the chart centred in it,
+   instead of a short card over an empty band. Desktop keeps the card as is. */
+@media (max-width: 1024px) {
+    .statistics-wrapper--lite {
+        flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .statistics-wrapper--lite > .charts-layout--lite {
+        flex: 1 0 auto;
+        max-height: 72vh;
+        max-height: 72svh;
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .charts-layout--lite > .stat-chart-card {
+        display: flex;
+        flex-direction: column;
+    }
+    .charts-layout--lite > .stat-chart-card > :not(h2) {
+        margin-block: auto;
+    }
+}
+
 .stat-chart-card {
     background: var(--color-bg-card);
     border-radius: 1.5rem;
@@ -85,6 +109,10 @@
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.25rem;
     margin-top: 2rem;
+}
+/* Nothing to forecast yet (no cycle): no empty row adding a gap at the end. */
+.forecast-row:empty {
+    display: none;
 }
 
 /* ── Savings Forecast Card ────────────────────────────────────────────────── */

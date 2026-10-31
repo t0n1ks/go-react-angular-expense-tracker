@@ -123,6 +123,15 @@ button::-moz-focus-inner {
   --header-height: 54px;
   --header-total-height: calc(var(--header-height) + env(safe-area-inset-top));
 
+  /* Page rhythm (Phase 2.34): the gap from the header to a page's title and
+     from its last block to the bottom nav — the same on every section,
+     scaling gently with the screen height (svh: stable while mobile browser
+     bars slide; the vh line is the fallback). Wide screens: a little more. */
+  --page-gap: clamp(14px, 2.5vh, 24px);
+  --page-gap: clamp(14px, 2.5svh, 24px);
+  /* Side gutter of every page: phone 16px, tablet 24px, desktop 32px. */
+  --page-gutter: 16px;
+
   /* ── Glass + depth (Phase 2.25) — the look's own tokens; the older tokens
      below point at them where they mean the same thing. ── */
   --bg: linear-gradient(172deg, #e7f0ff 0%, #eef6ff 46%, #e9f4ff 100%);
@@ -279,6 +288,17 @@ button::-moz-focus-inner {
   /* Chart */
   --color-chart-grid: rgba(11, 54, 112, 0.07);
   --color-chart-axis-text: #94a3b8;
+}
+@media (min-width: 641px) {
+  :root { --page-gutter: 24px; }
+}
+/* Wide screens (sidebar layout): a little more room. */
+@media (min-width: 1025px) {
+  :root {
+    --page-gap: clamp(20px, 3.5vh, 32px);
+    --page-gap: clamp(20px, 3.5svh, 32px);
+    --page-gutter: 32px;
+  }
 }
 
 .dark {

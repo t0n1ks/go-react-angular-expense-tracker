@@ -4,35 +4,47 @@
     margin: 0 auto;
 }
 
-/* Lite mode: only the budget card + UFO remain. The full-dashboard spacing
-   between them reads as a big empty gap when the page is this sparse, so tighten
-   it here ONLY (full layout is untouched). Safe-area padding keeps the UFO clear
-   of the iOS home indicator. */
-.dashboard-wrapper--lite {
-    padding-bottom: max(2rem, env(safe-area-inset-bottom));
-}
+/* Lite mode: only the budget card + the cosmos remain. The page gaps and the
+   no-dead-scroll shell come from the shared layout (Layout.css, page rhythm);
+   here the two blocks get a calm, slightly larger gap between them. */
 .dashboard-wrapper--lite .weekly-budget-card {
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 .dashboard-wrapper--lite .tama-device {
-    margin-top: 0.5rem;
+    margin-top: clamp(1.25rem, 3.5vh, 2.25rem);
+    margin-top: clamp(1.25rem, 3.5svh, 2.25rem);
 }
-
-/* Lite dashboard is content-short. The shared layout reserves full-viewport
-   height (.app-container / .main-content: min-height:100dvh + flex-grow) which,
-   with the fixed-nav clearance padding, left a scrollable empty band below the
-   UFO. Scoped to the Lite dashboard via the <body> class (Dashboard toggles it),
-   let those containers fit the actual content instead — the full dashboard and
-   every other page keep their exact layout. Nav-clearance padding + iOS
-   safe-area are preserved so the UFO stays reachable above the bottom nav. */
-body.dashboard-lite .app-container,
-body.dashboard-lite .main-content {
-    min-height: 0;
-}
-/* Match the app background so the space between the shorter content and the
-   fixed bottom nav shows no color seam. */
 body.dashboard-lite {
     background: var(--color-bg-main);
+}
+
+/* Short Home (Lite, and phone / tablet where the summary cards live in
+   Statistics): the page fills the screen and the spare height goes to the
+   cosmos — it grows instead of leaving an empty band under it.
+   On a page taller than the screen there is no spare height: nothing grows.
+   The desktop grid's cosmos cell is untouched. */
+.dashboard-wrapper--lite,
+.dashboard-wrapper--compact {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+.dashboard-wrapper--lite > .tama-device--stack,
+.dashboard-wrapper--compact > .tama-device--stack {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+/* As a flex column the margins no longer collapse: the card above already
+   keeps its 2rem, so the cosmos adds none (the gap stays as it was). */
+.dashboard-wrapper--compact:not(.dashboard-wrapper--lite) > .tama-device--stack {
+    margin-top: 0;
+}
+.dashboard-wrapper--lite > .tama-device--stack > .tama-screen,
+.dashboard-wrapper--compact > .tama-device--stack > .tama-screen {
+    flex: 1 0 auto;
+    /* No cap needed: it only ever takes the spare height of one screen. */
+    max-height: none;
 }
 
 .dashboard-title {
@@ -916,23 +928,12 @@ body.dashboard-lite {
   display: block;
 }
 
-/* ── Phone / tablet Home: fit the page to its content ────────────────────────
-   The four summary cards live in Statistics here, so Home is short. The
-   shared layout reserves a full viewport (min-height: 100dvh) PLUS the fixed
-   header / bottom-nav clearance, which left a scrollable empty band; like
-   Lite, let it fit the content. Gaps: 1.25rem from the header to the title
-   (the wrapper's top padding) and 1.25rem from the cosmos screen to the nav
-   (.main-content's clearance; the wrapper adds none at the bottom). */
+/* ── Phone / tablet Home ──────────────────────────────────────────────────────
+   Page gaps, the no-dead-scroll shell and the cosmos fill come from the
+   shared page rhythm (Layout.css) and the short-Home rules above. */
 @media (max-width: 1024px) {
-  body.dashboard-compact .app-container,
-  body.dashboard-compact .main-content {
-    min-height: 0;
-  }
   body.dashboard-compact {
     background: var(--color-bg-main); /* no colour seam below short content */
-  }
-  .dashboard-wrapper--compact:not(.dashboard-wrapper--lite) {
-    padding-bottom: 0;
   }
 
   /* The cards' history / add-income modals: above the mobile header and the

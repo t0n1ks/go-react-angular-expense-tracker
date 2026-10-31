@@ -23,7 +23,7 @@ const App: React.FC = () => {
           animate="animate"
           exit="exit"
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          style={{ minHeight: '100%' }}
+          className="app-page"
         >
           <Outlet />
         </motion.div>
