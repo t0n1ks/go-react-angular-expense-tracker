@@ -1,7 +1,7 @@
 /* ── «lite» (Lite mode only) ─────────────────────────────────────────────────
-   A quiet, thin lowercase word in the cyan of the Lite avatar ring
-   (#38bdf8 / rgba(56,189,248,…)): Inter Light, airy tracking, and only a
-   whisper of the ring's glow — the same soft light, never a label or a badge.
+   A handwritten signature in the cyan of the Lite avatar ring
+   (#38bdf8 / rgba(56,189,248,…)): Dancing Script 500 (requested in
+   index.html), with only a whisper of the ring's glow — never a label.
    Light theme: one shade deeper (sky-600) so it stays legible on white.
    Static: nothing animates, so reduced motion needs nothing extra. */
 
@@ -15,12 +15,13 @@
 }
 
 .lite-mark-word {
-  font-size: 0.92rem;
-  font-weight: 300;
-  letter-spacing: 0.16em;
-  /* the tracking would leave space after the last letter: trim it */
-  margin-right: -0.16em;
+  font-family: 'Dancing Script', 'Segoe Script', 'Brush Script MT', cursive;
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   text-transform: lowercase;
+  /* a script's letters sit high in their box: settle them on the baseline */
+  transform: translateY(-1px);
   color: #0284c7;
   text-shadow: 0 0 6px rgba(56, 189, 248, 0.22);
 }
@@ -43,14 +44,11 @@
    logo and the controls. */
 @media (max-width: 360px) {
   .lite-mark--bar .lite-mark-word {
-    font-size: 0.82rem;
-    letter-spacing: 0.12em;
-    margin-right: -0.12em;
+    font-size: 1.15rem;
   }
 }
 
 /* Desktop: right after «Financer», sitting on its baseline. */
 .lite-mark--sidebar {
-  margin-left: 0.45rem;
-  transform: translateY(1px);
+  margin-left: 0.4rem;
 }
