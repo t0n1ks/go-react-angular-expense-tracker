@@ -74,6 +74,10 @@ Vite + React 19 + TypeScript + Tailwind CSS.
 - `src/components/` — shared UI: `Layout` (sidebar/nav), `CategoryChart`, `PrivateRoute` (redirect wrapper)
 - `src/App.tsx` — router setup; wraps everything in `AuthProvider`
 
+## Notes / TODO
+
+- AI toggles currently gate only the user-facing output; when a real LLM is connected, revisit to enforce restrictions at the data/call level, not just by hiding output. (Gates: `frontend-react/src/utils/aiGate.ts`, `backend/handlers/companion.go` → `companionCheck`.)
+
 ## Git: Auto-commit and Push After Tasks
 
 After completing any meaningful task or sub-task, automatically commit the changes to Git and push to GitHub.

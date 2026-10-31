@@ -181,20 +181,24 @@ const Settings: React.FC = () => {
       <div className="settings-card">
         <h2 className="settings-card-title">{t('settings.ai_title')}</h2>
 
-        <div className="settings-toggle-row">
-          <div className="settings-toggle-text">
-            <p className="toggle-label">{t('settings.ai_advice')}</p>
-            <p className="toggle-desc">{t('settings.ai_advice_desc')}</p>
+        {/* Finance advice doesn't apply in Lite (its value is kept for
+            extended mode). */}
+        {!local.liteMode && (
+          <div className="settings-toggle-row">
+            <div className="settings-toggle-text">
+              <p className="toggle-label">{t('settings.ai_advice')}</p>
+              <p className="toggle-desc">{t('settings.ai_advice_desc')}</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={local.aiAdviceEnabled}
+                onChange={e => setLocal(prev => ({ ...prev, aiAdviceEnabled: e.target.checked }))}
+              />
+              <span className="toggle-slider" />
+            </label>
           </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={local.aiAdviceEnabled}
-              onChange={e => setLocal(prev => ({ ...prev, aiAdviceEnabled: e.target.checked }))}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
+        )}
 
         <div className="settings-toggle-row">
           <div className="settings-toggle-text">

@@ -11,7 +11,9 @@ import { useState, useEffect, useCallback } from 'react';
 interface QueueItem { text: string; hint?: string | null; }
 
 interface Options {
-  aiAdviceEnabled: boolean;
+  // Which ambient types may be shown (utils/aiGate); null → none, nothing
+  // is requested.
+  ambientTypes: ReadonlySet<string> | null;
   axiosInstance: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get: (url: string) => Promise<{ data: any }>;
@@ -20,11 +22,8 @@ interface Options {
   aiServiceMode: 'online' | 'autonomous' | 'initializing';
 }
 
-// Ambient types the proactive channel shows; everything else has its own home.
-const AMBIENT_TYPES = new Set(['GREETING', 'TIP', 'ENCOURAGEMENT']);
-
 export function useAIAssistant({
-  aiAdviceEnabled,
+  ambientTypes,
   axiosInstance,
   language,
   aiServiceMode,
@@ -38,14 +37,14 @@ export function useAIAssistant({
   }, []);
 
   useEffect(() => {
-    if (!aiAdviceEnabled || aiServiceMode !== 'online') return;
+    if (!ambientTypes || aiServiceMode !== 'online') return;
     const fetch = () => {
       axiosInstance.get(`/ai/next-action?language=${language}`)
         .then(res => {
           const { type, content, animation_hint } = res.data as {
             type: string; content: string | null; animation_hint: string | null;
           };
-          if (!AMBIENT_TYPES.has(type) || !content) return;
+          if (!ambientTypes.has(type) || !content) return;
           enqueue({ text: content, hint: animation_hint ?? null });
         })
         .catch(() => { /* silent — the companion engine still speaks */ });
@@ -53,7 +52,15 @@ export function useAIAssistant({
     fetch();
     const id = setInterval(fetch, 10 * 60 * 1000);
     return () => clearInterval(id);
-  }, [aiAdviceEnabled, aiServiceMode, language, axiosInstance, enqueue]);
+  }, [ambientTypes, aiServiceMode, language, axiosInstance, enqueue]);
+
+  // The gate closed (e.g. radio silence turned on): drop what's queued/shown.
+  useEffect(() => {
+    if (ambientTypes) return;
+    setQueue([]);
+    setCurrentMessage(null);
+    setCurrentHint(null);
+  }, [ambientTypes]);
 
   // ── Dequeue ───────────────────────────────────────────────────────────────
   useEffect(() => {

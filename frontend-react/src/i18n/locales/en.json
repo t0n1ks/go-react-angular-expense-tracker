@@ -814,6 +814,7 @@
     "avatar_alien": "Alien"
   },
   "companion": {
+    "radio_silence": "Radio silence is on… Turn on interaction in Settings.",
     "health_label": "UFO health",
     "health_valuetext": "{{value}}% — {{mood}}",
     "health_explain": "Health {{value}}% — {{mood}}. Why?",

@@ -274,6 +274,12 @@ interface Props {
   // Lite). 'cell': a fixed-height dashboard grid cell — the screen never grows
   // (its neighbours would jump); a long bubble scrolls instead.
   layout?: 'stack' | 'cell';
+  // Radio silence (humour & interaction OFF): the companion still flies and
+  // the cow / star still appear, but nothing is said on its own; tapping the
+  // cow or star only says radio silence is on (no joke/fact, no quota used,
+  // no catch reported) and the health bar is hidden. Output gate only — see
+  // utils/aiGate.
+  radioSilence?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -290,6 +296,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   questOpen,
   onCatch,
   layout = 'stack',
+  radioSilence = false,
 }) => {
   const reduceMotion = useReducedMotion();
   const { t, i18n } = useTranslation();
@@ -360,6 +367,9 @@ const TamagotchiWidget: React.FC<Props> = ({
   const doSpawnRef         = useRef<() => void>(() => {});
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
+  // Read by timers/callbacks so radio silence applies the moment it turns on.
+  const silenceRef = useRef(radioSilence);
+  useEffect(() => { silenceRef.current = radioSilence; }, [radioSilence]);
   useEffect(() => { messageRef.current = message; }, [message]);
 
   // ── Track widget height for dynamic UFO positioning ───────────────────────
@@ -385,6 +395,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Daily greeting — once per 24h per user (localStorage date, no DB call) ─
   useEffect(() => {
     if (!user?.id) return; // wait until the user is loaded before greeting
+    if (silenceRef.current) return; // radio silence: no greeting on its own
     const key = `${GREETED_KEY}_${user.id}`;
     const today = getTodayKey();
     let last: string | null = null;
@@ -392,7 +403,8 @@ const TamagotchiWidget: React.FC<Props> = ({
     if (last === today) return;
     const name = parseDisplayName(user.username);
     const t0 = setTimeout(() => {
-      if (modeRef.current !== 'idle') return;
+      // Settings may load after mount: check silence when it would show.
+      if (silenceRef.current || modeRef.current !== 'idle') return;
       setBubbleText(t('dashboard.tama_greeting', { name }));
       setFromHook(false);
       setMode('greeting');
@@ -484,7 +496,7 @@ const TamagotchiWidget: React.FC<Props> = ({
       rainbowTimerRef.current = setTimeout(() => {
         const idx = Math.floor(Math.random() * STARS.length);
         setRainbowStarIdx(idx);
-        if (modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
+        if (!silenceRef.current && modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
           setBubbleText(t('dashboard.tama_hint_star'));
           setFromHook(false);
           setMode('ai_bubble');
@@ -531,6 +543,7 @@ const TamagotchiWidget: React.FC<Props> = ({
   // ── Proactive cycle-week countdown hint (rare, cooldowned) ────────────────
   // Defined fresh each render so it closes over the latest cycle data/translator.
   const maybeProactiveCycleHint = () => {
+    if (silenceRef.current) return; // radio silence: nothing on its own
     if (modeRef.current !== 'idle' || msgsSinceHintRef.current < 2) return;
     const uid = user?.id ?? 'anon';
     const key = `tama_cycle_proactive_${uid}`;
@@ -750,8 +763,22 @@ const TamagotchiWidget: React.FC<Props> = ({
     // Instant click feedback: clear the star + arm the cooldown synchronously.
     setRainbowStarIdx(null);
     navigator.vibrate?.(50);
-    reportInteraction('star');
     starCooldownRef.current = setTimeout(() => { starCooldownRef.current = null; }, 30_000);
+
+    if (silenceRef.current) {
+      // Radio silence: no fact, no AI request (the daily quota is untouched),
+      // no catch reported (health paused) — just say so. A new star comes as usual.
+      clearTimeout(autoDismissRef.current);
+      setBubbleText(t('companion.radio_silence'));
+      setFromHook(false);
+      setMode('ai_bubble');
+      clearTimeout(rainbowTimerRef.current);
+      rainbowTimerRef.current = setTimeout(() => {
+        setRainbowStarIdx(Math.floor(Math.random() * STARS.length));
+      }, 45_000);
+      return;
+    }
+    reportInteraction('star');
 
     // AI-first within a short charge window; fall back to the local pool. Computing
     // the local pick only on miss avoids burning a shuffled item when AI wins.
@@ -780,7 +807,7 @@ const TamagotchiWidget: React.FC<Props> = ({
     rainbowTimerRef.current = setTimeout(() => {
       const next = Math.floor(Math.random() * STARS.length);
       setRainbowStarIdx(next);
-      if (modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
+      if (!silenceRef.current && modeRef.current === 'idle' && msgsSinceHintRef.current >= 2) {
         setBubbleText(t('dashboard.tama_hint_star'));
         setFromHook(false);
         setMode('ai_bubble');
@@ -798,6 +825,14 @@ const TamagotchiWidget: React.FC<Props> = ({
     setFlyPhase(null);
     setCowExiting(true);
     navigator.vibrate?.(200);
+
+    if (silenceRef.current) {
+      // Radio silence: the cow still leaves, then only says radio silence is
+      // on — no joke, no AI request (quota untouched), no catch (health paused).
+      pendingJokeRef.current = null;
+      pendingQuotaRef.current = t('companion.radio_silence');
+      return;
+    }
     reportInteraction('cow');
 
     // Local pick first — the guaranteed fallback shown when the cow finishes its
@@ -814,7 +849,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         else pendingJokeRef.current = buildItem('joke', { text: res.text, translations: res.translations });
       })
       .catch(() => { /* keep local fallback */ });
-  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction]);
+  }, [cowExiting, i18n.language, user?.id, mode, axiosInstance, aiServiceMode, reportInteraction, t]);
 
   // ── Moon tap: ripple, then the saucer tells the AI status ────────────────
   // The moon is also the flight target. The two never meet: the flight runs
@@ -1166,7 +1201,7 @@ const TamagotchiWidget: React.FC<Props> = ({
         </motion.div>
 
         {/* ── Health: bar + % + mood in words; tap explains why ── */}
-        {health !== undefined && mood && (
+        {health !== undefined && mood && !radioSilence && (
           <CompanionHealthMeter health={health} mood={mood} reason={reasonText ?? ''} onExplain={explainHealth} />
         )}
 

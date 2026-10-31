@@ -764,6 +764,7 @@
     "avatar_alien": "Инопланетянин"
   },
   "companion": {
+    "radio_silence": "Включён режим радиомолчания… Включи в настройках взаимодействие.",
     "health_label": "Здоровье НЛО",
     "health_valuetext": "{{value}}% — {{mood}}",
     "health_explain": "Здоровье {{value}}% — {{mood}}. Почему?",

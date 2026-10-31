@@ -14,6 +14,7 @@ import { useCompanion } from '../hooks/useCompanion';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { healthChangeText, messageText, reasonText } from '../utils/companion';
 import { WIDE_QUERY } from '../utils/breakpoints';
+import { ambientTypes, companionMessageVisible, isRadioSilence } from '../utils/aiGate';
 import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
@@ -26,10 +27,15 @@ const Dashboard: React.FC = () => {
   const {
     formatAmount,
     aiAdviceEnabled,
+    aiHumorEnabled,
     monthlySpendingGoal,
     liteMode,
     budgetWindow,
   } = useSettings();
+  // What the companion may show (Lite / finance advice / radio silence) — an
+  // output gate only; the engines underneath run as usual (utils/aiGate).
+  const aiGate = { liteMode, aiAdviceEnabled, aiHumorEnabled };
+  const radioSilence = isRadioSilence(aiGate);
   const { t, i18n } = useTranslation();
   const [transactions, setTransactions] = useState<SummaryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +104,7 @@ const Dashboard: React.FC = () => {
   const budgetFill      = onTrack ? 'var(--accent-grad)' : budgetBarColor;
 
   const { message: ambientMessage, dismiss: dismissAmbient, animationHint } = useAIAssistant({
-    aiAdviceEnabled,
+    ambientTypes: ambientTypes(aiGate),
     axiosInstance,
     language: analyzeLang,
     aiServiceMode,
@@ -108,7 +114,7 @@ const Dashboard: React.FC = () => {
   // Refreshed when the figures change so "just happened" reactions are prompt.
   const companionRefreshKey = `${cycleStats?.cycle_variable_expenses}|${cycleStats?.cycle_income}|${cycleStats?.saved_money_balance}|${budgetWindow?.spent_this_window}|${transactions.length}`;
   const companion = useCompanion({ axiosInstance, language: analyzeLang, refreshKey: companionRefreshKey });
-  const companionText = companion.message && aiAdviceEnabled
+  const companionText = companion.message && companionMessageVisible(companion.message.type, aiGate)
     ? messageText(companion.message, t, formatAmount, analyzeLang)
     : null;
   const companionReason = companion.state ? reasonText(companion.state.reason, t, formatAmount, analyzeLang) : '';
@@ -117,7 +123,8 @@ const Dashboard: React.FC = () => {
   const [healthNote, setHealthNote] = useState<string | null>(null);
   const companionHealth = companion.state?.health;
   useEffect(() => {
-    if (companionHealth === undefined || !user?.id) return;
+    // Radio silence: health is paused and hidden — no "why it dropped" note.
+    if (radioSilence || companionHealth === undefined || !user?.id) return;
     const key = `tama_health_seen_${user.id}`;
     let previous: number | null = null;
     try {
@@ -130,7 +137,7 @@ const Dashboard: React.FC = () => {
     try { localStorage.setItem(key, String(companionHealth)); } catch { /* ignore */ }
   // Only a new health value matters; the reason text follows it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companionHealth, user?.id]);
+  }, [companionHealth, user?.id, radioSilence]);
 
   // A companion message (with 👍 / 👎 / neutral ✕) takes the bubble first.
   const shownMessage = companionText ?? ambientMessage;
@@ -171,6 +178,7 @@ const Dashboard: React.FC = () => {
       questOpen={companion.state?.quest.open ?? false}
       onCatch={companion.catchEntity}
       layout={cosmosInGrid ? 'cell' : 'stack'}
+      radioSilence={radioSilence}
     />
   );
 

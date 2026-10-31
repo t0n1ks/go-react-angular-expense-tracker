@@ -95,24 +95,43 @@ func companionCheck(user models.User, k cycleClock, lang string, deliver bool) c
 		return healthTarget(spend, questPenalty(st.QuestAskedAt, st.LastCatchAt, day, k))
 	}
 
+	// Radio silence (humour & interaction OFF): nothing is delivered and the
+	// health effect is paused — the engines themselves are untouched. The
+	// memory still advances silently so nothing stale becomes "news" later.
+	// TODO(llm): AI toggles currently gate only the user-facing output; when a
+	// real LLM is connected, revisit to enforce restrictions at the data/call
+	// level, not just by hiding output.
+	silenced := !user.AIHumorEnabled
+
 	var msg *companionMessage
-	if deliver {
+	if deliver && !silenced {
 		msg = runReactions(user, k, sig, &st, &mem, created)
 		if msg != nil {
 			if text := renderCompanionText(user, *msg, lang); text != "" {
 				msg.Text = text
 			}
 		}
-	} else if created {
+	} else if created || silenced {
 		primeReactionMemory(user.ID, sig, &st)
 	}
 
-	baseDay, err := time.ParseInLocation("2006-01-02", st.BaseDay, k.Loc)
-	if err != nil {
-		baseDay = today.AddDate(0, 0, -1)
+	var current float64
+	if silenced {
+		// Health paused: the stored value is kept as is (never reset) and the
+		// silent days are skipped, so turning interaction back on resumes from
+		// here instead of catching up on them.
+		current = st.BaseHealth
+		st.BaseDay = localDayKey(today.AddDate(0, 0, -1), k)
+	} else {
+		baseDay, err := time.ParseInLocation("2006-01-02", st.BaseDay, k.Loc)
+		if err != nil {
+			baseDay = today.AddDate(0, 0, -1)
+		}
+		var base float64
+		var newBaseDay time.Time
+		base, newBaseDay, current = rollHealth(st.BaseHealth, baseDay, today, k, targetOn)
+		st.BaseHealth, st.BaseDay = base, localDayKey(newBaseDay, k)
 	}
-	base, newBaseDay, current := rollHealth(st.BaseHealth, baseDay, today, k, targetOn)
-	st.BaseHealth, st.BaseDay = base, localDayKey(newBaseDay, k)
 
 	engage := questPenalty(st.QuestAskedAt, st.LastCatchAt, today, k)
 	questDays := 0
@@ -326,6 +345,11 @@ func CatchCompanionEntity(c *gin.Context) {
 		return
 	}
 	k := requestClock(c, user.ID)
+	if !user.AIHumorEnabled {
+		// Radio silence: catches have no health/quest effect (paused).
+		c.JSON(http.StatusOK, companionCheck(user, k, "", false))
+		return
+	}
 	st, created := loadCompanionState(user.ID, k)
 	now := k.Now
 	st.LastCatchAt = &now

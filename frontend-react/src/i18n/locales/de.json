@@ -764,6 +764,7 @@
     "avatar_alien": "Alien"
   },
   "companion": {
+    "radio_silence": "Funkstille ist aktiv … Schalte die Interaktion in den Einstellungen ein.",
     "health_label": "UFO-Gesundheit",
     "health_valuetext": "{{value}}% — {{mood}}",
     "health_explain": "Gesundheit {{value}}% — {{mood}}. Warum?",
