@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Settings, LayoutDashboard, Tag, ArrowLeftRight, BarChart2 } from 'lucide-react';
 import Logo from './Logo';
 import UserProfileChip from './UserProfileChip';
+import LiteMark from './LiteMark';
 import './Layout.css';
 
 const ThemeBtn: React.FC = () => {
@@ -31,7 +32,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <Logo />
+          <div className="sidebar-brand">
+            <Logo />
+            <LiteMark placement="sidebar" />
+          </div>
           <ThemeBtn />
         </div>
 
@@ -52,6 +56,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* ── Mobile / tablet top header ───────────────────────────────────── */}
       <header className="mobile-header">
         <Logo />
+        <LiteMark placement="bar" />
         <div className="mobile-header-right">
           <ThemeBtn />
           <UserProfileChip variant="header" />

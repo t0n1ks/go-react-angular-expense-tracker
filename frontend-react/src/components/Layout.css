@@ -34,6 +34,12 @@
     margin-bottom: 12px;
 }
 
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
 .nav-links {
     display: flex;
     flex-direction: column;

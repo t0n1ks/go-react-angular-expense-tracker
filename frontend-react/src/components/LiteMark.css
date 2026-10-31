@@ -1,0 +1,88 @@
+/* ── Engraved «lite» (Lite mode only) ─────────────────────────────────────────
+   Thin lowercase letters cut into the header surface, lit softly from inside
+   in the cyan of the Lite avatar ring (rgba(56,189,248,…)).
+   - The "inner glow": the letters are filled with a vertical gradient whose
+     bright cyan core sits mid-height, fading to a deeper cut colour at the
+     top and bottom edges — light seems to come from within the groove.
+   - The "engraving": a hairline shadow on the upper edge (the cut's wall)
+     and a faint highlight on the lower edge (its lip), plus a small cyan halo.
+   Static: nothing animates, so reduced motion needs nothing extra. */
+
+.lite-mark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
+}
+
+.lite-mark-word {
+  font-size: 0.95rem;
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  /* the tracking would leave space after the last letter: trim it */
+  margin-right: -0.14em;
+  text-transform: lowercase;
+  /* Fallback (no text clipping): a plain soft cyan. */
+  color: rgba(14, 165, 233, 0.85);
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .lite-mark-word {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    /* Light theme: a darker cut with a cyan core. */
+    background-image: linear-gradient(
+      180deg,
+      rgba(7, 89, 133, 0.95) 0%,
+      rgba(14, 165, 233, 0.95) 52%,
+      rgba(7, 89, 133, 0.95) 100%
+    );
+    filter:
+      drop-shadow(0 -1px 0 rgba(15, 23, 42, 0.22))
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.95))
+      drop-shadow(0 0 3px rgba(56, 189, 248, 0.35));
+  }
+
+  /* Dark theme: a recessed letterpress edge and a brighter glow inside. */
+  .dark .lite-mark-word {
+    background-image: linear-gradient(
+      180deg,
+      rgba(14, 116, 144, 0.9) 0%,
+      rgba(125, 231, 252, 1) 52%,
+      rgba(14, 116, 144, 0.9) 100%
+    );
+    filter:
+      drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.65))
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.07))
+      drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));
+  }
+}
+
+/* Phone / tablet: truly centred in the header bar, whatever the logo and
+   the controls measure (the bar is the fixed .mobile-header). */
+.lite-mark--bar {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + var(--header-height) / 2);
+  transform: translate(-50%, -50%);
+}
+
+/* The narrowest phones (~344px): a touch smaller so it keeps clear of the
+   logo and the controls. */
+@media (max-width: 360px) {
+  .lite-mark--bar .lite-mark-word {
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    margin-right: -0.1em;
+  }
+}
+
+/* Desktop: right after «Financer», sitting on its baseline. */
+.lite-mark--sidebar {
+  margin-left: 0.4rem;
+  transform: translateY(1px);
+}
